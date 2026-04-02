@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><title>Room Not Found</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0d;color:#e2e2f0;font-family:'Inter',sans-serif;
+  display:flex;align-items:center;justify-content:center;height:100vh}
+.box{text-align:center;max-width:480px;padding:40px}
+.code{font-size:80px;font-weight:200;color:#1e1e2a;margin-bottom:8px}
+h1{font-size:20px;font-weight:600;margin-bottom:10px}
+p{font-size:13px;color:#5a5a78;margin-bottom:22px}
+.room-list{background:#13131a;border:1px solid #2a2a3a;border-radius:8px;
+  padding:14px 18px;text-align:left;margin-bottom:22px}
+.room-item{padding:5px 0;border-bottom:1px solid #1e1e2a;font-size:13px}
+.room-item:last-child{border:none}
+.room-item a{color:#4f6ef7;text-decoration:none}
+.btn{display:inline-block;background:#4f6ef7;color:#fff;padding:9px 22px;
+  border-radius:6px;font-size:13px;font-weight:500;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="code">404</div>
+  <h1>Room Not Found</h1>
+  {% if room_id %}
+  <p>No room with ID <code style="color:#7b9eff">{{ room_id }}</code>.</p>
+  {% else %}
+  <p>No room ID specified. Add <code style="color:#7b9eff">?room=ID</code> to the URL.</p>
+  {% endif %}
+  {% if rooms %}
+  <div class="room-list">
+    <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#5a5a78;margin-bottom:8px">Available Rooms</div>
+    {% for rid, room in rooms.items() %}
+    <div class="room-item">
+      <a href="/display?room={{ rid }}">{{ room.title }}</a>
+      <span style="color:#3a3a50;font-size:11px;margin-left:8px">{{ rid }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <a href="/admin" class="btn">Go to Admin</a>
+</div>
+</body>
+</html>

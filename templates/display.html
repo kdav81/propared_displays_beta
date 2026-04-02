@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ room.title }}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#000000;--sidebar:#000000;--header:#050508;
+  --border:#1c1c2a;--text:#d8dbed;--muted:#ebe1d8;--dim:#252535;
+  --today:#c0392b;--now-line:#ff3b3b;--active:#c0392b;
+}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
+  font-family:'Inter',sans-serif;overflow:hidden;user-select:none}
+#app{display:flex;flex-direction:column;width:100vw;height:100vh}
+#top{display:flex;height:calc(100vh - 52px);overflow:hidden}
+
+/* Sidebar */
+#sidebar{width:380px;min-width:380px;background:var(--sidebar);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:18px 14px 10px;overflow:hidden}
+#clock-block{text-align:center;margin-bottom:16px;flex-shrink:0}
+#clock-time{font-size:72px;font-weight:200;color:#fff;letter-spacing:-3px;line-height:1;font-variant-numeric:tabular-nums}
+.ampm{font-size:20px;font-weight:400;margin-left:3px;opacity:.7;letter-spacing:0}
+#clock-date{font-size:20px;color:#8888a8;margin-top:4px;letter-spacing:.2px}
+
+/* Up-next card */
+#up-next-card{border-left:5px solid #2563c7;background:#0d1a2e;border-radius:6px;
+  padding:16px 16px;margin-bottom:14px;min-height:120px;flex-shrink:0;
+  position:relative;isolation:isolate;overflow:hidden;box-sizing:border-box;
+  transition:border-color .4s,background .5s,box-shadow .4s;
+  box-shadow:0 0 0 1px rgba(255,255,255,.06),0 4px 20px rgba(0,0,0,.4)}
+#up-next-card::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(160deg,rgba(0,0,0,.4) 0%,rgba(0,0,0,.15) 100%);
+  opacity:0;transition:opacity .4s;z-index:0;pointer-events:none}
+#up-next-card.is-now::before{opacity:1}
+#up-next-card .card-inner{position:relative;z-index:1}
+#up-next-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:6px;display:flex;align-items:center;
+  justify-content:space-between;transition:color .3s;white-space:nowrap;overflow:hidden}
+#up-next-time{font-size:15px;color:#9090b8;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%}
+#up-next-title{font-size:28px;font-weight:700;color:#fff;line-height:1.2;margin-top:6px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 1px 8px rgba(0,0,0,.6)}
+#up-next-empty{font-size:17px;color:var(--muted);font-style:italic;margin-top:6px}
+
+/* Upcoming list */
+#today-label{font-size:12px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;
+  color:#8888a8;margin-bottom:7px;flex-shrink:0}
+#today-list{display:flex;flex-direction:column;gap:3px;flex:1;overflow:hidden;min-height:0}
+.today-day-label{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:#b0b8d8;padding:10px 0 5px;flex-shrink:0}
+.today-item{background:#000000;border-radius:3px;flex-shrink:0;display:flex;overflow:hidden}
+.today-item-band{width:14px;flex-shrink:0;background:var(--item-color,#2563c7)}
+.today-item-body{flex:1;padding:9px 12px;overflow:hidden}
+.today-item-time{font-size:17px;color:#dde3f5;font-weight:500;margin-bottom:2px}
+.today-item-title{font-size:22px;color:#eef0fa;font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.today-item.active-item .today-item-band{background:var(--active)}
+.today-item.active-item{background:rgba(192,57,43,.12)}
+#cache-warn{font-size:10px;color:#5a5a7a;margin-top:6px;flex-shrink:0}
+
+/* Main */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;position:relative}
+#cal-header{background:var(--header);border-bottom:1px solid var(--border);
+  padding:10px 18px 10px 14px;flex-shrink:0;display:flex;align-items:center;
+  justify-content:space-between;min-height:70px}
+#cal-title{font-size:46px;font-weight:300;color:#fff;letter-spacing:-.5px;flex:1}
+#logo-wrap img{height:56px;max-width:200px;object-fit:contain}
+
+/* Day header row */
+#cal-days-header{display:grid;grid-template-columns:56px repeat(7,1fr);
+  background:var(--header);border-bottom:1px solid var(--border);flex-shrink:0}
+.dh-tz{display:flex;align-items:flex-end;padding:4px 6px 7px;font-size:10px;color:var(--muted)}
+.dh-cell{padding:4px 7px 7px;border-left:1px solid var(--border)}
+.dh-name{font-size:14px;color:#8888a8;font-weight:600;letter-spacing:.6px;text-transform:uppercase}
+.dh-num{font-size:24px;font-weight:300;color:#c8ceea;line-height:1.1;margin-top:1px;display:inline-block}
+.dh-cell.today .dh-num{width:34px;height:34px;background:var(--today);color:#fff;
+  border-radius:50%;font-size:16px;font-weight:600;text-align:center;line-height:34px;margin-top:2px}
+
+/* Calendar grid */
+#cal-body{flex:1;overflow:hidden;position:relative;min-height:0}
+#cal-grid{display:grid;grid-template-columns:56px repeat(7,1fr);position:relative;height:100%}
+.time-col{position:relative;background:var(--bg)}
+.time-label{position:absolute;right:5px;font-size:14px;color:#6868a0;
+  transform:translateY(-50%);white-space:nowrap;font-weight:600;font-family:'DM Mono',monospace}
+.day-col{border-left:1px solid var(--border);position:relative;overflow:hidden}
+.hour-line{position:absolute;left:0;right:0;border-top:1px solid #141420}
+.half-line{position:absolute;left:0;right:0;border-top:1px dashed #0e0e18}
+
+/* Events */
+.ev{position:absolute;left:2px;right:2px;border-radius:2px;overflow:hidden;
+  z-index:2;cursor:default;isolation:isolate}
+.ev::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.18) 0%,rgba(0,0,0,.08) 100%);
+  z-index:1;pointer-events:none}
+.ev-inner{position:relative;z-index:2;padding:5px 8px}
+.ev-title{font-weight:700;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;font-size:16px;line-height:1.3}
+.ev-time{font-weight:700;font-size:15px;margin-top:2px;opacity:.85}
+.ev.is-active{background:var(--active) !important;box-shadow:0 0 0 1px rgba(255,255,255,.2)}
+.ev.is-active::before{background:linear-gradient(180deg,rgba(0,0,0,.35) 0%,rgba(0,0,0,.2) 100%)}
+
+/* Now line — spans full grid width */
+#now-line{position:absolute;left:0;right:0;height:2px;
+  background:var(--now-line);z-index:10;pointer-events:none}
+#now-line::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:14px;height:14px;background:var(--now-line);border-radius:50%;box-shadow:0 0 8px var(--now-line)}
+#now-line .now-pill{position:absolute;left:18px;top:50%;transform:translateY(-50%);
+  background:var(--now-line);color:#fff;font-size:13px;font-weight:700;
+  padding:2px 9px 2px 8px;border-radius:0 10px 10px 0;white-space:nowrap;
+  line-height:20px;letter-spacing:.2px;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+
+/* All-day global event banners */
+/* All-day global event row — sits between day headers and calendar grid */
+#allday-row{display:grid;grid-template-columns:56px repeat(7,1fr);
+  flex-shrink:0;border-bottom:1px solid var(--border);background:var(--header)}
+.allday-cell{border-left:1px solid var(--border);display:flex;flex-direction:column;gap:2px;padding:3px 2px;min-height:0}
+.allday-cell:first-child{border-left:none}
+.allday-item{font-size:14px;font-weight:600;text-align:center;
+  padding:3px 4px;border-radius:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  line-height:1.3}
+
+/* Notice banner — absolute overlay, doesn't push calendar grid */
+#notice-banner{position:absolute;top:0;left:0;right:0;
+  background:#c0392b;color:#fff;font-size:72px;font-weight:700;
+  text-align:center;padding:10px 40px;z-index:50;
+  letter-spacing:.2px;line-height:1.4;animation:noticePulse 3s ease-in-out infinite}
+@keyframes noticePulse{0%,100%{background:#c0392b}50%{background:#e74c3c}}
+
+/* Slideshow overlay — covers #main only, sidebar+legend unaffected */
+#slide-overlay{position:absolute;top:0;left:0;right:0;bottom:0;
+  background:#000;z-index:100;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .8s ease}
+#slide-overlay.visible{opacity:1;pointer-events:auto}
+#slide-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+
+/* Legend */
+#legend{background:#000000;border-top:1px solid var(--border);
+  padding:10px 16px 10px 64px;display:flex;align-items:center;
+  gap:12px;flex-shrink:0;flex-wrap:wrap;min-height:52px}
+.legend-item{display:flex;align-items:center;height:32px;border-radius:4px;
+  overflow:hidden;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
+.legend-swatch{width:10px;height:32px;flex-shrink:0}
+.legend-label{padding:0 12px;white-space:nowrap;line-height:32px;font-size:16px}
+.legend-key{color:rgba(255,255,255,.5);font-size:14px;font-weight:600}
+.legend-sep{color:rgba(255,255,255,.2);margin:0 4px}
+.legend-fullname{color:#d8dbed}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <div id="sidebar">
+      <div id="clock-block">
+        <div id="clock-time">--:--<span class="ampm"></span></div>
+        <div id="clock-date"></div>
+      </div>
+      <div id="up-next-card">
+        <div class="card-inner">
+          <div id="up-next-label"><span>UP NEXT</span><span id="up-next-time"></span></div>
+          <div id="up-next-title" style="display:none"></div>
+          <div id="up-next-empty">No upcoming events</div>
+        </div>
+      </div>
+      <div id="today-label">UPCOMING</div>
+      <div id="today-list"></div>
+      <div id="cache-warn"></div>
+    </div>
+    <div id="main">
+      <div id="cal-header">
+        <div id="cal-title">{{ room.title }}</div>
+        <div id="logo-wrap">
+          {% if room.hasLogo %}<img src="{{ server_url }}/static/logo/{{ room.roomId }}" alt="">{% endif %}
+        </div>
+      </div>
+      <div id="cal-days-header"></div>
+      <div id="allday-row"></div>
+      <div id="cal-body">
+        <div id="cal-grid"></div>
+        <div id="notice-banner" style="display:none"><span id="notice-text"></span></div>
+      </div>
+      <div id="slide-overlay">
+        <img id="slide-img" src="" alt="">
+      </div>
+    </div>
+  </div>
+  <div id="legend"></div>
+</div>
+
+<script>
+var SERVER    = '{{ server_url }}';
+var ROOM_ID   = '{{ room.roomId }}';
+var TAG_COLORS = {{ room.tagColors | tojson }};
+var CFG        = {{ room | tojson }};
+
+var DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var DAYS_S = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var MONS_S = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Luminance-based text colour — returns '#000' or '#fff' for best contrast
+function textColor(hex){
+  hex = hex.replace('#','');
+  if(hex.length===3) hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  var r=parseInt(hex.slice(0,2),16)/255;
+  var g=parseInt(hex.slice(2,4),16)/255;
+  var b=parseInt(hex.slice(4,6),16)/255;
+  // Relative luminance (WCAG formula)
+  r=r<=0.04045?r/12.92:Math.pow((r+0.055)/1.055,2.4);
+  g=g<=0.04045?g/12.92:Math.pow((g+0.055)/1.055,2.4);
+  b=b<=0.04045?b/12.92:Math.pow((b+0.055)/1.055,2.4);
+  var L=0.2126*r+0.7152*g+0.0722*b;
+  return L>0.35?'#000':'#fff';
+}
+
+// Clock
+function tick(){
+  var n=new Date(), h=n.getHours(), m=n.getMinutes(), ap=h>=12?'PM':'AM';
+  h=h%12||12;
+  document.getElementById('clock-time').innerHTML=h+':'+String(m).padStart(2,'0')+'<span class="ampm">'+ap+'</span>';
+  document.getElementById('clock-date').textContent=DAYS[n.getDay()]+', '+MONTHS[n.getMonth()]+' '+n.getDate();
+}
+setInterval(tick,10000); tick();
+
+// Parse ISO date string from server into a local Date object.
+// Server returns either "2025-01-15T09:00:00+00:00" (UTC) or "2025-01-15T09:00:00" (floating local).
+function parseServerDate(s){
+  if(!s) return null;
+  // new Date() handles both ISO-UTC and naive ISO strings correctly in all modern browsers
+  var d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Tag helpers
+function getTag(title){ var m=title.match(/\[([^\]]+)\]/); return m?m[1].trim():null; }
+function tagInfo(tag){
+  if(!tag) return TAG_COLORS['default']||{color:'#2563c7',fullName:''};
+  if(TAG_COLORS[tag]) return TAG_COLORS[tag];
+  var l=tag.toLowerCase();
+  for(var k in TAG_COLORS) if(k.toLowerCase()===l) return TAG_COLORS[k];
+  return TAG_COLORS['default']||{color:'#2563c7',fullName:''};
+}
+function tagColor(tag){ var i=tagInfo(tag); return typeof i==='string'?i:(i.color||'#2563c7'); }
+
+// Date helpers
+function fmt(d){ var h=d.getHours(),m=d.getMinutes(),ap=h>=12?'PM':'AM'; h=h%12||12;
+  return h+':'+String(m).padStart(2,'0')+' '+ap; }
+function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+function isNow(ev,n){ return ev.start<=n&&ev.end>n; }
+function getWeek(){
+  var n=new Date();
+  var day=n.getDay()||7; // Sunday=0 becomes 7, Mon=1..Sat=6 stay
+  var mon=new Date(n.getFullYear(),n.getMonth(),n.getDate()-(day-1));
+  return Array.from({length:7},function(_,i){
+    return new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+i);
+  });
+}
+
+var _lastEvs=[], _range={sh:8,eh:22}, _cachedAllDay=[];
+
+function render(evs){
+  var now=new Date(), week=getWeek();
+  _lastEvs=evs;
+  _range={sh:CFG.startHour||8, eh:CFG.endHour||22};
+  var SH=_range.sh, EH=_range.eh, HRS=EH-SH;
+  var bodyEl=document.getElementById('cal-body');
+  var availH=bodyEl.clientHeight||600;
+  var HPX=Math.floor(availH/HRS);
+
+  // Day headers
+  var dh=document.getElementById('cal-days-header');
+  dh.innerHTML='';
+  var tz=document.createElement('div'); tz.className='dh-tz';
+  tz.textContent=MONS_S[now.getMonth()]; dh.appendChild(tz);
+  week.forEach(function(d){
+    var c=document.createElement('div');
+    c.className='dh-cell'+(sameDay(d,now)?' today':'');
+    c.innerHTML='<div class="dh-name">'+DAYS_S[d.getDay()]+'</div>'
+               +'<div><span class="dh-num">'+d.getDate()+'</span></div>';
+    dh.appendChild(c);
+  });
+
+  // Grid
+  var grid=document.getElementById('cal-grid');
+  grid.innerHTML=''; grid.style.height=availH+'px';
+
+  // Time column
+  var tc=document.createElement('div'); tc.className='time-col';
+  for(var h=SH;h<=EH;h++){
+    var lbl=document.createElement('div'); lbl.className='time-label';
+    lbl.style.top=((h-SH)*HPX)+'px';
+    lbl.textContent=h<12?h+'a':h===12?'12p':(h-12)+'p';
+    tc.appendChild(lbl);
+  }
+  grid.appendChild(tc);
+
+  // Day columns
+  week.forEach(function(day){
+    var col=document.createElement('div');
+    col.className='day-col';
+    col.style.height=availH+'px';
+
+    for(var h=0;h<=HRS;h++){
+      var hl=document.createElement('div'); hl.className='hour-line';
+      hl.style.top=(h*HPX)+'px'; col.appendChild(hl);
+      if(h<HRS){
+        var hf=document.createElement('div'); hf.className='half-line';
+        hf.style.top=(h*HPX+HPX/2)+'px'; col.appendChild(hf);
+      }
+    }
+
+    evs.filter(function(ev){return sameDay(ev.start,day);}).forEach(function(ev){
+      var startH=ev.start.getHours()+(ev.start.getMinutes()/60);
+      var endH  =ev.end.getHours()  +(ev.end.getMinutes()/60);
+      var top   =Math.max(0,(startH-SH)*HPX);
+      var bot   =Math.min(availH,(endH-SH)*HPX);
+      var ht    =Math.max(bot-top,16);
+      if(top>=availH||bot<=0) return;
+
+      var active=isNow(ev,now);
+      var color =active?'var(--active)':(ev.globalColor||tagColor(getTag(ev.title)));
+      var blk=document.createElement('div');
+      blk.className='ev'+(active?' is-active':'');
+      blk.style.cssText='top:'+top+'px;height:'+ht+'px;background:'+color+';color:#000';
+      var inner=document.createElement('div'); inner.className='ev-inner';
+      var tt=document.createElement('div'); tt.className='ev-title'; tt.textContent=ev.title;
+      inner.appendChild(tt);
+      if(ht>28){
+        var tm=document.createElement('div'); tm.className='ev-time';
+        tm.textContent=fmt(ev.start)+(ev.end>ev.start?' – '+fmt(ev.end):'');
+        inner.appendChild(tm);
+      }
+      blk.appendChild(inner); col.appendChild(blk);
+    });
+
+    grid.appendChild(col);
+  });
+
+  // Now-line spans full grid width
+  var existingNl=document.getElementById('now-line');
+  if(existingNl) existingNl.parentNode.removeChild(existingNl);
+  var _nowH=now.getHours()+(now.getMinutes()/60);
+  var nlTop=(_nowH-SH)*HPX;
+  if(nlTop>=0&&nlTop<=availH){
+    var nl=document.createElement('div'); nl.id='now-line';
+    var pill=document.createElement('div'); pill.className='now-pill';
+    pill.textContent=fmt(now);
+    nl.appendChild(pill);
+    nl.style.top=nlTop+'px';
+    grid.appendChild(nl);
+  }
+
+  // Build allday-row — one cell per day showing global all-day events
+  var ar = document.getElementById('allday-row');
+  ar.innerHTML = '';
+  // Time gutter cell (matches 56px time column)
+  var gutterCell = document.createElement('div');
+  gutterCell.style.cssText = 'width:56px;flex-shrink:0';
+  ar.appendChild(gutterCell);
+  var hasAnyAllDay = false;
+  week.forEach(function(day){
+    var dayStr = day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
+    var dayBanners = _cachedAllDay.filter(function(e){ return e.start <= dayStr && e.end >= dayStr; });
+    var cell = document.createElement('div');
+    cell.className = 'allday-cell' + (dayBanners.length ? '' : ' empty');
+    dayBanners.forEach(function(e){
+      hasAnyAllDay = true;
+      var b = document.createElement('div');
+      b.className = 'allday-item';
+      var bc = e.color || '#555555';
+      b.style.background = bc;
+      b.style.color = (bc.charAt(0)==='#') ? textColor(bc) : '#fff';
+      b.textContent = e.title;
+      cell.appendChild(b);
+    });
+    ar.appendChild(cell);
+  });
+  // Hide the row entirely if no all-day events this week
+  ar.style.display = hasAnyAllDay ? '' : 'none';
+
+  renderSidebar(evs,now);
+  // Only show legend tags for events in the current week
+  var weekEvs=evs.filter(function(ev){
+    return week.some(function(d){return sameDay(ev.start,d);});
+  });
+  renderLegend(weekEvs);
+}
+
+function renderSidebar(evs,now){
+  // Exclude global calendar events from sidebar — grid only
+  var todayEvs=evs.filter(function(ev){return sameDay(ev.start,now)&&!ev.globalOnly;})
+    .sort(function(a,b){return a.start-b.start;});
+  var cur =todayEvs.find(function(ev){return isNow(ev,now);});
+  var next=todayEvs.find(function(ev){return ev.start>now;});
+  // If nothing left today, find the next upcoming event across all days
+  if(!cur && !next){
+    var allFuture=evs.filter(function(ev){return ev.start>now&&!ev.globalOnly;})
+      .sort(function(a,b){return a.start-b.start;});
+    next=allFuture[0]||null;
+  }
+  var feat=cur||next;
+
+  var card   =document.getElementById('up-next-card');
+  var lblEl  =document.querySelector('#up-next-label');
+  var titleEl=document.getElementById('up-next-title');
+  var timeEl =document.getElementById('up-next-time');
+  var emptyEl=document.getElementById('up-next-empty');
+
+  if(feat){
+    titleEl.textContent=feat.title;
+    // Show day name if event is not today
+    var featDay=sameDay(feat.start,now)?'':DAYS_S[feat.start.getDay()]+' ';
+    timeEl.textContent=featDay+fmt(feat.start)+' — '+fmt(feat.end);
+    titleEl.style.display=''; emptyEl.style.display='none';
+    var featColor=tagColor(getTag(feat.title));
+    card.style.borderLeftColor=cur?'var(--active)':featColor;
+    card.style.borderLeftWidth=cur?'5px':'5px';
+    // Use the tag color as a tinted background — vivid when NOW, subtle when upcoming
+    if(cur){
+      card.style.background='var(--active)';
+      card.style.boxShadow='0 0 0 1px rgba(255,255,255,.1),0 4px 24px rgba(192,57,43,.6)';
+    } else {
+      // Tinted background: tag color at low opacity over dark base
+      card.style.background='color-mix(in srgb,'+featColor+' 22%,#0a0a12)';
+      card.style.boxShadow='0 0 0 1px '+featColor+'33,0 4px 20px rgba(0,0,0,.4)';
+    }
+    card.classList.toggle('is-now',!!cur);
+    lblEl.firstChild.textContent       =cur?'NOW':'UP NEXT';
+    lblEl.firstChild.style.color       =cur?'rgba(255,255,255,.95)':'';
+    timeEl.style.color                 =cur?'rgba(255,255,255,.75)':featColor+'cc';
+  } else {
+    titleEl.style.display='none'; emptyEl.style.display='';
+    timeEl.textContent='';
+    card.style.borderLeftColor='#2563c7';
+    card.style.borderLeftWidth='5px';
+    card.style.background='#0d1a2e';
+    card.style.boxShadow='0 0 0 1px rgba(255,255,255,.06),0 4px 20px rgba(0,0,0,.4)';
+    card.classList.remove('is-now');
+    lblEl.firstChild.textContent=   'UP NEXT';
+    lblEl.firstChild.style.color=   '';
+    timeEl.style.color=             '';
+  }
+
+  var list=document.getElementById('today-list');
+  list.innerHTML='';
+  // All today events that haven't ended yet (including feat shown in card)
+  var pool=[], todayRem=todayEvs.filter(function(ev){return ev.end>now;});
+  if(todayRem.length) pool.push({label:'TODAY',evs:todayRem});
+  for(var d=1;d<=7;d++){
+    var day=new Date(now.getFullYear(),now.getMonth(),now.getDate()+d);
+    var dayEvs=evs.filter(function(ev){return sameDay(ev.start,day);})
+      .sort(function(a,b){return a.start-b.start;});
+    if(dayEvs.length) pool.push({label:DAYS[day.getDay()].toUpperCase(),evs:dayEvs});
+  }
+  if(!pool.length){
+    list.innerHTML='<div style="font-size:12px;color:#6068a0;font-style:italic;padding:4px 0">No upcoming events</div>';
+    return;
+  }
+  var frag=document.createDocumentFragment();
+  pool.forEach(function(group){
+    var lbl=document.createElement('div'); lbl.className='today-day-label'; lbl.textContent=group.label;
+    frag.appendChild(lbl);
+    group.evs.forEach(function(ev){
+      var active=isNow(ev,now);
+      var item=document.createElement('div');
+      item.className='today-item'+(active?' active-item':'');
+      item.style.setProperty('--item-color',active?'var(--active)':tagColor(getTag(ev.title)));
+      item.innerHTML='<div class="today-item-band"></div>'
+        +'<div class="today-item-body">'
+        +'<div class="today-item-time">'+fmt(ev.start)+' — '+fmt(ev.end)+'</div>'
+        +'<div class="today-item-title">'+ev.title+'</div>'
+        +'</div>';
+      frag.appendChild(item);
+    });
+  });
+  list.appendChild(frag);
+}
+
+function renderLegend(evs){
+  // Show all tags present in the loaded events (no date window filtering)
+  var seen={};
+  evs.forEach(function(ev){
+    if(ev.globalOnly) return;  // global calendar events don't appear in legend
+    var t=getTag(ev.title);
+    if(t&&!seen[t]) seen[t]=true;
+  });
+  var legend=document.getElementById('legend');
+  legend.innerHTML='';
+  // Only show tags actually present in this week's events for this room
+  var toShow=Object.keys(seen).sort();
+  toShow.forEach(function(tag){
+    var info=tagInfo(tag);
+    var color=typeof info==='string'?info:info.color;
+    var full=(typeof info==='object'&&info.fullName)?info.fullName:'';
+    var label=full&&full!==tag
+      ? '<span class="legend-key">'+tag+'</span><span class="legend-sep">—</span><span class="legend-fullname">'+full+'</span>'
+      : '<span class="legend-fullname">'+tag+'</span>';
+    var item=document.createElement('div'); item.className='legend-item';
+    item.innerHTML='<div class="legend-swatch" style="background:'+color+'"></div>'
+      +'<div class="legend-label">'+label+'</div>';
+    legend.appendChild(item);
+  });
+}
+
+// Last known good events — returned on server error instead of fake demo data
+var _cachedEvs = null;
+
+function getFallback(){
+  // If we have real cached events use them — screen stays accurate even if server goes down
+  if(_cachedEvs !== null) return _cachedEvs;
+  // Only on very first load before any real data has arrived — show empty grid
+  return [];
+}
+
+async function fetchEvents(){
+  try{
+    var r=await fetch(SERVER+'/api/events/'+ROOM_ID);
+    if(!r.ok){
+      document.getElementById('cache-warn').textContent='Server unreachable — showing last known data';
+      return getFallback();
+    }
+    var j=await r.json();
+    // Show when the server last fetched from Google Calendar
+    if(j.fetched_at){
+      var ft=new Date(j.fetched_at),fh=ft.getHours(),fm=ft.getMinutes(),fap=fh>=12?'PM':'AM';
+      fh=fh%12||12;
+      document.getElementById('cache-warn').textContent='Updated at '+fh+':'+String(fm).padStart(2,'0')+' '+fap;
+    }
+    // Store all-day global events (date strings)
+    _cachedAllDay = (j.allDayEvents || []);
+
+    if(!j.events||!j.events.length) return getFallback();
+    // Convert ISO strings to Date objects — server has already parsed and filtered all-day events
+    var evs=[];
+    j.events.forEach(function(e){
+      var start=parseServerDate(e.start), end=parseServerDate(e.end);
+      if(start) evs.push({
+        title:       e.title,
+        start:       start,
+        end:         end||start,
+        globalColor: e.globalColor||null,   // set for global calendar events
+        globalOnly:  e.globalOnly||false,   // true = skip in sidebar
+      });
+    });
+    if(evs.length){
+      _cachedEvs=evs;  // store last known good data
+      return evs;
+    }
+    return getFallback();
+  } catch(e){
+    document.getElementById('cache-warn').textContent='Server unreachable — showing last known data';
+    return getFallback();
+  }
+}
+
+var refreshTimer=null;
+async function init(){
+  if(refreshTimer) clearInterval(refreshTimer);
+  render(await fetchEvents());
+  window.addEventListener('resize',function(){render(_lastEvs);});
+  refreshTimer=setInterval(async function(){render(await fetchEvents());},(CFG.refresh||5)*60000);
+  var _lastSidebarMin=-1;
+  setInterval(function(){
+    var now=new Date(), SH=_range.sh, EH=_range.eh;
+    var availH=document.getElementById('cal-body').clientHeight||600;
+    var HPX=Math.floor(availH/(EH-SH));
+    var nl=document.getElementById('now-line');
+    if(nl){
+      nl.style.top=((now.getHours()+(now.getMinutes()/60))-SH)*HPX+'px';
+      var pill=nl.querySelector('.now-pill');
+      if(pill) pill.textContent=fmt(now);
+    }
+    var curMin=now.getHours()*60+now.getMinutes();
+    if(curMin!==_lastSidebarMin){
+      _lastSidebarMin=curMin;
+      renderSidebar(_lastEvs,now);
+    }
+  },30000);
+}
+init();
+
+// ── Notice banner ────────────────────────────────────────────────────────────
+var _noticeActive=false;
+var _noticeVersion=-1;
+function fetchNotice(){
+  fetch(SERVER+'/api/notice').then(function(r){return r.json();})
+    .then(function(d){
+      var banner=document.getElementById('notice-banner');
+      var text=document.getElementById('notice-text');
+      _noticeActive=!!(d.active&&d.message);
+      // Update display whenever active state or version changes
+      var newVersion=d.version||0;
+      if(_noticeActive){
+        text.textContent=d.message;
+        banner.style.display='';
+      } else {
+        banner.style.display='none';
+      }
+      _noticeVersion=newVersion;
+    }).catch(function(){});
+}
+fetchNotice();
+// Poll every 15 seconds so push reaches displays within 15s
+setInterval(fetchNotice,15*1000);
+
+// ── Slideshow overlay ────────────────────────────────────────────────────────
+var _slideLinks=[], _slideIdx=0;
+
+async function loadSlideLinks(){
+  try{
+    var r=await fetch(SERVER+'/api/slides');
+    var j=await r.json();
+    _slideLinks=(j.links||[]);  // Dropbox URLs end in /file not extension
+  } catch(e){ _slideLinks=[]; }
+}
+
+function showSlide(){
+  if(!CFG.hasSlideshow||_noticeActive){ scheduleCalendar(); return; }
+  if(!_slideLinks.length){
+    loadSlideLinks().then(function(){
+      if(_slideLinks.length) _doShowSlide(); else scheduleCalendar();
+    });
+    return;
+  }
+  _doShowSlide();
+}
+function _doShowSlide(){
+  var overlay=document.getElementById('slide-overlay');
+  var img=document.getElementById('slide-img');
+  var url=_slideLinks[_slideIdx % _slideLinks.length];
+  _slideIdx++;
+  img.onload=function(){
+    overlay.classList.add('visible');
+    setTimeout(function(){
+      overlay.classList.remove('visible');
+      setTimeout(scheduleCalendar, 800); // wait for fade-out
+    },(CFG.slideDuration||8)*1000);
+  };
+  img.onerror=function(){ scheduleCalendar(); };
+  img.src=url;
+}
+
+function scheduleCalendar(){
+  setTimeout(function(){
+    showSlide();
+  },(CFG.calDuration||60)*1000);
+}
+
+// Slides load lazily just before first show
+scheduleCalendar();
+</script>
+</body>
+</html>

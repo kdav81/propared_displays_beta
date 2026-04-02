@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="30">
+<title>Client Status — Classroom Display</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0f1117;--card:#181c27;--border:#262d40;
+    --text:#e8eaf0;--muted:#6b7280;--dim:#3d4455;
+    --green:#4ade80;--green-bg:rgba(74,222,128,.08);--green-border:rgba(74,222,128,.2);
+    --red:#f87171;--red-bg:rgba(248,113,113,.08);--red-border:rgba(248,113,113,.2);
+    --accent:#4f6ef7;
+  }
+  body{background:var(--bg);color:var(--text);font-family:DM Sans,system-ui,sans-serif;min-height:100vh}
+  header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 28px;
+    display:flex;align-items:center;gap:16px}
+  header h1{font-size:18px;font-weight:700;letter-spacing:.3px}
+  header .sub{font-size:13px;color:var(--muted)}
+  header .spacer{flex:1}
+  header a{font-size:13px;color:var(--accent);text-decoration:none;padding:6px 14px;
+    border:1px solid var(--border);border-radius:6px;transition:background .15s}
+  header a:hover{background:var(--dim)}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+    letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px}
+  .badge.online{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+  .badge.offline{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  main{padding:28px}
+  .summary{display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;
+    padding:16px 22px;min-width:120px}
+  .stat-num{font-size:32px;font-weight:700;line-height:1}
+  .stat-label{font-size:12px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+  .stat.online .stat-num{color:var(--green)}
+  .stat.offline .stat-num{color:var(--red)}
+  table{width:100%;border-collapse:collapse;background:var(--card);
+    border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  thead{background:rgba(255,255,255,.03)}
+  th{padding:11px 16px;text-align:left;font-size:11px;font-weight:700;letter-spacing:1px;
+    text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+  td{padding:13px 16px;font-size:14px;border-bottom:1px solid rgba(255,255,255,.04)}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:rgba(255,255,255,.02)}
+  .role{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+    color:var(--muted);background:var(--dim);padding:2px 8px;border-radius:4px}
+  .ago{color:var(--muted);font-size:13px}
+  .empty{text-align:center;padding:60px;color:var(--muted)}
+  .refresh-note{font-size:12px;color:var(--dim);margin-top:14px;text-align:right}
+  code{font-family:DM Mono,monospace;font-size:13px;color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>&#128225; Client Status</h1>
+    <div class="sub">Auto-refreshes every 30 seconds</div>
+  </div>
+  <div class="spacer"></div>
+  <a href="/admin">&#8592; Admin</a>
+</header>
+<main>
+  {% set online_count  = clients | selectattr("online") | list | length %}
+  {% set offline_count = clients | rejectattr("online") | list | length %}
+  <div class="summary">
+    <div class="stat"><div class="stat-num">{{ clients|length }}</div><div class="stat-label">Total Clients</div></div>
+    <div class="stat online"><div class="stat-num">{{ online_count }}</div><div class="stat-label">Online</div></div>
+    <div class="stat offline"><div class="stat-num">{{ offline_count }}</div><div class="stat-label">Offline</div></div>
+  </div>
+  {% if clients %}
+  <table>
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Hostname</th>
+        <th>IP Address</th>
+        <th>Role</th>
+        <th>Room</th>
+        <th>Last Seen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in clients %}
+      <tr>
+        <td>
+          {% if c.online %}
+            <span class="badge online"><span class="dot"></span>Online</span>
+          {% else %}
+            <span class="badge offline"><span class="dot"></span>Offline</span>
+          {% endif %}
+        </td>
+        <td><strong>{{ c.hostname }}</strong></td>
+        <td><code>{{ c.ip }}</code></td>
+        <td><span class="role">{{ c.role }}</span></td>
+        <td>{{ c.room or "—" }}</td>
+        <td class="ago">
+          {% if c.ago < 60 %}{{ c.ago }}s ago
+          {% elif c.ago < 3600 %}{{ (c.ago // 60) }}m ago
+          {% else %}{{ (c.ago // 3600) }}h ago{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <div style="font-size:48px;margin-bottom:12px">&#128225;</div>
+    <div>No clients have checked in yet.</div>
+    <div style="margin-top:8px;font-size:13px">Clients check in automatically when their kiosk launches.</div>
+  </div>
+  {% endif %}
+  <div class="refresh-note">Page auto-refreshes every 30s &bull; Clients considered offline after 90s without checkin</div>
+</main>
+</body>
+</html>

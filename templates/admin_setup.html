@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Setup</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0c0c0f;color:#e2e2f0;font-family:'DM Sans',sans-serif;
+  display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{background:#13131a;border:1px solid #2a2a3a;border-radius:12px;padding:36px 40px;width:380px;max-width:95vw}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.dot{width:10px;height:10px;border-radius:50%;background:#4f6ef7;box-shadow:0 0 10px #4f6ef7}
+.logo-text{font-size:15px;font-weight:600}
+h1{font-size:18px;font-weight:600;margin-bottom:6px}
+.sub{font-size:13px;color:#666680;margin-bottom:24px;line-height:1.5}
+.fg{margin-bottom:16px}
+.fl{display:block;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#666680;margin-bottom:5px}
+.fi{width:100%;background:#1c1c27;border:1px solid #2a2a3a;color:#e2e2f0;
+  padding:9px 13px;border-radius:7px;font-size:14px;font-family:'DM Sans',sans-serif}
+.fi:focus{outline:none;border-color:#4f6ef7}
+.btn{width:100%;padding:10px;background:#4f6ef7;color:#fff;border:none;border-radius:7px;
+  font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px}
+.btn:hover{background:#3d5ce5}
+.error{background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);
+  color:#f87171;padding:9px 13px;border-radius:7px;font-size:13px;margin-bottom:16px}
+.hint{font-size:11px;color:#3a3a50;margin-top:20px;text-align:center;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo"><span class="dot"></span><span class="logo-text">Classroom Display</span></div>
+  <h1>Set Admin Password</h1>
+  <p class="sub">Create a password to protect the admin panel. You only need to do this once.</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="POST" action="/admin/setup">
+    <div class="fg">
+      <label class="fl">Password</label>
+      <input class="fi" type="password" name="password" autofocus
+             placeholder="Min. 6 characters" autocomplete="new-password">
+    </div>
+    <div class="fg">
+      <label class="fl">Confirm Password</label>
+      <input class="fi" type="password" name="password2"
+             placeholder="Re-enter password" autocomplete="new-password">
+    </div>
+    <button class="btn" type="submit">Set Password &amp; Open Admin</button>
+  </form>
+  <p class="hint">
+    To reset the password, delete<br>
+    <code style="color:#4f6ef7;font-size:11px">~/classroom-server/admin_password.txt</code><br>
+    on the Pi and reload this page.
+  </p>
+</div>
+</body>
+</html>
