@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Classroom Display — Server Installer (main branch)
+# Propared Calendar Displays — Server Installer (main branch)
 # Target: Oracle Cloud Free Tier, Ubuntu 22.04
 #
 # Run as: ubuntu (the default Oracle Cloud user), NOT root
@@ -35,7 +35,7 @@ TZ_TARGET="America/New_York"
 
 [[ "${APP_USER}" == "root" ]] && die "Do not run as root. Run as 'ubuntu'."
 
-header "Classroom Display — Server Installer (branch: ${BRANCH})"
+header "Propared Calendar Displays — Server Installer (branch: ${BRANCH})"
 echo "  User      : ${APP_USER}"
 echo "  App dir   : ${APP_DIR}"
 echo "  Branch    : ${BRANCH}"
@@ -161,7 +161,7 @@ info "Outbound firewall rules saved."
 header "Step 5 — Systemd Service"
 sudo tee /etc/systemd/system/${SERVICE_NAME}.service > /dev/null << EOF
 [Unit]
-Description=Classroom Display Server (${BRANCH})
+Description=Propared Calendar Displays Server (${BRANCH})
 After=network-online.target
 Wants=network-online.target
 
@@ -184,7 +184,7 @@ EOF
 
 sudo tee /etc/systemd/system/${SERVICE_NAME}-nightly.service > /dev/null << EOF
 [Unit]
-Description=Classroom Display Nightly Restart
+Description=Propared Calendar Displays Nightly Restart
 
 [Service]
 Type=oneshot
@@ -193,7 +193,7 @@ EOF
 
 sudo tee /etc/systemd/system/${SERVICE_NAME}-nightly.timer > /dev/null << EOF
 [Unit]
-Description=Classroom Display Nightly Restart at 3 AM
+Description=Propared Calendar Displays Nightly Restart at 3 AM
 
 [Timer]
 OnCalendar=*-*-* 03:00:00
@@ -243,7 +243,7 @@ sleep 2
 echo
 echo -e "${GREEN}══════════════════════════════════════════${NC}"
 if systemctl is-active --quiet "${SERVICE_NAME}"; then
-    echo -e "${GREEN}  ✓  Classroom Display server is running!${NC}"
+    echo -e "${GREEN}  ✓  Propared Calendar Displays server is running!${NC}"
     echo -e "${GREEN}══════════════════════════════════════════${NC}"
     echo
     PUBLIC_IP=$(curl -sf --max-time 5 http://checkip.amazonaws.com 2>/dev/null || hostname -I | awk '{print $1}')

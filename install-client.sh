@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Classroom Display — Client Install Script
+# Propared Calendar Displays — Client Install Script
 # Raspberry Pi OS Trixie (Debian 13), 64-bit
 # Supports:
 #   Pi 4/5  — full Raspberry Pi Desktop (rpd-labwc / LightDM already present)
@@ -21,16 +21,16 @@ header(){
     echo -e "${BOLD}${CYAN}══════════════════════════════════════${NC}"
 }
 
-CONF_DIR="/etc/classroom"
+CONF_DIR="/etc/propared"
 SCREEN_SCHEDULE_ENABLED="no"
 SCREEN_ON="08:00"
 SCREEN_OFF="22:00"
 CONF_FILE="${CONF_DIR}/client.conf"
-WATCHDOG_SERVICE="classroom-watchdog"
-SCREEN_ON_TIMER="classroom-screen-on"
-SCREEN_OFF_TIMER="classroom-screen-off"
+WATCHDOG_SERVICE="propared-watchdog"
+SCREEN_ON_TIMER="propared-screen-on"
+SCREEN_OFF_TIMER="propared-screen-off"
 KIOSK_USER="${USER}"
-KIOSK_DIR="${HOME}/.config/classroom-kiosk"
+KIOSK_DIR="${HOME}/.config/propared-kiosk"
 
 # =============================================================================
 # Detect display stack
@@ -62,7 +62,7 @@ fi
 # =============================================================================
 # Step 1 — Load or keep existing config
 # =============================================================================
-header "Classroom Display Client Installer"
+header "Propared Calendar Displays Client Installer"
 
 if [[ "${EUID}" -eq 0 ]]; then
     die "Run this installer as your normal user, not root."
@@ -106,7 +106,7 @@ fi
 # =============================================================================
 if [[ -z "${SERVER_URL}" ]]; then
     header "Step 1 of 2 - Server"
-    echo "  Enter the IP or hostname of your Classroom Display server."
+    echo "  Enter the IP or hostname of your Propared Calendar Displays server."
     echo "  Example: 129.80.14.172"
     echo
     while true; do
@@ -203,7 +203,7 @@ cat > "${KIOSK_DIR}/start-kiosk.sh" << 'KIOSK'
 #!/usr/bin/env bash
 exec > /tmp/kiosk.log 2>&1
 echo "=== Kiosk starting at $(date) ==="
-source /etc/classroom/client.conf
+source /etc/propared/client.conf
 
 CACHE_FILE="${KIOSK_DIR}/client-cache.json"
 WAITING_URL="file://${KIOSK_DIR}/waiting.html"
@@ -326,10 +326,10 @@ info "Kiosk launcher written"
 # Step 7 — Register kiosk as a LightDM session
 # A bare .desktop session -- no desktop shell, just Chromium
 # =============================================================================
-sudo tee /usr/share/xsessions/classroom-kiosk.desktop > /dev/null << EOF
+sudo tee /usr/share/xsessions/propared-kiosk.desktop > /dev/null << EOF
 [Desktop Entry]
-Name=Classroom Kiosk
-Comment=Classroom Display fullscreen kiosk
+Name=Propared Kiosk
+Comment=Propared Calendar Displays fullscreen kiosk
 Exec=${KIOSK_DIR}/start-kiosk.sh
 Type=Application
 EOF
@@ -352,16 +352,16 @@ if not cfg.has_section(section):
     cfg.add_section(section)
 
 cfg.set(section, "autologin-user",         "${KIOSK_USER}")
-cfg.set(section, "autologin-session",      "classroom-kiosk")
+cfg.set(section, "autologin-session",      "propared-kiosk")
 cfg.set(section, "autologin-user-timeout", "0")
-cfg.set(section, "user-session",           "classroom-kiosk")
+cfg.set(section, "user-session",           "propared-kiosk")
 
 with open(path, "w") as f:
     cfg.write(f)
 
 print("LightDM config updated.")
 PYEOF
-info "LightDM: autologin as ${KIOSK_USER} into classroom-kiosk session"
+info "LightDM: autologin as ${KIOSK_USER} into propared-kiosk session"
 
 # Override LightDM unit to remove GPU device dependencies
 # Pi Zero W2 has no dev-dri-card0 — without this LightDM never starts at boot
@@ -432,8 +432,8 @@ fi
 # in the Chromium wrapper, but Chromium 146+ does not support this flag and crashes.
 # =============================================================================
 if [[ "$(getconf PAGESIZE)" -gt "4096" ]]; then
-    sudo tee /etc/chromium.d/classroom-override > /dev/null << 'CHROMEOF'
-# Classroom Display: remove unsupported --no-decommit-pooled-pages flag on Pi 5
+    sudo tee /etc/chromium.d/propared-override > /dev/null << 'CHROMEOF'
+# Propared Calendar Displays: remove unsupported --no-decommit-pooled-pages flag on Pi 5
 export CHROMIUM_FLAGS=$(echo "$CHROMIUM_FLAGS" | sed 's/--js-flags=--no-decommit-pooled-pages//')
 CHROMEOF
     info "Applied Chromium Pi 5 page size fix"
@@ -453,11 +453,11 @@ fi
 # =============================================================================
 cat > "${KIOSK_DIR}/watchdog.sh" << 'WATCHDOG'
 #!/usr/bin/env bash
-source /etc/classroom/client.conf
+source /etc/propared/client.conf
 
 HOSTNAME_VAL="$(hostname)"
 IP_VAL="$(hostname -I | awk '{print $1}')"
-LOG_TAG="classroom-watchdog"
+LOG_TAG="propared-watchdog"
 
 # Send heartbeat checkin
 curl -sf --max-time 4 \
@@ -483,7 +483,7 @@ chmod +x "${KIOSK_DIR}/watchdog.sh"
 # Watchdog systemd service
 sudo tee /etc/systemd/system/${WATCHDOG_SERVICE}.service > /dev/null << EOF
 [Unit]
-Description=Classroom Display Watchdog
+Description=Propared Calendar Displays Watchdog
 
 [Service]
 Type=oneshot
@@ -491,13 +491,13 @@ User=${KIOSK_USER}
 ExecStart=${KIOSK_DIR}/watchdog.sh
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=classroom-watchdog
+SyslogIdentifier=propared-watchdog
 EOF
 
 # Watchdog timer -- every 60s
 sudo tee /etc/systemd/system/${WATCHDOG_SERVICE}.timer > /dev/null << EOF
 [Unit]
-Description=Classroom Display Watchdog -- every 60s
+Description=Propared Calendar Displays Watchdog -- every 60s
 
 [Timer]
 OnBootSec=60
@@ -509,7 +509,7 @@ WantedBy=timers.target
 EOF
 
 # Allow kiosk user to restart LightDM without password (for crash recovery)
-SUDOERS_FILE="/etc/sudoers.d/classroom-kiosk"
+SUDOERS_FILE="/etc/sudoers.d/propared-kiosk"
 echo "${KIOSK_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart lightdm" \
     | sudo tee "${SUDOERS_FILE}" > /dev/null
 sudo chmod 440 "${SUDOERS_FILE}"
@@ -524,7 +524,7 @@ if [[ "${SCREEN_SCHEDULE_ENABLED}" == "yes" ]]; then
 
     sudo tee /etc/systemd/system/${SCREEN_ON_TIMER}.service > /dev/null << EOF
 [Unit]
-Description=Classroom Display -- Screen On
+Description=Propared Calendar Displays -- Screen On
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/vcgencmd display_power 1
@@ -533,7 +533,7 @@ EOF
 
     sudo tee /etc/systemd/system/${SCREEN_ON_TIMER}.timer > /dev/null << EOF
 [Unit]
-Description=Classroom Display -- Screen On at ${SCREEN_ON}
+Description=Propared Calendar Displays -- Screen On at ${SCREEN_ON}
 [Timer]
 OnCalendar=*-*-* ${ON_HOUR}:${ON_MIN}:00
 Persistent=true
@@ -543,7 +543,7 @@ EOF
 
     sudo tee /etc/systemd/system/${SCREEN_OFF_TIMER}.service > /dev/null << EOF
 [Unit]
-Description=Classroom Display -- Screen Off
+Description=Propared Calendar Displays -- Screen Off
 [Service]
 Type=oneshot
 ExecStart=/bin/systemctl stop lightdm
@@ -552,7 +552,7 @@ EOF
 
     sudo tee /etc/systemd/system/${SCREEN_OFF_TIMER}.timer > /dev/null << EOF
 [Unit]
-Description=Classroom Display -- Screen Off at ${SCREEN_OFF}
+Description=Propared Calendar Displays -- Screen Off at ${SCREEN_OFF}
 [Timer]
 OnCalendar=*-*-* ${OFF_HOUR}:${OFF_MIN}:00
 Persistent=true
@@ -579,10 +579,10 @@ declare -A ALIAS_MAP=(
     ["kiosk-status"]="sudo systemctl status lightdm"
     ["screen-on"]="vcgencmd display_power 1 && sudo systemctl restart lightdm"
     ["screen-off"]="vcgencmd display_power 0 && sudo systemctl stop lightdm"
-    ["client-config"]="cat /etc/classroom/client.conf"
+    ["client-config"]="cat /etc/propared/client.conf"
     ["client-log"]="cat /tmp/kiosk.log"
-    ["client-id"]="grep CLIENT_ID /etc/classroom/client.conf"
-    ["watchdog-run"]="bash ~/.config/classroom-kiosk/watchdog.sh"
+    ["client-id"]="grep CLIENT_ID /etc/propared/client.conf"
+    ["watchdog-run"]="bash ~/.config/propared-kiosk/watchdog.sh"
 )
 for NAME in "${!ALIAS_MAP[@]}"; do
     if ! grep -qF "alias ${NAME}=" "${BASHRC}" 2>/dev/null; then
@@ -605,7 +605,7 @@ sudo systemctl start  ${WATCHDOG_SERVICE}.timer
 sudo systemctl is-active ${WATCHDOG_SERVICE}.timer && info "Watchdog timer active" || warn "Watchdog timer failed to start"
 # Also add to /etc/systemd/system preset to survive reboots
 sudo mkdir -p /etc/systemd/system-preset
-echo "enable ${WATCHDOG_SERVICE}.timer" | sudo tee /etc/systemd/system-preset/50-classroom.preset > /dev/null
+echo "enable ${WATCHDOG_SERVICE}.timer" | sudo tee /etc/systemd/system-preset/50-propared.preset > /dev/null
 
 info "Restarting LightDM -- kiosk should appear on screen now..."
 sudo systemctl restart lightdm
@@ -616,12 +616,12 @@ sleep 4
 # =============================================================================
 echo
 echo -e "${GREEN}==========================================${NC}"
-echo -e "${GREEN}  Classroom Display Client installed!${NC}"
+echo -e "${GREEN}  Propared Calendar Displays Client installed!${NC}"
 echo -e "${GREEN}==========================================${NC}"
 echo
 echo "  Displaying  : ${DISPLAY_URL}"
 echo "  Server      : ${SERVER_URL}"
-echo "  Stack       : LightDM -> classroom-kiosk session"
+echo "  Stack       : LightDM -> propared-kiosk session"
 if [[ "${SCREEN_SCHEDULE_ENABLED}" == "yes" ]]; then
     echo "  Screen      : ON at ${SCREEN_ON}, OFF at ${SCREEN_OFF}"
 else

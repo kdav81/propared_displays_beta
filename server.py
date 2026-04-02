@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Classroom Display Server
+Propared Calendar Displays Server
 ========================
 Single-file Flask server for Pi-based room display kiosks.
 
@@ -66,7 +66,7 @@ logging.basicConfig(
     format="%(asctime)s  %(levelname)-7s  %(message)s",
     datefmt="%H:%M:%S",
 )
-log = logging.getLogger("classroom")
+log = logging.getLogger("propared")
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -259,7 +259,7 @@ def require_admin(f):
         if not auth or not _check_pw(auth.password, PASSWORD_FILE):
             return Response(
                 "Admin access required.", 401,
-                {"WWW-Authenticate": 'Basic realm="Classroom Display Admin"'},
+                {"WWW-Authenticate": 'Basic realm="Propared Calendar Displays Admin"'},
             )
         return f(*args, **kwargs)
 
@@ -545,7 +545,7 @@ class _ICalCache:
         try:
             req = urllib.request.Request(
                 ical_url,
-                headers={"User-Agent": "ClassroomDisplay/4.0"},
+                headers={"User-Agent": "ProparedDisplay/4.0"},
             )
             with urllib.request.urlopen(req, timeout=15) as r:
                 text = r.read().decode("utf-8", errors="replace")
@@ -1079,7 +1079,7 @@ def api_location_rules_post():
 def api_generate_calendar_pdf():
     if not _PDF_AVAILABLE:
         return Response(
-            'ReportLab not installed. Run: ~/classroom-server/venv/bin/pip install reportlab',
+            'ReportLab not installed. Run: ~/propared-display/venv/bin/pip install reportlab',
             status=500
         )
     data         = request.get_json(force=True, silent=True) or {}
@@ -1338,7 +1338,7 @@ def proxy_ical():
     if not url:
         return Response("Invalid iCal URL", status=400)
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'ClassroomDisplay/1.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'ProparedDisplay/1.0'})
         with urllib.request.urlopen(req, timeout=15) as resp:
             body = resp.read().decode('utf-8', errors='replace')
         return Response(body, mimetype='text/calendar',
@@ -1637,7 +1637,7 @@ def _make_backup_zip() -> io.BytesIO:
 def admin_backup():
     buf = _make_backup_zip()
     ts  = datetime.now().strftime("%Y%m%d-%H%M%S")
-    fn  = f"classroom-backup-{ts}.zip"
+    fn  = f"propared-backup-{ts}.zip"
     (BACKUP_DIR / fn).write_bytes(buf.read())
     buf.seek(0)
     return send_file(buf, as_attachment=True, download_name=fn, mimetype="application/zip")
@@ -1709,7 +1709,7 @@ def admin_restore():
 # Entry point
 # ===========================================================================
 if __name__ == "__main__":
-    log.info("Starting Classroom Display Server v4")
+    log.info("Starting Propared Calendar Displays Server v4")
     _boot_clients()         # load persisted client registry
     _boot_ical_cache()      # kick off background iCal refresh threads
 

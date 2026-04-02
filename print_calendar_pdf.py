@@ -62,7 +62,7 @@ FONT_BOLDITALIC = "Helvetica-BoldOblique"
 # ---------------------------------------------------------------------------
 def _fetch_ical(url: str) -> str:
     url = url.replace("webcal://", "https://").replace("webcal:", "https:")
-    req = urllib.request.Request(url, headers={"User-Agent": "ClassroomDisplay/4.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "ProparedDisplay/4.0"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return r.read().decode("utf-8", errors="replace")
 

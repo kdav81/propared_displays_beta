@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Classroom Display — Self-Extracting Install Script
+# Propared Calendar Displays — Self-Extracting Install Script
 # Raspberry Pi OS Trixie (Debian 13), 64-bit
 # ONE FILE. Just run:  bash install.sh
 # =============================================================================
@@ -12,12 +12,12 @@ warn() { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 die()  { echo -e "${RED}[ERR]${NC}   $*" >&2; exit 1; }
 
 APP_USER="${USER}"
-APP_DIR="${HOME}/classroom-server"
+APP_DIR="${HOME}/propared-display"
 VENV_DIR="${APP_DIR}/venv"
-SERVICE_NAME="classroom-display"
+SERVICE_NAME="propared-display"
 PORT=80
 
-info "Classroom Display — Self-Extracting Installer"
+info "Propared Calendar Displays — Self-Extracting Installer"
 info "App directory : ${APP_DIR}"
 info "Running as    : ${APP_USER}"
 info "Port          : ${PORT}"
@@ -46,7 +46,7 @@ info "authbind configured for port ${PORT}"
 info "Extracting application files…"
 mkdir -p "${APP_DIR}"/{static,cache,backups,templates}
 
-TMPZIP="$(mktemp /tmp/classroom-XXXXXX.zip)"
+TMPZIP="$(mktemp /tmp/propared-XXXXXX.zip)"
 # Find the line where the payload starts (everything after __PAYLOAD__)
 PAYLOAD_LINE=$(grep -n "^__PAYLOAD__$" "$0" | cut -d: -f1)
 tail -n +"$((PAYLOAD_LINE + 1))" "$0" | base64 -d > "${TMPZIP}"
@@ -80,7 +80,7 @@ info "Python packages installed:"
 info "Writing systemd service unit…"
 sudo tee /etc/systemd/system/${SERVICE_NAME}.service > /dev/null << EOF
 [Unit]
-Description=Classroom Display Server
+Description=Propared Calendar Displays Server
 After=network-online.target
 Wants=network-online.target
 
@@ -93,7 +93,7 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=classroom-display
+SyslogIdentifier=propared-display
 Environment=PORT=${PORT}
 TimeoutStopSec=10
 
@@ -108,7 +108,7 @@ info "systemd service enabled"
 # Nightly restart timer (3 AM) — flushes memory, ensures clean daily start
 sudo tee /etc/systemd/system/${SERVICE_NAME}-nightly.service > /dev/null << EOFUNIT
 [Unit]
-Description=Classroom Display Nightly Restart
+Description=Propared Calendar Displays Nightly Restart
 
 [Service]
 Type=oneshot
@@ -117,7 +117,7 @@ EOFUNIT
 
 sudo tee /etc/systemd/system/${SERVICE_NAME}-nightly.timer > /dev/null << EOFUNIT
 [Unit]
-Description=Classroom Display Nightly Restart at 3 AM
+Description=Propared Calendar Displays Nightly Restart at 3 AM
 
 [Timer]
 OnCalendar=*-*-* 03:00:00
@@ -133,10 +133,10 @@ sudo systemctl start  ${SERVICE_NAME}-nightly.timer
 info "Nightly restart timer enabled (3 AM daily)"
 
 # ── 5. Convenience alias ──────────────────────────────────────────────────────
-ALIAS_LINE="alias classroom-logs='journalctl -u ${SERVICE_NAME} -f'"
-if ! grep -qF "classroom-logs" "${HOME}/.bashrc" 2>/dev/null; then
+ALIAS_LINE="alias display-logs='journalctl -u ${SERVICE_NAME} -f'"
+if ! grep -qF "display-logs" "${HOME}/.bashrc" 2>/dev/null; then
     echo "${ALIAS_LINE}" >> "${HOME}/.bashrc"
-    info "Added 'classroom-logs' alias to ~/.bashrc"
+    info "Added 'display-logs' alias to ~/.bashrc"
 fi
 
 # ── 6. Start (or restart) the service ────────────────────────────────────────
@@ -153,12 +153,12 @@ sleep 2
 echo
 echo -e "${GREEN}═══════════════════════════════════════════════════${NC}"
 if systemctl is-active --quiet ${SERVICE_NAME}; then
-    echo -e "${GREEN}  ✓ Classroom Display is running!${NC}"
+    echo -e "${GREEN}  ✓ Propared Calendar Displays is running!${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════════════${NC}"
     echo
     echo "  Admin panel : http://$(hostname -I | awk '{print $1}')/admin"
     echo "  Logs        : journalctl -u ${SERVICE_NAME} -f"
-    echo "  (or type)   : classroom-logs    (reload shell first)"
+    echo "  (or type)   : display-logs    (reload shell first)"
 else
     echo -e "${RED}  ✗ Service failed to start${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════════════${NC}"
