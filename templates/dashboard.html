@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Room Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;
+  --surface:#111118;
+  --surface2:#18181f;
+  --border:#22222e;
+  --text:#e2e2f0;
+  --muted:#8888a8;
+  --dim:#44445a;
+  --red-bg:#7a1a1a;
+  --red-border:#c0392b;
+  --green-bg:#0d3320;
+  --green-border:#1a7a40;
+  --red-now:#c0392b;
+}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
+  font-family:'Inter',sans-serif;overflow:hidden}
+
+/* ── Layout ── */
+#layout{display:grid;grid-template-columns:380px 1fr;height:100vh;gap:0}
+
+/* ── Left panel ── */
+#left{display:flex;flex-direction:column;background:var(--bg);
+  border-right:1px solid var(--border);overflow:hidden}
+#left-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between}
+#left-title{font-size:18px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+#clock{font-size:18px;font-weight:500;color:var(--text);font-variant-numeric:tabular-nums}
+#rooms-list{flex:1;overflow:hidden;padding:10px;display:grid;
+  gap:8px;align-content:stretch}
+/* grid-template-rows set by JS based on room count */
+
+/* ── Room card ── */
+.room-card{border-radius:8px;overflow:hidden;border:1px solid var(--border);
+  background:var(--surface);transition:border-color .4s,background .4s;
+  display:flex;flex-direction:column;min-height:0}
+.room-card.occupied{background:var(--red-bg);border-color:var(--red-border)}
+.room-card.available{background:var(--green-bg);border-color:var(--green-border)}
+
+.room-card-top{padding:14px 18px 10px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.room-card-name{font-size:22px;font-weight:700;line-height:1.2}
+.room-status-badge{font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  padding:3px 8px;border-radius:20px;flex-shrink:0;margin-top:1px}
+.occupied .room-status-badge{background:rgba(192,57,43,.35);color:#ff9090;border:1px solid rgba(192,57,43,.5)}
+.available .room-status-badge{background:rgba(26,122,64,.35);color:#6dffaa;border:1px solid rgba(26,122,64,.5)}
+
+.room-card-body{padding:0 18px 14px;display:flex;flex-direction:column;gap:4px;min-height:0;overflow:hidden}
+
+/* Current event */
+.room-current{font-size:16px;font-weight:600;color:#fff;line-height:1.3}
+.room-current-time{font-size:14px;color:rgba(255,255,255,.65);margin-bottom:2px}
+
+/* Next event */
+.room-next-row{display:flex;align-items:baseline;gap:6px;margin-top:3px;padding-top:6px;
+  border-top:1px solid rgba(255,255,255,.08)}
+.room-next-label{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  color:rgba(255,255,255,.4);flex-shrink:0}
+.room-next-time{font-size:14px;color:rgba(255,255,255,.55);flex-shrink:0}
+.room-next-title{font-size:14px;color:rgba(255,255,255,.75);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Available state */
+.available .room-next-label{color:rgba(100,255,150,.45)}
+.available .room-next-time{color:rgba(100,255,150,.6)}
+.available .room-next-title{color:rgba(200,255,220,.8)}
+.available .room-next-row{border-top-color:rgba(100,255,150,.1)}
+
+/* Free until */
+.room-free-until{font-size:14px;color:rgba(100,255,150,.7);margin-top:2px}
+
+/* ── Right panel ── */
+#right{position:relative;overflow:hidden;background:#000}
+#right iframe{position:absolute;inset:0;width:100%;height:100%;border:none;z-index:1}
+#iframe-placeholder{width:100%;height:100%;display:flex;align-items:center;
+  justify-content:center;flex-direction:column;gap:8px;color:var(--dim);font-size:13px}
+
+/* ── Slide overlay ── */
+#slide-overlay{position:absolute;inset:0;background:#000;opacity:0;
+  transition:opacity .8s;pointer-events:none;z-index:20}
+#slide-overlay.visible{opacity:1}
+#slide-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+
+#offline-overlay{
+  position:fixed;inset:0;background:#0d0d1a;z-index:9999;
+  display:none;align-items:center;justify-content:center;
+  opacity:0;transition:opacity 0.6s;}
+#offline-overlay.visible{display:flex;opacity:1;}
+#offline-inner{text-align:center;}
+#offline-icon{font-size:96px;line-height:1;margin-bottom:24px;color:#e74c3c;}
+#offline-title{font-size:52px;font-weight:700;color:#e74c3c;margin-bottom:16px;}
+#offline-msg{font-size:28px;color:#aaa;margin-bottom:12px;}
+#offline-time{font-size:22px;color:#666;}
+</style>
+</head>
+<body>
+<div id="offline-overlay">
+  <div id="offline-inner">
+    <div id="offline-icon">&#9888;</div>
+    <div id="offline-title">Server Unreachable</div>
+    <div id="offline-msg">Attempting to reconnect&hellip;</div>
+    <div id="offline-time"></div>
+  </div>
+</div>
+<div id="layout">
+  <div id="left">
+    <div id="left-header">
+      <div id="left-title">Room Status</div>
+      <div id="clock">--:--</div>
+    </div>
+    <div id="rooms-list">
+      {% for rid, room in rooms %}
+      <div class="room-card" id="card-{{ rid }}" data-rid="{{ rid }}">
+        <div class="room-card-top">
+          <div class="room-card-name">{{ room.title }}</div>
+          <div class="room-status-badge">Loading</div>
+        </div>
+        <div class="room-card-body"></div>
+      </div>
+      {% endfor %}
+      {% if not rooms %}
+      <div style="padding:20px;color:var(--muted);font-size:13px;text-align:center">
+        No rooms configured for this dashboard.<br>
+        <a href="/admin" style="color:#4f6ef7">Configure in Admin</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <div id="right">
+    {% if iframe_url %}
+    <iframe id="main-iframe" src="{{ iframe_url }}" allowfullscreen></iframe>
+    {% else %}
+    <div id="iframe-placeholder">
+      <div style="font-size:32px;opacity:.2">&#128197;</div>
+      <div>No URL configured.</div>
+      <a href="/admin" style="color:#4f6ef7;font-size:12px">Set one in Admin</a>
+    </div>
+    {% endif %}
+    <div id="slide-overlay"><img id="slide-img" src="" alt=""></div>
+  </div>
+</div>
+
+<script>
+var SERVER = '{{ server_url }}';
+var ROOM_IDS = {{ rooms | map(attribute=0) | list | tojson }};
+
+var DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ── Clock ─────────────────────────────────────────────────────
+function tick(){
+  var n=new Date(),h=n.getHours(),m=n.getMinutes(),ap=h>=12?'PM':'AM';
+  h=h%12||12;
+  var ds=DAYS[n.getDay()]+', '+MONTHS[n.getMonth()]+' '+n.getDate();
+  document.getElementById('clock').textContent=h+':'+String(m).padStart(2,'0')+' '+ap+'  •  '+ds;
+}
+setInterval(function(){
+  tick();
+  if(!_serverOnline && _offlineSince) setOffline(true);
+},1000); tick();
+
+// ── Slideshow / iframe switching ─────────────────────────────
+var CAL_DURATION   = {{ cal_duration }} * 1000;
+var SLIDE_DURATION = {{ slide_duration }} * 1000;
+var _slideLinks = [];
+var _slideIdx   = 0;
+var HAS_IFRAME  = !!document.getElementById('main-iframe');
+
+async function loadSlideLinks() {
+  try {
+    var r = await fetch(SERVER + '/api/slides');
+    var j = await r.json();
+    _slideLinks = (j.links || []);
+  } catch(e) { _slideLinks = []; }
+}
+
+function showSlide() {
+  if (!_slideLinks.length) {
+    loadSlideLinks().then(function() {
+      if (_slideLinks.length) _doShowSlide(); else scheduleCalendar();
+    });
+    return;
+  }
+  _doShowSlide();
+}
+
+function _doShowSlide() {
+  var overlay = document.getElementById('slide-overlay');
+  var img     = document.getElementById('slide-img');
+  var url     = _slideLinks[_slideIdx % _slideLinks.length];
+  _slideIdx++;
+  img.onload = function() {
+    overlay.classList.add('visible');
+    setTimeout(function() {
+      overlay.classList.remove('visible');
+      setTimeout(scheduleCalendar, 800);
+    }, SLIDE_DURATION);
+  };
+  img.onerror = function() { scheduleCalendar(); };
+  img.src = url;
+}
+
+function scheduleCalendar() {
+  setTimeout(showSlide, CAL_DURATION);
+}
+
+if (HAS_IFRAME) {
+  scheduleCalendar();
+} else {
+  loadSlideLinks().then(function() {
+    if (_slideLinks.length) {
+      _doShowSlide();
+      setInterval(function() {
+        document.getElementById('slide-overlay').classList.remove('visible');
+        setTimeout(_doShowSlide, 800);
+      }, SLIDE_DURATION + 1600);
+    }
+  });
+}
+setInterval(loadSlideLinks, 10 * 60 * 1000);
+
+// ── Offline overlay ───────────────────────────────────────────
+var _serverOnline=true;
+var _offlineSince=null;
+
+function setOffline(isOffline){
+  var ov=document.getElementById('offline-overlay');
+  if(isOffline && _serverOnline){
+    _serverOnline=false;
+    _offlineSince=new Date();
+    ov.classList.add('visible');
+  } else if(!isOffline && !_serverOnline){
+    _serverOnline=true;
+    _offlineSince=null;
+    ov.classList.remove('visible');
+  }
+  if(isOffline && _offlineSince){
+    var mins=Math.floor((Date.now()-_offlineSince)/60000);
+    document.getElementById('offline-time').textContent=
+      mins<1?'Just now':'Offline for '+mins+' minute'+(mins===1?'':'s');
+  }
+}
+
+// ── Server-side rendered room data ────────────────────────────
+// Single fetch replaces 6 iCal fetches + client-side parsing.
+var REFRESH_MS = 5*60*1000;
+
+function updateCard(room){
+  var card=document.getElementById('card-'+room.rid);
+  if(!card) return;
+  var badge=card.querySelector('.room-status-badge');
+  var body =card.querySelector('.room-card-body');
+  body.innerHTML='';
+
+  if(room.occupied){
+    card.className='room-card occupied';
+    badge.textContent='Occupied';
+    if(room.current){
+      var ct=document.createElement('div'); ct.className='room-current-time';
+      ct.textContent=room.current.start+' — '+room.current.end;
+      var cn=document.createElement('div'); cn.className='room-current';
+      cn.textContent=room.current.title;
+      body.appendChild(ct); body.appendChild(cn);
+    }
+    if(room.next){
+      var nr=document.createElement('div'); nr.className='room-next-row';
+      nr.innerHTML='<span class="room-next-label">Next</span>'
+        +'<span class="room-next-time">'+room.next.start+'</span>'
+        +'<span class="room-next-title">'+room.next.title+'</span>';
+      body.appendChild(nr);
+    }
+  } else {
+    card.className='room-card available';
+    badge.textContent='Available';
+    if(room.next){
+      var fu=document.createElement('div'); fu.className='room-free-until';
+      fu.textContent='Free until '+room.next.start;
+      body.appendChild(fu);
+      var nr=document.createElement('div'); nr.className='room-next-row';
+      nr.innerHTML='<span class="room-next-label">Next</span>'
+        +'<span class="room-next-time">'+room.next.start+'</span>'
+        +'<span class="room-next-title">'+room.next.title+'</span>';
+      body.appendChild(nr);
+    } else {
+      var fu=document.createElement('div'); fu.className='room-free-until';
+      fu.textContent='No more events today';
+      body.appendChild(fu);
+    }
+  }
+}
+
+async function refreshAll(){
+  try{
+    var r=await fetch(SERVER+'/api/dashboard-data');
+    if(!r.ok){ setOffline(true); return; }
+    var j=await r.json();
+    j.rooms.forEach(updateCard);
+    setOffline(false);
+  } catch(e){ setOffline(true); }
+}
+
+// Set grid rows so cards fill exactly the available height
+function sizeGrid(){
+  var list=document.getElementById('rooms-list');
+  var n=ROOM_IDS.length||1;
+  list.style.gridTemplateRows='repeat('+n+', 1fr)';
+}
+sizeGrid();
+window.addEventListener('resize',sizeGrid);
+
+// Initial load + refresh every 5 min (no per-minute re-render needed —
+// server returns pre-computed status so just re-fetch on schedule)
+refreshAll();
+setInterval(refreshAll, REFRESH_MS);
+</script>
+</body>
+</html>

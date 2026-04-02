@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notice Board</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0d;color:#d8dbed;font-family:'Inter',system-ui,sans-serif;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#0f0f17;border:1px solid #1c1c2a;border-radius:8px;
+  width:100%;max-width:540px;padding:32px}
+h1{font-size:22px;font-weight:600;color:#fff;margin-bottom:6px}
+.subtitle{font-size:13px;color:#52526e;margin-bottom:28px}
+.msg{padding:10px 14px;border-radius:5px;font-size:14px;margin-bottom:20px}
+.msg.ok{background:rgba(22,163,74,.15);border:1px solid rgba(22,163,74,.3);color:#4ade80}
+.fg{margin-bottom:18px}
+label{display:block;font-size:12px;font-weight:600;letter-spacing:.8px;
+  text-transform:uppercase;color:#52526e;margin-bottom:7px}
+input[type=text],input[type=password],textarea{
+  width:100%;background:#12121e;border:1px solid #1c1c2a;border-radius:5px;
+  color:#d8dbed;font-size:15px;padding:10px 12px;outline:none;
+  transition:border-color .2s;font-family:inherit}
+input:focus,textarea:focus{border-color:#2563c7}
+textarea{resize:vertical;min-height:80px;line-height:1.5}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.toggle-row{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.toggle-row label{margin:0;text-transform:none;font-size:15px;
+  color:#d8dbed;font-weight:500;letter-spacing:0}
+input[type=checkbox]{width:18px;height:18px;accent-color:#c0392b;cursor:pointer}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{padding:10px 22px;border-radius:5px;border:none;font-size:14px;
+  font-weight:600;cursor:pointer;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-red{background:#c0392b;color:#fff}
+.btn-gray{background:#1c1c2a;color:#d8dbed;border:1px solid #2a2a3a}
+.btn-blue{background:#2563c7;color:#fff}
+.preview{margin-top:24px;border-radius:6px;background:#c0392b;
+  color:#fff;padding:14px 20px;font-size:17px;font-weight:600;
+  text-align:center;display:none}
+.preview.show{display:block}
+.divider{border:none;border-top:1px solid #1c1c2a;margin:24px 0}
+.push-msg{font-size:13px;color:#4ade80;margin-top:10px;display:none}
+/* Flatpickr dark theme */
+.flatpickr-calendar{background:#12121e !important;border:1px solid #2a2a3a;
+  color:#d8dbed;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+.flatpickr-day{color:#d8dbed;border-radius:5px}
+.flatpickr-day:hover,.flatpickr-day:focus{background:#1c1c2a;border-color:#2563c7;color:#fff}
+.flatpickr-day.today{border-color:#2563c7}
+.flatpickr-day.selected,.flatpickr-day.selected:hover{background:#c0392b;border-color:#c0392b;color:#fff}
+.flatpickr-months,.flatpickr-weekdays,.flatpickr-weekday{background:#0f0f17 !important}
+span.flatpickr-weekday{color:#8888a8 !important}
+.flatpickr-current-month{color:#d8dbed !important}
+.flatpickr-monthDropdown-months{background:#12121e;color:#d8dbed}
+.flatpickr-time input,.flatpickr-time .flatpickr-am-pm{background:#12121e;color:#d8dbed}
+.flatpickr-time .flatpickr-time-separator{color:#52526e}
+.numInputWrapper:hover,.flatpickr-time input:hover,.flatpickr-time .flatpickr-am-pm:hover{background:#1c1c2a}
+.flatpickr-prev-month svg,.flatpickr-next-month svg{fill:#d8dbed}
+.flatpickr-input[readonly]{cursor:pointer;background:#12121e}
+</style>
+</head>
+<body>
+{% if setup_needed %}
+<div class="card">
+  <h1>Notice Board Setup</h1>
+  <p class="subtitle">Set a password to protect this page.</p>
+  <form method="post">
+    <input type="hidden" name="action" value="set_password">
+    <div class="fg">
+      <label>Password</label>
+      <input type="password" name="password" required autofocus>
+    </div>
+    <button class="btn btn-blue" type="submit">Set Password</button>
+  </form>
+</div>
+{% else %}
+<div class="card">
+  <h1>&#128226; Notice Board</h1>
+  <p class="subtitle">Post a notice banner across all room displays.</p>
+
+  {% if msg %}
+  <div class="msg ok">{{ msg }}</div>
+  {% endif %}
+
+  <form method="post" id="noticeForm">
+    <input type="hidden" name="action" value="save">
+
+    <div class="fg">
+      <label>Message</label>
+      <textarea name="message" id="msgInput"
+        placeholder="e.g. Building closes at 6:00 PM today"
+        oninput="updatePreview()">{{ n.message or '' }}</textarea>
+    </div>
+
+    <div class="row">
+      <div class="fg">
+        <label>Start (optional)</label>
+        <input type="text" name="startTime" id="startTime"
+          placeholder="Pick date &amp; time"
+          value="{{ n.startTime or '' }}" readonly>
+      </div>
+      <div class="fg">
+        <label>End (optional)</label>
+        <input type="text" name="endTime" id="endTime"
+          placeholder="Pick date &amp; time"
+          value="{{ n.endTime or '' }}" readonly>
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <input type="checkbox" name="active" value="1" id="activeToggle"
+        {% if n.active %}checked{% endif %}
+        onchange="updatePreview()">
+      <label for="activeToggle">Active — show on all displays now</label>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-red" type="submit">Save &amp; Post</button>
+      <button class="btn btn-gray" type="button"
+        onclick="document.querySelector('[name=action]').value='clear';
+                 document.getElementById('noticeForm').submit()">
+        Clear Notice
+      </button>
+      <button class="btn btn-blue" type="button" id="pushBtn"
+        onclick="pushToDisplays()">&#9654; Push to Displays</button>
+    </div>
+    <div id="pushMsg" class="push-msg"></div>
+  </form>
+
+  <div class="preview" id="preview"></div>
+
+  <hr class="divider">
+  <form method="post">
+    <input type="hidden" name="action" value="set_password">
+    <div class="fg">
+      <label>Change Password</label>
+      <div style="display:flex;gap:10px">
+        <input type="password" name="password" placeholder="New password">
+        <button class="btn btn-gray" type="submit"
+          style="white-space:nowrap">Update</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+var fpCfg = {
+  enableTime: true,
+  dateFormat: "Y-m-d H:i",
+  altInput: true,
+  altFormat: "M j, Y at h:i K",
+  minuteIncrement: 5,
+  time_24hr: false
+};
+flatpickr("#startTime", fpCfg);
+flatpickr("#endTime", fpCfg);
+
+function updatePreview(){
+  var msg = document.getElementById('msgInput').value.trim();
+  var active = document.getElementById('activeToggle').checked;
+  var p = document.getElementById('preview');
+  if(msg && active){ p.textContent = msg; p.className='preview show'; }
+  else { p.className='preview'; }
+}
+updatePreview();
+
+function pushToDisplays(){
+  var btn = document.getElementById('pushBtn');
+  var msg = document.getElementById('pushMsg');
+  btn.disabled = true; btn.textContent = 'Pushing...';
+  fetch('/api/notice/push', {
+    method: 'POST'
+  }).then(function(r){
+    if(!r.ok) throw new Error(r.status === 401 ? 'Authentication required' : 'Request failed');
+    return r.json();
+  })
+  .then(function(d){
+    msg.textContent = d.ok ? '✓ Pushed — displays will update within 15 seconds' : '✗ Request failed';
+    msg.style.display = '';
+    btn.disabled = false; btn.textContent = '▶ Push to Displays';
+  }).catch(function(e){
+    msg.textContent = '✗ Error: ' + e;
+    msg.style.display = '';
+    btn.disabled = false; btn.textContent = '▶ Push to Displays';
+  });
+}
+</script>
+{% endif %}
+</body>
+</html>

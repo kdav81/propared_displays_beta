@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Slideshow</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Inter',sans-serif;color:#fff}
+#photo{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}
+#photo img{max-height:100vh;max-width:100vw;height:100vh;width:auto;object-fit:contain;
+  opacity:0;transition:opacity .6s ease}
+#clock-overlay{position:fixed;bottom:28px;left:32px;z-index:10;
+  background:rgba(0,0,0,.5);backdrop-filter:blur(10px);border-radius:10px;padding:14px 22px}
+#clock-time{font-size:52px;font-weight:200;letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums}
+.ampm{font-size:18px;margin-left:3px;opacity:.7;font-weight:300}
+#clock-date{font-size:13px;color:rgba(255,255,255,.55);margin-top:3px;font-weight:300}
+#status{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:#444;z-index:20;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="photo"><img id="photo-img" src="" alt=""></div>
+<div id="status">Loading…</div>
+<div id="clock-overlay">
+  <div id="clock-time">--:--<span class="ampm"></span></div>
+  <div id="clock-date"></div>
+</div>
+<script>
+var SERVER  = '{{ server_url }}';
+var ROOM_ID = '{{ room.roomId }}';
+var CFG     = {{ room | tojson }};
+
+var DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function tick(){
+  var n=new Date(), h=n.getHours(), m=n.getMinutes(), ap=h>=12?'PM':'AM';
+  h=h%12||12;
+  document.getElementById('clock-time').innerHTML=h+':'+String(m).padStart(2,'0')+'<span class="ampm">'+ap+'</span>';
+  document.getElementById('clock-date').textContent=DAYS[n.getDay()]+', '+MONTHS[n.getMonth()]+' '+n.getDate();
+}
+setInterval(tick,1000); tick();
+
+var imgEl=document.getElementById('photo-img'), statusEl=document.getElementById('status');
+
+function pickIndex(total){
+  var hash=0;
+  for(var i=0;i<ROOM_ID.length;i++) hash=(hash*31+ROOM_ID.charCodeAt(i))&0xffff;
+  return (hash+Math.floor(Date.now()/((CFG.calDuration||60)*1000)))%total;
+}
+
+async function loadAndShow(){
+  try{
+    var data=await (await fetch(SERVER+'/api/slides')).json();
+    var links=data.links||[];
+    if(!links.length){ statusEl.textContent='No photos found in Dropbox folder.'; return; }
+    statusEl.style.display='none';
+    var idx=pickIndex(links.length);
+    imgEl.onerror=function(){ imgEl.src=links[(idx+1)%links.length]; };
+    imgEl.onload =function(){ imgEl.style.opacity='1'; };
+    imgEl.src=links[idx];
+  } catch(e){ statusEl.textContent='Could not load photos.'; }
+}
+loadAndShow();
+setTimeout(function(){ window.location.href=SERVER+'/display?room='+ROOM_ID; },(CFG.calDuration||60)*1000);
+</script>
+</body>
+</html>
