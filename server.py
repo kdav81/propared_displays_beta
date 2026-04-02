@@ -1395,32 +1395,6 @@ def notice_page():
     return render_template("notice.html", n=n, msg=msg, setup_needed=setup_needed)
 
 
-# ── Status page ───────────────────────────────────────────────────────────────
-
-@app.route("/status")
-def status_page():
-    now  = time.time()
-    rooms = load_rooms()
-    rows = []
-    for client_id, c in sorted(_clients.items(), key=lambda x: x[1].get('hostname','')):
-        rid = c.get("assigned_room", "")
-        if rid == "__dashboard__":
-            room_name = "Dashboard"
-        elif rid and rid in rooms:
-            room_name = rooms[rid].get("title", rid)
-        else:
-            room_name = "Unassigned"
-        rows.append({
-            "hostname": c.get("hostname", client_id[:8]),
-            "ip":       c.get("ip", ""),
-            "role":     c.get("role", "display"),
-            "room":     room_name,
-            "online":   (now - c.get("last_seen", 0)) < 90,
-            "ago":      int(now - c.get("last_seen", 0)),
-        })
-    return render_template("status.html", clients=rows)
-
-
 # ── Admin: setup ──────────────────────────────────────────────────────────────
 
 @app.route("/admin/setup", methods=["GET", "POST"])
