@@ -139,8 +139,18 @@ fi
 "${VENV_DIR}/bin/pip" install --quiet -r "${APP_DIR}/requirements.txt"
 info "Python packages installed."
 
-# ── 4. Outbound firewall ──────────────────────────────────────────────────────
-header "Step 4 — Outbound Firewall"
+# ── 4. Firewall (inbound + outbound) ─────────────────────────────────────────
+header "Step 4 — Firewall"
+# Inbound: allow port 80 and 443 before the default REJECT rule
+if ! sudo iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null; then
+    sudo iptables -I INPUT 4 -p tcp --dport 80 -j ACCEPT
+    info "Added iptables rule: allow TCP in on 80"
+fi
+if ! sudo iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null; then
+    sudo iptables -I INPUT 4 -p tcp --dport 443 -j ACCEPT
+    info "Added iptables rule: allow TCP in on 443"
+fi
+# Outbound: allow reaching Dropbox, GitHub, iCal feeds etc.
 if ! sudo iptables -C OUTPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null; then
     sudo iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
     info "Added iptables rule: allow TCP out on 443"
@@ -155,7 +165,7 @@ elif command -v iptables-save &>/dev/null; then
     sudo mkdir -p /etc/iptables
     sudo sh -c 'iptables-save > /etc/iptables/rules.v4' || true
 fi
-info "Outbound firewall rules saved."
+info "Firewall rules saved."
 
 # ── 5. Systemd service ────────────────────────────────────────────────────────
 header "Step 5 — Systemd Service"
