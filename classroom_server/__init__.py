@@ -1,2 +1,0 @@
-"""Classroom display server package."""
-
