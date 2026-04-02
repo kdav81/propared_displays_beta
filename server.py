@@ -1614,7 +1614,10 @@ def admin_room_delete(rid):
 def _make_backup_zip() -> io.BytesIO:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for fname in ("rooms.json", "tag_colors.json", "settings.json", "notice.json"):
+        for fname in (
+            "rooms.json", "tag_colors.json", "settings.json",
+            "notice.json", "print_shows.json", "location_rules.json",
+        ):
             p = BASE / fname
             if p.exists():
                 zf.write(p, fname)
@@ -1623,7 +1626,7 @@ def _make_backup_zip() -> io.BytesIO:
                 if fn.name.startswith("logo_") and fn.suffix == ".png":
                     zf.write(fn, f"static/{fn.name}")
         manifest = {
-            "version":   3,
+            "version":   4,
             "createdAt": datetime.now().isoformat(),
             "rooms":     list(load_rooms().keys()),
         }
@@ -1685,7 +1688,10 @@ def admin_restore():
         buf = io.BytesIO(f.read())
         with zipfile.ZipFile(buf, "r") as zf:
             names = zf.namelist()
-            for fname in ("rooms.json", "tag_colors.json", "settings.json", "notice.json"):
+            for fname in (
+                "rooms.json", "tag_colors.json", "settings.json",
+                "notice.json", "print_shows.json", "location_rules.json",
+            ):
                 if fname in names:
                     (BASE / fname).write_bytes(zf.read(fname))
             _restore_logo_files(names, zf)
