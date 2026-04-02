@@ -8,7 +8,16 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0a0d;color:#d8dbed;font-family:'Inter',system-ui,sans-serif;
-  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  min-height:100vh;display:flex;flex-direction:column}
+.page-center{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
+.topbar{background:#13131a;border-bottom:1px solid #2a2a3a;padding:0 32px;height:56px;
+  display:flex;align-items:center;position:sticky;top:0;z-index:100}
+.topbar-title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px;flex:1;color:#e8e8f4}
+.topbar-links{display:flex;gap:8px;margin-left:auto}
+.nav-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;
+  font-size:12px;font-weight:500;cursor:pointer;border:1px solid #2a2a3a;color:#e8e8f4;
+  background:transparent;text-decoration:none;white-space:nowrap;transition:border-color .15s}
+.nav-btn:hover{border-color:#e8e8f4}
 .card{background:#0f0f17;border:1px solid #1c1c2a;border-radius:8px;
   width:100%;max-width:540px;padding:32px}
 h1{font-size:22px;font-weight:600;color:#fff;margin-bottom:6px}
@@ -62,6 +71,15 @@ span.flatpickr-weekday{color:#8888a8 !important}
 </style>
 </head>
 <body>
+<div class="topbar">
+  <div class="topbar-title">&#128226; Notice Board</div>
+  <div class="topbar-links">
+    <a class="nav-btn" href="/admin">&#9881; Admin</a>
+    <a class="nav-btn" href="/print-calendar">&#128438; Print Calendar</a>
+    <a class="nav-btn" href="/print-admin">&#128444; Print Admin</a>
+  </div>
+</div>
+<div class="page-center">
 {% if setup_needed %}
 <div class="card">
   <h1>Notice Board Setup</h1>
@@ -189,5 +207,6 @@ function pushToDisplays(){
 }
 </script>
 {% endif %}
+</div>
 </body>
 </html>
