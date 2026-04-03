@@ -612,7 +612,7 @@ async function loadSlideLinks(){
   try{
     var r=await fetch(SERVER+'/api/slides');
     var j=await r.json();
-    _slideLinks=(j.links||[]);  // Dropbox URLs end in /file not extension
+    _slideLinks=(j.links||[]);
   } catch(e){ _slideLinks=[]; }
 }
 

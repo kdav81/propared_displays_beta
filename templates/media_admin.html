@@ -48,6 +48,25 @@
   </div>
 </div>
 
+{% if setup_needed %}
+<div class="page" style="max-width:620px;padding-top:36px">
+  <div class="card">
+    <div class="sec">Shared Access Setup</div>
+    <div class="hint" style="margin-bottom:18px">
+      Set one shared password for both the Notice page and the Media Library.
+      This gives limited access without exposing the full Admin screen.
+    </div>
+    <form method="post">
+      <input type="hidden" name="action" value="set_password">
+      <div class="fg">
+        <label class="fl">Shared Password</label>
+        <input class="fi" type="password" name="password" required autofocus>
+      </div>
+      <button class="btn btn-primary" type="submit">Set Shared Password</button>
+    </form>
+  </div>
+</div>
+{% else %}
 <div class="page">
   <div class="grid">
     <div class="card">
@@ -97,8 +116,8 @@
       <div class="card" style="margin-bottom:18px">
         <div class="sec">Slideshow Settings</div>
         <div class="hint">
-          The slideshow now prefers local server media first. If no local media is active,
-          it still falls back to the older Dropbox slideshow configuration during this transition.
+          This page is protected by the shared Notice/Media password.
+          Uploaded images here are the only slideshow source for room displays.
         </div>
         <div style="display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap">
           <a class="btn btn-ghost btn-sm" href="/slide" target="_blank">Preview Global Slideshow</a>
@@ -306,5 +325,6 @@ async function deleteMedia(id){
 setupDatePickers();
 loadMedia();
 </script>
+{% endif %}
 </body>
 </html>

@@ -17,13 +17,6 @@
   </div>
 </div>
 <div class="page">
-
-{% if flash_dropbox == 'connected' %}
-<div class="alert alert-success">&#10003; Dropbox connected! Photos will load within a minute.</div>
-{% endif %}
-{% if flash_error %}
-<div class="alert alert-error">&#10007; Dropbox error: {{ flash_error }}</div>
-{% endif %}
 {% if request.args.get('restored') %}
 <div class="alert alert-success">&#10003; Backup restored. All rooms and settings reloaded.</div>
 {% endif %}
@@ -198,36 +191,26 @@
   </div>
 </div>
 
-<!-- Slideshow & Dropbox -->
+<!-- Slideshow -->
 <hr class="divider">
 <div class="sec" id="hdr-dropbox" onclick="secToggle('bdy-dropbox')" style="margin-top:28px">
-  <span>Slideshow &amp; Dropbox <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">set once, rarely changed</span></span>
+  <span>Slideshow <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">server media and timing</span></span>
   <span class="chevron">&#9660;</span>
 </div>
 <div class="section-body" id="bdy-dropbox">
   <div class="card">
     <div class="card-hint" style="margin-bottom:14px">
-      The new <a href="/media-admin">Media Library</a> lets you upload slideshow images directly to the server
-      with optional start and end dates. Local media is used first, and Dropbox remains available as fallback.
+      Use the <a href="/media-admin">Media Library</a> to upload slideshow images directly to the server.
+      It uses the shared Notice password so you can give limited access without exposing full Admin controls.
     </div>
-    <div class="dropbox-status {{ 'connected' if dropbox_connected else 'disconnected' }}">
+    <div class="dropbox-status connected">
       <span class="status-dot"></span>
-      <span class="status-text">
-        {% if dropbox_connected %}Dropbox connected &mdash; fallback slideshow source shared across all rooms
-        {% else %}Dropbox not connected{% endif %}
-      </span>
-      {% if dropbox_connected %}
-      <a href="/api/slides?refresh=1" target="_blank" class="btn btn-ghost btn-sm">&#8635; Refresh photos</a>
-      {% endif %}
+      <span class="status-text">Server-managed slideshow library is active</span>
+      <a href="/media-admin" class="btn btn-ghost btn-sm">&#128247; Open Media Library</a>
     </div>
 
     <form method="POST" action="/admin/settings">
       <div class="timing-grid">
-        <div class="fg">
-          <label class="fl">Photo Folder</label>
-          <input class="fi" name="dropboxFolder" placeholder="/slideshow" value="{{ settings.dropboxFolder or '/slideshow' }}">
-          <div class="fh">Path in your Dropbox</div>
-        </div>
         <div class="fg">
           <label class="fl">Show Calendar (sec)</label>
           <input class="fi" name="calDuration" type="number" min="10" value="{{ settings.calDuration or 60 }}">
@@ -237,75 +220,8 @@
           <input class="fi" name="slideDuration" type="number" min="3" value="{{ settings.slideDuration or 8 }}">
         </div>
       </div>
-      <!-- Preserve other settings when only saving timing -->
-      <input type="hidden" name="dropboxAppKey"      value="">
-      <input type="hidden" name="dropboxAppSecret"   value="">
-      <input type="hidden" name="dropboxRefreshToken" value="">
-      <input type="hidden" name="dropboxToken"       value="">
       <button type="submit" class="btn btn-primary btn-sm">Save Timing</button>
     </form>
-
-    <div style="margin-top:24px;padding-top:22px;border-top:1px solid var(--border)">
-      <div class="card-title">One-time Dropbox Setup</div>
-      <div class="card-hint">This works on restricted networks — the Pi only makes <strong style="color:var(--text)">outbound</strong> calls and never needs to be reachable from the internet.</div>
-      <div class="connect-steps">
-        <div class="connect-step">
-          <div class="step-num">1</div>
-          <div class="step-body">
-            <strong>Create a Dropbox app</strong> at <a href="https://www.dropbox.com/developers/apps" target="_blank">dropbox.com/developers/apps</a> &rarr; <strong>Scoped access &rarr; Full Dropbox</strong>.<br>
-            Enable: <code>files.metadata.read</code> and <code>files.content.read</code>.<br>
-            Under <strong>Redirect URIs</strong> add: <code>http://localhost/dropbox-auth</code>
-          </div>
-        </div>
-        <div class="connect-step">
-          <div class="step-num">2</div>
-          <div class="step-body">
-            <strong>Enter your App Key and Secret</strong> and save:
-            <form method="POST" action="/admin/settings" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-              <div><label class="fl">App Key</label>
-                <input class="fi" name="dropboxAppKey" placeholder="abc123xyz" value="{{ settings.dropboxAppKey or '' }}"></div>
-              <div><label class="fl">App Secret</label>
-                <input class="fi" name="dropboxAppSecret" type="password" value="{{ settings.dropboxAppSecret or '' }}"></div>
-              <input type="hidden" name="dropboxFolder"       value="{{ settings.dropboxFolder or '/slideshow' }}">
-              <input type="hidden" name="calDuration"         value="{{ settings.calDuration or 60 }}">
-              <input type="hidden" name="slideDuration"       value="{{ settings.slideDuration or 8 }}">
-              <input type="hidden" name="dropboxRefreshToken" value="">
-              <input type="hidden" name="dropboxToken"        value="">
-              <div style="grid-column:1/-1">
-                <button type="submit" class="btn btn-ghost btn-sm">Save App Key &amp; Secret</button>
-              </div>
-            </form>
-          </div>
-        </div>
-        <div class="connect-step">
-          <div class="step-num">3</div>
-          <div class="step-body">
-            <strong>Open the authorization link</strong> in any browser on any device. Log in to Dropbox and click Allow.
-            <div style="margin-top:10px">
-              {% if settings.dropboxAppKey %}
-              <a class="btn btn-success btn-sm" target="_blank"
-                 href="https://www.dropbox.com/oauth2/authorize?client_id={{ settings.dropboxAppKey }}&response_type=code&token_access_type=offline&redirect_uri=http%3A%2F%2Flocalhost%2Fdropbox-auth">
-                Open Dropbox Authorization &rarr;</a>
-              {% else %}
-              <span style="font-size:12px;color:var(--muted);font-style:italic">Complete step 2 first</span>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-        <div class="connect-step">
-          <div class="step-num">4</div>
-          <div class="step-body">
-            <strong>After clicking Allow</strong>, your browser goes to a page that won&rsquo;t load — that&rsquo;s expected. Copy the <strong>code</strong> value from the URL (<code>?code=XXXXX</code>), paste it below and click Exchange:
-            <form method="POST" action="/admin/dropbox/exchange">
-              <div class="code-paste-row">
-                <input type="text" name="code" placeholder="Paste the code from the URL bar…" autocomplete="off" spellcheck="false">
-                <button type="submit" class="btn btn-primary btn-sm">Exchange &amp; Connect</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -382,7 +298,7 @@
             <input type="checkbox" name="showSlideshow" value="1" style="width:15px;height:15px">
             <span style="font-size:13px">Rotate to photo slideshow on this screen</span>
           </label>
-          <div class="fh">Uses the global Dropbox folder configured below</div>
+          <div class="fh">Uses the shared server media library configured below</div>
         </div>
         <div class="fsep">Logo</div>
         <div class="fg"><label class="fl">Logo Image (shown top-right)</label>
