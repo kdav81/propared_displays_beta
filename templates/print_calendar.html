@@ -424,16 +424,22 @@ async function generate(){
 
 (function(){
   var y = new Date().getFullYear();
-  document.getElementById('startMonth').value = 0;
-  document.getElementById('endMonth').value = 11;
+  var now = new Date();
+  var startMonth = now.getMonth();
+  var endDateForMonth = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+  var endMonth = endDateForMonth.getMonth();
+  var endYearForMonth = endDateForMonth.getFullYear();
+
+  document.getElementById('startMonth').value = startMonth;
+  document.getElementById('endMonth').value = endMonth;
   ['startYear', 'endYear'].forEach(function(id){
     var sel = document.getElementById(id);
     for(var i = 0; i < sel.options.length; i++){
-      if(parseInt(sel.options[i].value, 10) === y){ sel.selectedIndex = i; break; }
+      var targetYear = id === 'endYear' ? endYearForMonth : y;
+      if(parseInt(sel.options[i].value, 10) === targetYear){ sel.selectedIndex = i; break; }
     }
   });
 
-  var now = new Date();
   var day = now.getDay();
   var mon = new Date(now);
   mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
