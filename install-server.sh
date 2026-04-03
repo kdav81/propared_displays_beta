@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Propared Calendar Displays — Server Installer (main branch)
-# Target: Oracle Cloud Free Tier, Ubuntu 22.04
+# Propared Calendar Displays — Server Installer (production / main branch)
+# Target: Oracle Cloud Free Tier, Ubuntu 22.04 — or any Debian-based Linux server
 #
 # Run as: ubuntu (the default Oracle Cloud user), NOT root
 # Usage:
