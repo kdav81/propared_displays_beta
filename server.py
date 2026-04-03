@@ -1132,7 +1132,7 @@ def api_media_upload():
     return jsonify({"ok": True, "item": dict(item, url=_media_public_url(filename))})
 
 
-@app.route("/api/media/<media_id>", methods=["PUT"])
+@app.route("/api/media/<media_id>", methods=["PUT", "POST"])
 @require_admin
 def api_media_update(media_id):
     data = request.get_json(force=True, silent=True) or {}
