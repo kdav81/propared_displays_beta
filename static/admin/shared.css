@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg:#0c0c0f;
+  --s1:#13131a;
+  --s2:#1c1c27;
+  --border:#2a2a3a;
+  --accent:#4f6ef7;
+  --danger:#dc2626;
+  --success:#16a34a;
+  --text:#e8e8f4;
+  --muted:#9090b8;
+  --dim:#606080;
+}
+
+html,body{min-height:100%;background:var(--bg);color:var(--text);
+  font-family:'DM Sans',system-ui,sans-serif;font-size:15px}
+a{color:var(--accent);text-decoration:none}
+
+/* ── Topbar ──────────────────────────────────────────────── */
+.topbar{background:var(--s1);border-bottom:1px solid var(--border);padding:0 32px;
+  height:60px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+.topbar-title{font-size:17px;font-weight:700;color:#fff;flex:1;
+  display:flex;align-items:center;gap:12px}
+.topbar-links{display:flex;gap:8px;margin-left:auto}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:7px;
+  font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;
+  transition:filter .15s,border-color .15s,color .15s,background .15s;
+  text-decoration:none;white-space:nowrap}
+.btn-sm{padding:6px 12px;font-size:13px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{filter:brightness(1.12)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-ghost:hover{border-color:var(--text)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{filter:brightness(1.12)}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{filter:brightness(1.12)}
+
+/* ── Layout ──────────────────────────────────────────────── */
+.page{max-width:1100px;margin:0 auto;padding:36px 32px 80px}
+hr.divider{border:none;border-top:1px solid var(--border);margin:40px 0 0}
+
+/* ── Cards ───────────────────────────────────────────────── */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:22px 26px}
+.card-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
+.card-hint{font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6}
+
+/* ── Modal ───────────────────────────────────────────────── */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);
+  z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:14px;
+  width:600px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal-head{padding:22px 26px 18px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--s1);z-index:1}
+.modal-title{font-weight:700;font-size:18px;color:#fff}
+.modal-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:24px;line-height:1;padding:4px}
+.modal-x:hover{color:#fff}
+.modal-body{padding:22px 26px}
+.modal-foot{padding:18px 26px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;
+  gap:10px;position:sticky;bottom:0;background:var(--s1)}
+
+/* ── Form fields ─────────────────────────────────────────── */
+.fg{margin-bottom:16px}
+.fg:last-child{margin-bottom:0}
+.fl{display:block;font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:6px}
+.fi{width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);
+  padding:9px 13px;border-radius:7px;font-size:14px;font-family:inherit;transition:border-color .15s}
+.fi:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,110,247,.15)}
+.fh{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5}
+.fsep{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--muted);margin:20px 0 14px;padding-top:16px;border-top:1px solid var(--border)}
+.fsep:first-child{margin-top:0;border-top:none;padding-top:0}
+
+/* ── Toast ───────────────────────────────────────────────── */
+#toast{position:fixed;bottom:28px;right:28px;background:var(--success);color:#fff;
+  padding:14px 24px;border-radius:10px;font-size:15px;font-weight:600;
+  z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
