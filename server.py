@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Propared Calendar Displays Server
-========================
-Single-file Flask server for Pi-based room display kiosks.
+Propared Calendar Displays — Main Server
+========================================
+Single-file Flask/Waitress server. Handles room displays, admin panel,
+print calendar PDF generation, iCal feed caching, and client check-ins.
 
 Design goals:
   - Pi Zero W2 friendly: all iCal parsing happens server-side.
