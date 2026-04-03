@@ -50,6 +50,7 @@ from pathlib import Path
 try:
     from print_calendar_pdf import build_calendar_pdf as _build_calendar_pdf
     from print_calendar_pdf import build_weekly_pdf as _build_weekly_pdf
+    from print_calendar_pdf import build_room_calendar_pdf as _build_room_calendar_pdf
     _PDF_AVAILABLE = True
 except ImportError:
     _PDF_AVAILABLE = False
@@ -813,6 +814,16 @@ def api_rooms():
     ])
 
 
+@app.route("/api/rooms-print")
+def api_rooms_print():
+    """Return room list with iCal URLs for the print calendar page."""
+    rooms = load_rooms()
+    return jsonify([
+        {"id": rid, "title": r.get("title", rid), "icalUrl": r.get("icalUrl", "")}
+        for rid, r in sorted(rooms.items(), key=lambda x: x[1].get("title", ""))
+    ])
+
+
 # ── Room config ──────────────────────────────────────────────────────────────
 
 @app.route("/api/config/<rid>")
@@ -1084,45 +1095,96 @@ def api_generate_calendar_pdf():
             status=500
         )
     data         = request.get_json(force=True, silent=True) or {}
-    show_ids     = data.get('showIds', [])
     cal_type     = data.get('calType', 'monthly')
+    cal_source   = data.get('calSource', 'productions')
     updated_by   = data.get('updatedBy', '').strip()
-    cal_subtitle = data.get('calSubtitle', 'Rehearsal Performance Calendar').strip()
+    cal_subtitle = data.get('calSubtitle', '').strip()
     custom_notes = data.get('customNotes', {})
-    multi_show   = bool(data.get('multiShow', len(show_ids) > 1))
-    shows          = load_print_shows()
     tag_colors     = load_tags()
     location_rules = load_location_rules() if data.get('applyLocationRules', True) else []
 
     try:
-        if cal_type == 'weekly':
-            pdf_bytes = _build_weekly_pdf(
-                show_ids       = show_ids,
-                shows          = shows,
-                tag_colors     = tag_colors,
-                location_rules = location_rules,
-                start_date     = data.get('startDate', ''),
-                end_date       = data.get('endDate',   ''),
-                updated_by     = updated_by,
-                cal_subtitle   = cal_subtitle,
-                custom_notes   = custom_notes,
-                multi_show     = multi_show,
-            )
+        if cal_source == 'rooms':
+            # ── Room schedule calendars ──────────────────────────────────────
+            room_ids = data.get('roomIds', [])
+            rooms    = load_rooms()
+            subtitle = cal_subtitle or "Room Schedule"
+
+            if cal_type == 'weekly':
+                # Convert rooms to the shows format expected by build_weekly_pdf
+                fake_shows: dict = {}
+                for rid in room_ids:
+                    room = rooms.get(rid, {})
+                    url  = room.get("icalUrl", "").replace("webcal://", "https://").replace("webcal:", "https:")
+                    fake_shows[rid] = {
+                        "title":    room.get("title", rid),
+                        "season":   "",
+                        "shortTag": "",
+                        "feeds":    [{"url": url, "label": room.get("title", rid)}],
+                    }
+                pdf_bytes = _build_weekly_pdf(
+                    show_ids       = room_ids,
+                    shows          = fake_shows,
+                    tag_colors     = tag_colors,
+                    location_rules = location_rules,
+                    start_date     = data.get('startDate', ''),
+                    end_date       = data.get('endDate',   ''),
+                    updated_by     = updated_by,
+                    cal_subtitle   = subtitle,
+                    custom_notes   = custom_notes,
+                    multi_show     = len(room_ids) > 1,
+                )
+            else:
+                pdf_bytes = _build_room_calendar_pdf(
+                    room_ids       = room_ids,
+                    rooms          = rooms,
+                    tag_colors     = tag_colors,
+                    location_rules = location_rules,
+                    start_month    = _to_int(data.get('startMonth'), 0, minimum=0, maximum=12),
+                    start_year     = _to_int(data.get('startYear'), 2026, minimum=2000, maximum=2100),
+                    end_month      = _to_int(data.get('endMonth'), 0, minimum=0, maximum=12),
+                    end_year       = _to_int(data.get('endYear'), 2026, minimum=2000, maximum=2100),
+                    updated_by     = updated_by,
+                    cal_subtitle   = subtitle,
+                    custom_notes   = custom_notes,
+                )
+
         else:
-            pdf_bytes = _build_calendar_pdf(
-                show_ids       = show_ids,
-                shows          = shows,
-                tag_colors     = tag_colors,
-                location_rules = location_rules,
-                start_month    = _to_int(data.get('startMonth'), 0, minimum=0, maximum=12),
-                start_year     = _to_int(data.get('startYear'), 2026, minimum=2000, maximum=2100),
-                end_month      = _to_int(data.get('endMonth'), 0, minimum=0, maximum=12),
-                end_year       = _to_int(data.get('endYear'), 2026, minimum=2000, maximum=2100),
-                updated_by     = updated_by,
-                cal_subtitle   = cal_subtitle,
-                custom_notes   = custom_notes,
-                multi_show     = multi_show,
-            )
+            # ── Production calendars (existing flow) ─────────────────────────
+            show_ids   = data.get('showIds', [])
+            multi_show = bool(data.get('multiShow', len(show_ids) > 1))
+            shows      = load_print_shows()
+            subtitle   = cal_subtitle or "Rehearsal Performance Calendar"
+
+            if cal_type == 'weekly':
+                pdf_bytes = _build_weekly_pdf(
+                    show_ids       = show_ids,
+                    shows          = shows,
+                    tag_colors     = tag_colors,
+                    location_rules = location_rules,
+                    start_date     = data.get('startDate', ''),
+                    end_date       = data.get('endDate',   ''),
+                    updated_by     = updated_by,
+                    cal_subtitle   = subtitle,
+                    custom_notes   = custom_notes,
+                    multi_show     = multi_show,
+                )
+            else:
+                pdf_bytes = _build_calendar_pdf(
+                    show_ids       = show_ids,
+                    shows          = shows,
+                    tag_colors     = tag_colors,
+                    location_rules = location_rules,
+                    start_month    = _to_int(data.get('startMonth'), 0, minimum=0, maximum=12),
+                    start_year     = _to_int(data.get('startYear'), 2026, minimum=2000, maximum=2100),
+                    end_month      = _to_int(data.get('endMonth'), 0, minimum=0, maximum=12),
+                    end_year       = _to_int(data.get('endYear'), 2026, minimum=2000, maximum=2100),
+                    updated_by     = updated_by,
+                    cal_subtitle   = subtitle,
+                    custom_notes   = custom_notes,
+                    multi_show     = multi_show,
+                )
+
         return Response(
             pdf_bytes,
             mimetype='application/pdf',
