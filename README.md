@@ -66,7 +66,6 @@ A web-based room display system for the University of Delaware's Department of T
 | `install-server.sh` | Production server installer for the live `main` branch deployment |
 | `install-server-testing.sh` | Testing/sandbox server installer for the `testing` branch deployment |
 | `install-client.sh` | Raspberry Pi kiosk installer for room display clients |
-| `install.sh` | Legacy older installer kept for reference/backward compatibility; not the primary current server installer |
 | `ADMIN.md` | Day-to-day operational guide for admin tasks |
 | `SETUP.md` | Full installation and deployment guide |
 | `README.md` | Project overview, branch purpose, URLs, and repository map |

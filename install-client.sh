@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Propared Calendar Displays — Raspberry Pi Kiosk Installer
+# Propared Calendar Displays — Raspberry Pi Room Display Installer
 # Raspberry Pi OS Trixie (Debian 13), 64-bit
 # Sets up Chromium fullscreen kiosk + LightDM autologin + watchdog service
 # Supports:
