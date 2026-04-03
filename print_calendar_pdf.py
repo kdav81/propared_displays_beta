@@ -272,6 +272,26 @@ def local_date(dt) -> date:
     return dt
 
 
+def _expanded_month_row_heights(
+    grid_table: Table,
+    content_width: float,
+    target_height: float,
+    num_weeks: int,
+) -> list[float] | None:
+    """Expand monthly calendar week rows so quieter months still fill the page."""
+    if num_weeks <= 0 or target_height <= 0:
+        return None
+    grid_table.wrap(content_width, target_height)
+    row_heights = list(getattr(grid_table, "_rowHeights", []) or [])
+    if len(row_heights) != num_weeks + 1:
+        return None
+    current_height = sum(row_heights)
+    if current_height >= target_height:
+        return None
+    extra_per_week = (target_height - current_height) / num_weeks
+    return [row_heights[0]] + [h + extra_per_week for h in row_heights[1:]]
+
+
 # ---------------------------------------------------------------------------
 # PDF builder
 # ---------------------------------------------------------------------------
@@ -476,7 +496,8 @@ def build_calendar_pdf(
         story.append(Spacer(1, 2))
 
         # ---- Month label --------------------------------------------------
-        story.append(Paragraph(f"{MONTH_NAMES[month]} {year}", sty_month))
+        month_para = Paragraph(f"{MONTH_NAMES[month]} {year}", sty_month)
+        story.append(month_para)
         story.append(Spacer(1, 2))
 
         # ---- Calendar grid: DOW header + week rows ------------------------
@@ -555,8 +576,23 @@ def build_calendar_pdf(
                 row_cells.append(cell_content)
             grid_data.append(row_cells)
 
+        legend_present = multi_show and bool(month_tags)
+        header_h = header_table.wrap(CONTENT_W, CONTENT_H)[1]
+        month_h = month_para.wrap(CONTENT_W, CONTENT_H)[1]
+        grid_target_height = CONTENT_H - header_h - month_h - 8 - (20 if legend_present else 0) - 12
+
         grid_table = Table(grid_data, colWidths=[col_w]*7, repeatRows=1, splitByRow=1)
         grid_table.setStyle(TableStyle(grid_styles))
+        row_heights = _expanded_month_row_heights(grid_table, CONTENT_W, grid_target_height, num_weeks)
+        if row_heights:
+            grid_table = Table(
+                grid_data,
+                colWidths=[col_w]*7,
+                rowHeights=row_heights,
+                repeatRows=1,
+                splitByRow=1,
+            )
+            grid_table.setStyle(TableStyle(grid_styles))
         story.append(grid_table)
 
         # ---- Legend -------------------------------------------------------
@@ -1191,7 +1227,8 @@ def build_room_calendar_pdf(
         ]))
         story.append(hdr_tbl)
         story.append(Spacer(1, 2))
-        story.append(Paragraph(f"{MONTH_NAMES[month]} {year}", sty_month))
+        month_para = Paragraph(f"{MONTH_NAMES[month]} {year}", sty_month)
+        story.append(month_para)
         story.append(Spacer(1, 2))
 
         ev_size, loc_size, dnum_size = 7.5, 6.5, 8
@@ -1277,8 +1314,23 @@ def build_room_calendar_pdf(
                 row_cells.append(cell_content)
             grid_data.append(row_cells)
 
+        legend_present = bool(month_tags)
+        header_h = hdr_tbl.wrap(CONTENT_W, CONTENT_H)[1]
+        month_h = month_para.wrap(CONTENT_W, CONTENT_H)[1]
+        grid_target_height = CONTENT_H - header_h - month_h - 8 - (20 if legend_present else 0) - 12
+
         grid_table = Table(grid_data, colWidths=[col_w]*7, repeatRows=1, splitByRow=1)
         grid_table.setStyle(TableStyle(grid_styles))
+        row_heights = _expanded_month_row_heights(grid_table, CONTENT_W, grid_target_height, len(weeks))
+        if row_heights:
+            grid_table = Table(
+                grid_data,
+                colWidths=[col_w]*7,
+                rowHeights=row_heights,
+                repeatRows=1,
+                splitByRow=1,
+            )
+            grid_table.setStyle(TableStyle(grid_styles))
         story.append(grid_table)
 
         # Legend with colored squares
