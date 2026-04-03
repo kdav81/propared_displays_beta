@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Propared Calendar Displays — Testing Server Installer (sandbox / testing branch)
+# Propared Calendar Displays — Feature Server Installer (server-side slides)
 # Target: Oracle Cloud Free Tier, Ubuntu 22.04 — or any Debian-based Linux server
+#
+# Safe side-by-side deploy for branch: kdav81/server-side-slides
+# This does NOT reuse the normal testing app dir, service name, or port.
 #
 # Run as: ubuntu (the default Oracle Cloud user), NOT root
 # Usage:
-#   bash install-server-testing.sh            # fresh install
-#   bash install-server-testing.sh --update   # pull latest code, preserve all data
+#   bash install-server-server-side-slides.sh            # fresh install
+#   bash install-server-server-side-slides.sh --update   # pull latest code, preserve all data
 # =============================================================================
 set -euo pipefail
 
-BRANCH="testing"
+BRANCH="kdav81/server-side-slides"
 REPO="https://github.com/kdav81/propared_displays_beta.git"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
@@ -27,12 +30,12 @@ UPDATE_ONLY=false
 [[ "${1:-}" == "--update" ]] && UPDATE_ONLY=true
 
 APP_USER="${USER}"
-APP_DIR="${HOME}/propared-display"
+APP_DIR="${HOME}/propared-display-server-side-slides"
 VENV_DIR="${APP_DIR}/venv"
-SERVICE_NAME="propared-display"
-PORT=80
+SERVICE_NAME="propared-display-server-side-slides"
+PORT=8081
 TZ_TARGET="America/New_York"
-SCRIPT_NAME="install-server-testing.sh"
+SCRIPT_NAME="install-server-server-side-slides.sh"
 BIN_DIR="${HOME}/bin"
 
 [[ "${APP_USER}" == "root" ]] && die "Do not run as root. Run as 'ubuntu'."
@@ -40,36 +43,36 @@ BIN_DIR="${HOME}/bin"
 install_shell_helpers() {
     local bashrc="${HOME}/.bashrc"
     mkdir -p "${BIN_DIR}"
-    cat > "${BIN_DIR}/display-logs" << EOF
+    cat > "${BIN_DIR}/slides-dev-logs" << EOF
 #!/usr/bin/env bash
 journalctl -u ${SERVICE_NAME} -f "\$@"
 EOF
-    cat > "${BIN_DIR}/display-restart" << EOF
+    cat > "${BIN_DIR}/slides-dev-restart" << EOF
 #!/usr/bin/env bash
 sudo systemctl restart ${SERVICE_NAME}
 EOF
-    cat > "${BIN_DIR}/display-stop" << EOF
+    cat > "${BIN_DIR}/slides-dev-stop" << EOF
 #!/usr/bin/env bash
 sudo systemctl stop ${SERVICE_NAME}
 EOF
-    cat > "${BIN_DIR}/display-status" << EOF
+    cat > "${BIN_DIR}/slides-dev-status" << EOF
 #!/usr/bin/env bash
 sudo systemctl status ${SERVICE_NAME}
 EOF
-    cat > "${BIN_DIR}/display-update" << EOF
+    cat > "${BIN_DIR}/slides-dev-update" << EOF
 #!/usr/bin/env bash
 bash ${APP_DIR}/${SCRIPT_NAME} --update
 EOF
-    chmod +x "${BIN_DIR}"/display-*
+    chmod +x "${BIN_DIR}"/slides-dev-*
     if ! grep -qF 'export PATH="$HOME/bin:$PATH"' "${bashrc}" 2>/dev/null; then
         echo 'export PATH="$HOME/bin:$PATH"' >> "${bashrc}"
     fi
     declare -A alias_map=(
-        ["display-logs"]="${BIN_DIR}/display-logs"
-        ["display-restart"]="${BIN_DIR}/display-restart"
-        ["display-stop"]="${BIN_DIR}/display-stop"
-        ["display-status"]="${BIN_DIR}/display-status"
-        ["display-update"]="${BIN_DIR}/display-update"
+        ["slides-dev-logs"]="${BIN_DIR}/slides-dev-logs"
+        ["slides-dev-restart"]="${BIN_DIR}/slides-dev-restart"
+        ["slides-dev-stop"]="${BIN_DIR}/slides-dev-stop"
+        ["slides-dev-status"]="${BIN_DIR}/slides-dev-status"
+        ["slides-dev-update"]="${BIN_DIR}/slides-dev-update"
     )
     for name in "${!alias_map[@]}"; do
         sed -i "/^alias ${name}=/d" "${bashrc}" 2>/dev/null || true
@@ -78,10 +81,11 @@ EOF
     info "Shell aliases and helper commands added."
 }
 
-header "Propared Calendar Displays — Server Installer (branch: ${BRANCH})"
+header "Propared Calendar Displays — Feature Installer"
 echo "  User      : ${APP_USER}"
 echo "  App dir   : ${APP_DIR}"
 echo "  Branch    : ${BRANCH}"
+echo "  Service   : ${SERVICE_NAME}"
 echo "  Port      : ${PORT}"
 echo "  Timezone  : ${TZ_TARGET}"
 [[ "${UPDATE_ONLY}" == "true" ]] && \
@@ -166,7 +170,6 @@ else
     git clone --branch "${BRANCH}" "${REPO}" "${APP_DIR}"
 fi
 
-# Create runtime directories that are gitignored
 mkdir -p "${APP_DIR}"/{static,cache,backups}
 mkdir -p "${APP_DIR}/static/admin"
 info "Application files ready in ${APP_DIR}."
@@ -186,16 +189,10 @@ info "Python packages installed."
 
 # ── 4. Firewall (inbound + outbound) ─────────────────────────────────────────
 header "Step 4 — Firewall"
-# Inbound: allow port 80 and 443 before the default REJECT rule
-if ! sudo iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null; then
-    sudo iptables -I INPUT 4 -p tcp --dport 80 -j ACCEPT
-    info "Added iptables rule: allow TCP in on 80"
+if ! sudo iptables -C INPUT -p tcp --dport ${PORT} -j ACCEPT 2>/dev/null; then
+    sudo iptables -I INPUT 4 -p tcp --dport ${PORT} -j ACCEPT
+    info "Added iptables rule: allow TCP in on ${PORT}"
 fi
-if ! sudo iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null; then
-    sudo iptables -I INPUT 4 -p tcp --dport 443 -j ACCEPT
-    info "Added iptables rule: allow TCP in on 443"
-fi
-# Outbound: allow reaching Dropbox, GitHub, iCal feeds etc.
 if ! sudo iptables -C OUTPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null; then
     sudo iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
     info "Added iptables rule: allow TCP out on 443"
@@ -239,7 +236,7 @@ EOF
 
 sudo tee /etc/systemd/system/${SERVICE_NAME}-nightly.service > /dev/null << EOF
 [Unit]
-Description=Propared Calendar Displays Nightly Restart
+Description=Propared Calendar Displays Nightly Restart (${SERVICE_NAME})
 
 [Service]
 Type=oneshot
@@ -248,7 +245,7 @@ EOF
 
 sudo tee /etc/systemd/system/${SERVICE_NAME}-nightly.timer > /dev/null << EOF
 [Unit]
-Description=Propared Calendar Displays Nightly Restart at 3 AM
+Description=Propared Calendar Displays Nightly Restart at 3 AM (${SERVICE_NAME})
 
 [Timer]
 OnCalendar=*-*-* 03:00:00
@@ -285,19 +282,24 @@ sleep 2
 echo
 echo -e "${YELLOW}══════════════════════════════════════════${NC}"
 if systemctl is-active --quiet "${SERVICE_NAME}"; then
-    echo -e "${YELLOW}  ✓  Propared Calendar Displays server is running! [TESTING]${NC}"
+    echo -e "${YELLOW}  ✓  Feature server is running! [SERVER-SIDE-SLIDES]${NC}"
     echo -e "${YELLOW}══════════════════════════════════════════${NC}"
     echo
     PUBLIC_IP=$(curl -sf --max-time 5 http://checkip.amazonaws.com 2>/dev/null || hostname -I | awk '{print $1}')
     echo "  Branch       : ${BRANCH}"
-    echo "  Admin panel  : http://${PUBLIC_IP}/admin"
-    echo "  Status page  : http://${PUBLIC_IP}/status"
+    echo "  Service      : ${SERVICE_NAME}"
+    echo "  App dir      : ${APP_DIR}"
+    echo "  Direct URL   : http://${PUBLIC_IP}:${PORT}/admin"
+    echo "  Status page  : http://${PUBLIC_IP}:${PORT}/status"
     echo "  Logs         : journalctl -u ${SERVICE_NAME} -f"
-    echo "  Alias        : display-logs  (reload shell first)"
+    echo "  Alias        : slides-dev-logs  (reload shell first)"
     echo
     echo "  To update without reinstalling:"
-    echo "    bash ${APP_DIR}/install-server-testing.sh --update"
-    echo "    (or: display-update  after reloading shell)"
+    echo "    bash ${APP_DIR}/${SCRIPT_NAME} --update"
+    echo "    (or: slides-dev-update  after reloading shell)"
+    echo
+    echo "  Oracle Cloud note:"
+    echo "    Add an ingress/security-list rule for TCP port ${PORT}"
 else
     echo -e "${RED}  ✗  Service failed to start${NC}"
     echo -e "${YELLOW}══════════════════════════════════════════${NC}"

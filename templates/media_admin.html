@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Media Library</title>
+<link rel="stylesheet" href="/static/admin/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+.page{max-width:1180px}
+.grid{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+.sec{font-size:13px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#fff;margin-bottom:14px}
+.media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.media-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.media-thumb{aspect-ratio:16/9;background:var(--s2);display:flex;align-items:center;justify-content:center}
+.media-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.media-body{padding:12px 14px}
+.media-title{font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.media-meta{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45}
+.media-foot{display:flex;gap:8px;padding:10px 14px;background:var(--s2);border-top:1px solid var(--border)}
+.badge-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.pill-green{background:rgba(22,163,74,.15);color:#4ade80}
+.pill-red{background:rgba(220,38,38,.15);color:#f87171}
+.pill-blue{background:rgba(79,110,247,.15);color:#7b9eff}
+.hint{font-size:13px;color:var(--muted);line-height:1.6}
+.empty{font-size:14px;color:var(--muted);font-style:italic;padding:8px 0}
+.date-field{position:relative}
+.date-field .fi{padding-right:42px}
+.date-btn{position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:16px}
+.flatpickr-calendar{background:var(--s1);border:1px solid var(--border);box-shadow:0 18px 36px rgba(0,0,0,.45)}
+.flatpickr-day{color:var(--text)}
+.flatpickr-day.selected,.flatpickr-day.startRange,.flatpickr-day.endRange{background:var(--accent);border-color:var(--accent)}
+.flatpickr-day.today{border-color:var(--accent)}
+.flatpickr-months .flatpickr-month,.flatpickr-current-month input.cur-year,.flatpickr-weekday,.numInputWrapper span.arrowUp:after,.numInputWrapper span.arrowDown:after{color:var(--text)}
+@media (max-width: 900px){
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title"><span class="dot"></span>Server Media Library</div>
+  <div class="topbar-links">
+    <a class="btn btn-ghost btn-sm" href="/admin">&#9881; Admin</a>
+    <a class="btn btn-ghost btn-sm" href="/slide" target="_blank">&#9654; Preview Slideshow</a>
+    <a class="btn btn-ghost btn-sm" href="/print-calendar">&#128438; Print Calendar</a>
+  </div>
+</div>
+
+{% if setup_needed %}
+<div class="page" style="max-width:620px;padding-top:36px">
+  <div class="card">
+    <div class="sec">Shared Access Setup</div>
+    <div class="hint" style="margin-bottom:18px">
+      Set one shared password for both the Notice page and the Media Library.
+      This gives limited access without exposing the full Admin screen.
+    </div>
+    <form method="post">
+      <input type="hidden" name="action" value="set_password">
+      <div class="fg">
+        <label class="fl">Shared Password</label>
+        <input class="fi" type="password" name="password" required autofocus>
+      </div>
+      <button class="btn btn-primary" type="submit">Set Shared Password</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="page">
+  <div class="grid">
+    <div class="card">
+      <div class="sec">Upload Image</div>
+      <div class="hint" style="margin-bottom:16px">
+        Upload images directly to the server. Each item can have:
+        no dates, a start date only, an end date only, or both.
+      </div>
+      <form id="upload-form">
+        <div class="fg">
+          <label class="fl">Image File</label>
+          <input class="fi" type="file" name="file" accept="image/*" required>
+        </div>
+        <div class="fg">
+          <label class="fl">Title</label>
+          <input class="fi" type="text" name="title" placeholder="Optional display label">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="fg">
+            <label class="fl">Start Date</label>
+            <div class="date-field">
+              <input class="fi js-date" type="text" name="startDate" placeholder="Select date" autocomplete="off">
+              <button class="date-btn" type="button" data-target="startDate" aria-label="Choose start date">&#128197;</button>
+            </div>
+            <div class="fh">Leave blank to show immediately.</div>
+          </div>
+          <div class="fg">
+            <label class="fl">End Date</label>
+            <div class="date-field">
+              <input class="fi js-date" type="text" name="endDate" placeholder="Select date" autocomplete="off">
+              <button class="date-btn" type="button" data-target="endDate" aria-label="Choose end date">&#128197;</button>
+            </div>
+            <div class="fh">Leave blank for no expiration.</div>
+          </div>
+        </div>
+        <div class="fg">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" name="active" value="1" checked style="width:15px;height:15px">
+            <span style="font-size:13px">Active after upload</span>
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Upload Image</button>
+      </form>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:18px">
+        <div class="sec">Slideshow Settings</div>
+        <div class="hint">
+          This page is protected by the shared Notice/Media password.
+          Uploaded images here are the only slideshow source for room displays.
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap">
+          <a class="btn btn-ghost btn-sm" href="/slide" target="_blank">Preview Global Slideshow</a>
+          <span style="font-size:13px;color:var(--muted)">Current timing: {{ settings.calDuration or 60 }}s calendar / {{ settings.slideDuration or 8 }}s photo</span>
+        </div>
+      </div>
+
+      <div class="sec">Library Items</div>
+      <div id="media-grid" class="media-grid">
+        <div class="empty">Loading media…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="edit-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Edit Media Item</div>
+      <button class="modal-x" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+      <div class="fg">
+        <label class="fl">Title</label>
+        <input class="fi" id="edit-title" type="text">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fg">
+          <label class="fl">Start Date</label>
+          <div class="date-field">
+            <input class="fi js-date" id="edit-startDate" type="text" placeholder="Select date" autocomplete="off">
+            <button class="date-btn" type="button" data-target="edit-startDate" aria-label="Choose start date">&#128197;</button>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl">End Date</label>
+          <div class="date-field">
+            <input class="fi js-date" id="edit-endDate" type="text" placeholder="Select date" autocomplete="off">
+            <button class="date-btn" type="button" data-target="edit-endDate" aria-label="Choose end date">&#128197;</button>
+          </div>
+        </div>
+      </div>
+      <div class="fg">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input id="edit-active" type="checkbox" style="width:15px;height:15px">
+          <span style="font-size:13px">Active</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+var MEDIA = [];
+var DATE_PICKERS = {};
+
+function setupDatePickers(){
+  document.querySelectorAll('.js-date').forEach(function(input){
+    if(DATE_PICKERS[input.id || input.name]) return;
+    DATE_PICKERS[input.id || input.name] = flatpickr(input, {
+      dateFormat: 'Y-m-d',
+      allowInput: false,
+      clickOpens: true
+    });
+  });
+  document.querySelectorAll('.date-btn').forEach(function(btn){
+    if(btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', function(){
+      var key = btn.dataset.target;
+      var input = document.getElementById(key) || document.querySelector('[name="' + key + '"]');
+      var picker = input ? DATE_PICKERS[input.id || input.name] : null;
+      if(picker) picker.open();
+    });
+  });
+}
+
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2500);
+}
+
+function closeModal(){
+  document.getElementById('edit-modal').classList.remove('open');
+}
+
+document.getElementById('edit-modal').addEventListener('click', function(e){
+  if(e.target === this) closeModal();
+});
+
+function fmtDate(value){
+  return value || '—';
+}
+
+function isActiveNow(item){
+  if(!item.active) return false;
+  var today = new Date().toISOString().slice(0, 10);
+  if(item.startDate && today < item.startDate) return false;
+  if(item.endDate && today > item.endDate) return false;
+  return true;
+}
+
+function renderMedia(){
+  var grid = document.getElementById('media-grid');
+  if(!MEDIA.length){
+    grid.innerHTML = '<div class="empty">No local media uploaded yet.</div>';
+    return;
+  }
+  grid.innerHTML = '';
+  MEDIA.forEach(function(item){
+    var card = document.createElement('div');
+    card.className = 'media-card';
+    card.innerHTML = ''
+      + '<div class="media-thumb"><img src="' + item.url + '" alt=""></div>'
+      + '<div class="media-body">'
+      + '<div class="media-title">' + (item.title || item.originalName) + '</div>'
+      + '<div class="media-meta">Original file: ' + item.originalName + '<br>Start: ' + fmtDate(item.startDate) + '<br>End: ' + fmtDate(item.endDate) + '</div>'
+      + '<div class="badge-row">'
+      + (item.active ? '<span class="pill pill-blue">Enabled</span>' : '<span class="pill pill-red">Disabled</span>')
+      + (isActiveNow(item) ? '<span class="pill pill-green">Visible now</span>' : '<span class="pill pill-red">Not currently visible</span>')
+      + '</div>'
+      + '</div>'
+      + '<div class="media-foot">'
+      + '<button class="btn btn-ghost btn-sm" onclick="openEdit(\'' + item.id + '\')">Edit</button>'
+      + '<button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="deleteMedia(\'' + item.id + '\')">Delete</button>'
+      + '</div>';
+    grid.appendChild(card);
+  });
+}
+
+async function loadMedia(){
+  var r = await fetch('/api/media');
+  MEDIA = await r.json();
+  renderMedia();
+}
+
+document.getElementById('upload-form').addEventListener('submit', async function(e){
+  e.preventDefault();
+  var form = new FormData(e.target);
+  if(!form.get('active')) form.set('active', '0');
+  var r = await fetch('/api/media/upload', {method: 'POST', body: form});
+  if(!r.ok){
+    alert(await r.text());
+    return;
+  }
+  e.target.reset();
+  await loadMedia();
+  showToast('Image uploaded.');
+});
+
+function openEdit(id){
+  var item = MEDIA.find(function(x){ return x.id === id; });
+  if(!item) return;
+  document.getElementById('edit-id').value = item.id;
+  document.getElementById('edit-title').value = item.title || '';
+  DATE_PICKERS['edit-startDate'].setDate(item.startDate || '', false);
+  DATE_PICKERS['edit-endDate'].setDate(item.endDate || '', false);
+  document.getElementById('edit-active').checked = !!item.active;
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+async function saveEdit(){
+  var id = document.getElementById('edit-id').value;
+  var payload = {
+    title: document.getElementById('edit-title').value.trim(),
+    startDate: document.getElementById('edit-startDate').value,
+    endDate: document.getElementById('edit-endDate').value,
+    active: document.getElementById('edit-active').checked
+  };
+  var r = await fetch('/api/media/' + id, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  if(!r.ok){
+    alert(await r.text());
+    return;
+  }
+  closeModal();
+  await loadMedia();
+  showToast('Media updated.');
+}
+
+async function deleteMedia(id){
+  if(!confirm('Delete this media item from the server?')) return;
+  var r = await fetch('/api/media/' + id, {method: 'DELETE'});
+  if(!r.ok){
+    alert(await r.text());
+    return;
+  }
+  await loadMedia();
+  showToast('Media deleted.');
+}
+
+setupDatePickers();
+loadMedia();
+</script>
+{% endif %}
+</body>
+</html>
