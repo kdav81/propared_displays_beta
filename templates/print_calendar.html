@@ -173,9 +173,16 @@ body{background:var(--bg);color:var(--text);font-family:'Source Sans 3',sans-ser
       <label>Calendar Subtitle</label>
       <input id="calSubtitle" type="text" placeholder="Rehearsal Performance Calendar" value="Rehearsal Performance Calendar">
     </div>
-    <div class="field" style="margin-bottom:0">
+    <div class="field">
       <label>Updated By <span style="font-weight:400;color:var(--muted)">(initials shown in header)</span></label>
       <input id="updatedBy" type="text" placeholder="KKS" style="max-width:160px">
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:15px;font-weight:400;color:var(--text)">
+        <input type="checkbox" id="applyLocRules" checked
+               style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">
+        <span>Apply location rules <span style="color:var(--muted);font-size:14px">&mdash; uncheck to show original calendar locations</span></span>
+      </label>
     </div>
   </div>
 
@@ -332,6 +339,7 @@ function cleanTitle(title){
 }
 
 function cleanLocation(loc){
+  if(!document.getElementById('applyLocRules').checked) return loc;
   var cleaned=loc.replace(/\s*\([^)]*\)/g,'').trim();
   for(var i=0;i<LOCATION_RULES.length;i++){
     var rule=LOCATION_RULES[i];
@@ -706,9 +714,10 @@ async function generate(){
     startDate  : document.getElementById('startDate').value,
     endDate    : document.getElementById('endDate').value,
     updatedBy  : document.getElementById('updatedBy').value.trim(),
-    calSubtitle: calSubtitle,
-    customNotes: {},
-    multiShow  : selectedIds.length>1,
+    calSubtitle        : calSubtitle,
+    customNotes        : {},
+    multiShow          : selectedIds.length>1,
+    applyLocationRules : document.getElementById('applyLocRules').checked,
   };
   _lastOpts=pdfOpts;
 

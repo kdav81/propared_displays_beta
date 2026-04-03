@@ -1091,7 +1091,7 @@ def api_generate_calendar_pdf():
     multi_show   = bool(data.get('multiShow', len(show_ids) > 1))
     shows          = load_print_shows()
     tag_colors     = load_tags()
-    location_rules = load_location_rules()
+    location_rules = load_location_rules() if data.get('applyLocationRules', True) else []
 
     try:
         if cal_type == 'weekly':
