@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Propared Calendar Displays — Client Install Script
+# Propared Calendar Displays — Raspberry Pi Kiosk Installer
 # Raspberry Pi OS Trixie (Debian 13), 64-bit
+# Sets up Chromium fullscreen kiosk + LightDM autologin + watchdog service
 # Supports:
-#   Pi 4/5  — full Raspberry Pi Desktop (rpd-labwc / LightDM already present)
+#   Pi 4/5     — full Raspberry Pi Desktop (LightDM already present)
 #   Pi Zero W2 — fresh flash, installs minimal X stack + LightDM
 #
 # Run as your normal user (not root). sudo called internally where needed.
