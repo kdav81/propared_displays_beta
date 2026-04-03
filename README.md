@@ -73,6 +73,8 @@ A web-based room display system for the University of Delaware's Department of T
 | `.gitignore` | Ignores generated data, secrets, caches, and local-only files |
 | `.gitattributes` | Normalizes line endings for cross-platform editing and deployment |
 
+Only the current branch-based installers are kept in the repo now: `install-server.sh`, `install-server-testing.sh`, and `install-client.sh`.
+
 ### Runtime data files
 
 These are created or maintained on the server and are not the main source code:
