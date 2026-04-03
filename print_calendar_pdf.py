@@ -606,6 +606,7 @@ def build_weekly_pdf(
     cal_subtitle: str = "",
     custom_notes: dict | None = None,
     multi_show: bool = False,
+    preserve_tags: bool = False,
 ) -> bytes:
     from datetime import date as Date
     from reportlab.pdfgen import canvas as rl_canvas
@@ -827,7 +828,7 @@ def build_weekly_pdf(
             for strip_idx, ev in enumerate(allday_evs):
                 tag   = get_tag(ev["title"])
                 hex_c = tag_color_hex(tag) if tag else "#6699cc"
-                title = clean_title(ev["title"])
+                title = ev["title"] if preserve_tags else clean_title(ev["title"])
                 # strip y: start from top of allday row going down
                 sy = allday_top - (strip_idx + 1) * STRIP_H
                 c.setFillColor(colors.HexColor(hex_c))
@@ -968,8 +969,10 @@ def build_weekly_pdf(
                 c.setFillColor(colors.white)
                 ty = y_top - 6.5
 
-                display_title = clean_title(ev["title"])
-                prefix = f"{tag}: " if (multi_show and tag) else ""
+                display_title = ev["title"] if preserve_tags else clean_title(ev["title"])
+                prefix = ""
+                if tag and not preserve_tags and multi_show:
+                    prefix = f"{tag}: "
                 time_str = fmt_time(s)
                 if isinstance(e, datetime) and local_date(e) == local_date(s) and e > s:
                     time_str += f"\u2013{fmt_time(e)}"

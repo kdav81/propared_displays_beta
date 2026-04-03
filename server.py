@@ -1133,6 +1133,7 @@ def api_generate_calendar_pdf():
                     cal_subtitle   = subtitle,
                     custom_notes   = custom_notes,
                     multi_show     = len(room_ids) > 1,
+                    preserve_tags  = True,
                 )
             else:
                 pdf_bytes = _build_room_calendar_pdf(
