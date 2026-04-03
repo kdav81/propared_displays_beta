@@ -1,6 +1,6 @@
 # Propared Calendar Displays
 
-A web-based room display system for the University of Delaware Theatre and Dance department. Raspberry Pi screens mounted outside rehearsal rooms show live calendar information pulled from Propared (Google Calendar iCal feeds). A companion print tool generates formatted PDF rehearsal calendars from the same data.
+A web-based room display system for the University of Delaware Theatre and Dance department. Raspberry Pi screens mounted outside rehearsal rooms show live calendar information pulled from Propared iCal feeds. A companion print tool generates formatted PDF rehearsal calendars from the same data.
 
 ---
 
