@@ -44,14 +44,14 @@ Navigation buttons at the top right link to Print Calendar, Print Admin, and the
 
 ## 2. Rooms
 
-Each room corresponds to one physical display screen. Rooms pull from a Google Calendar iCal feed.
+Each room corresponds to one physical display screen. Rooms pull from a Propared iCal feed.
 
 ### Adding a room
 
 1. In the **Rooms** section, click the **+** card (or click **Add Room**)
 2. Fill in the form:
    - **Display Title** — what appears as the header on the screen (e.g. "Rehearsal Hall A")
-   - **Google Calendar iCal URL** — from Google Calendar: Settings → your calendar → *Secret address in iCal format*. Starts with `https://calendar.google.com/calendar/ical/...`
+   - **Propared iCal URL** — the webcal or iCal feed URL from your Propared production. In Propared, go to the production's settings and copy the iCal/webcal feed link
    - **Refresh Interval** — how often (in minutes) the server checks for new events. 5 minutes is recommended
    - **Start / End Hour** — the display only shows the calendar during these hours. Outside these hours the screen goes to a minimal state
    - **Rotate to photo slideshow** — if checked, the display alternates between the calendar and photos from Dropbox
@@ -140,14 +140,14 @@ Up to 3 global calendars can be added. Each gets its own color on the calendar g
 
 The dashboard (`/dashboard`) is a combined view designed for a lobby or office screen. It shows:
 - A grid of all selected rooms with their current/upcoming events
-- An embedded calendar (e.g. a Google Calendar iframe) on the right side
+- An embedded calendar iframe on the right side (any embeddable calendar URL)
 - The same photo slideshow used by room displays
 
 ### Configuring the dashboard
 
 Expand the **Office Dashboard** section in Admin:
 
-- **Calendar Iframe URL** — a public Google Calendar embed URL. In Google Calendar, click the three dots next to a calendar → Settings → *Embed code*, and paste the URL from the `src=` attribute
+- **Calendar Iframe URL** — any embeddable calendar URL. For example, in Google Calendar go to Settings → your calendar → *Embed code* and paste the URL from the `src=` attribute. This iframe is separate from Propared and can show any calendar you choose
 - **Rooms to Show** — check which rooms appear on the dashboard. Drag the handles to reorder them
 - **Timing** — how many seconds to show the calendar iframe before switching to the slideshow, and how long each photo shows
 
@@ -307,7 +307,7 @@ Click **Clear Notice** — this removes the message and unchecks the Active togg
 ### Events aren't updating on a display
 
 - Check the room's **Refresh Interval** in Admin — iCal feeds are cached and update on a timer
-- Verify the iCal URL is still valid: paste it into a browser. If it returns an error, the Google Calendar sharing settings may have changed
+- Verify the iCal URL is still valid: paste it into a browser. If it returns an error or empty data, check the feed settings in Propared
 
 ### The admin page is not loading
 
