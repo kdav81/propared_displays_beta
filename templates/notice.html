@@ -5,78 +5,74 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Notice Board</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="/static/admin/shared.css">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a0d;color:#d8dbed;font-family:'Inter',system-ui,sans-serif;
-  min-height:100vh;display:flex;flex-direction:column}
+/* ── Page needs column flex for topbar + centered content ── */
+body{display:flex;flex-direction:column}
 .page-center{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
-.topbar{background:#13131a;border-bottom:1px solid #2a2a3a;padding:0 32px;height:56px;
-  display:flex;align-items:center;position:sticky;top:0;z-index:100}
-.topbar-title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px;flex:1;color:#e8e8f4}
-.topbar-links{display:flex;gap:8px;margin-left:auto}
-.nav-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;
-  font-size:12px;font-weight:500;cursor:pointer;border:1px solid #2a2a3a;color:#e8e8f4;
-  background:transparent;text-decoration:none;white-space:nowrap;transition:border-color .15s}
-.nav-btn:hover{border-color:#e8e8f4}
-.card{background:#0f0f17;border:1px solid #1c1c2a;border-radius:8px;
-  width:100%;max-width:540px;padding:32px}
+
+/* ── Notice card (narrower than default .card) ── */
+.card{width:100%;max-width:540px;padding:32px}
 h1{font-size:22px;font-weight:600;color:#fff;margin-bottom:6px}
-.subtitle{font-size:13px;color:#52526e;margin-bottom:28px}
+.subtitle{font-size:13px;color:var(--dim);margin-bottom:28px}
 .msg{padding:10px 14px;border-radius:5px;font-size:14px;margin-bottom:20px}
 .msg.ok{background:rgba(22,163,74,.15);border:1px solid rgba(22,163,74,.3);color:#4ade80}
+
+/* ── Notice form fields ── */
 .fg{margin-bottom:18px}
 label{display:block;font-size:12px;font-weight:600;letter-spacing:.8px;
-  text-transform:uppercase;color:#52526e;margin-bottom:7px}
+  text-transform:uppercase;color:var(--muted);margin-bottom:7px}
 input[type=text],input[type=password],textarea{
-  width:100%;background:#12121e;border:1px solid #1c1c2a;border-radius:5px;
-  color:#d8dbed;font-size:15px;padding:10px 12px;outline:none;
+  width:100%;background:var(--s2);border:1px solid var(--border);border-radius:5px;
+  color:var(--text);font-size:15px;padding:10px 12px;outline:none;
   transition:border-color .2s;font-family:inherit}
-input:focus,textarea:focus{border-color:#2563c7}
+input:focus,textarea:focus{border-color:var(--accent)}
 textarea{resize:vertical;min-height:80px;line-height:1.5}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .toggle-row{display:flex;align-items:center;gap:12px;margin-bottom:24px}
 .toggle-row label{margin:0;text-transform:none;font-size:15px;
-  color:#d8dbed;font-weight:500;letter-spacing:0}
+  color:var(--text);font-weight:500;letter-spacing:0}
 input[type=checkbox]{width:18px;height:18px;accent-color:#c0392b;cursor:pointer}
+
+/* ── Notice action buttons ── */
 .btn-row{display:flex;gap:10px;flex-wrap:wrap}
-.btn{padding:10px 22px;border-radius:5px;border:none;font-size:14px;
-  font-weight:600;cursor:pointer;transition:opacity .2s}
-.btn:hover{opacity:.85}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .btn-red{background:#c0392b;color:#fff}
-.btn-gray{background:#1c1c2a;color:#d8dbed;border:1px solid #2a2a3a}
+.btn-gray{background:var(--s2);color:var(--text);border:1px solid var(--border)}
 .btn-blue{background:#2563c7;color:#fff}
+
+/* ── Live preview banner ── */
 .preview{margin-top:24px;border-radius:6px;background:#c0392b;
   color:#fff;padding:14px 20px;font-size:17px;font-weight:600;
   text-align:center;display:none}
 .preview.show{display:block}
-.divider{border:none;border-top:1px solid #1c1c2a;margin:24px 0}
+.divider{border:none;border-top:1px solid var(--border);margin:24px 0}
 .push-msg{font-size:13px;color:#4ade80;margin-top:10px;display:none}
 /* Flatpickr dark theme */
-.flatpickr-calendar{background:#12121e !important;border:1px solid #2a2a3a;
-  color:#d8dbed;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
-.flatpickr-day{color:#d8dbed;border-radius:5px}
-.flatpickr-day:hover,.flatpickr-day:focus{background:#1c1c2a;border-color:#2563c7;color:#fff}
-.flatpickr-day.today{border-color:#2563c7}
+.flatpickr-calendar{background:var(--s2) !important;border:1px solid var(--border);
+  color:var(--text);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+.flatpickr-day{color:var(--text);border-radius:5px}
+.flatpickr-day:hover,.flatpickr-day:focus{background:var(--s2);border-color:var(--accent);color:#fff}
+.flatpickr-day.today{border-color:var(--accent)}
 .flatpickr-day.selected,.flatpickr-day.selected:hover{background:#c0392b;border-color:#c0392b;color:#fff}
-.flatpickr-months,.flatpickr-weekdays,.flatpickr-weekday{background:#0f0f17 !important}
-span.flatpickr-weekday{color:#8888a8 !important}
-.flatpickr-current-month{color:#d8dbed !important}
-.flatpickr-monthDropdown-months{background:#12121e;color:#d8dbed}
-.flatpickr-time input,.flatpickr-time .flatpickr-am-pm{background:#12121e;color:#d8dbed}
-.flatpickr-time .flatpickr-time-separator{color:#52526e}
-.numInputWrapper:hover,.flatpickr-time input:hover,.flatpickr-time .flatpickr-am-pm:hover{background:#1c1c2a}
-.flatpickr-prev-month svg,.flatpickr-next-month svg{fill:#d8dbed}
-.flatpickr-input[readonly]{cursor:pointer;background:#12121e}
+.flatpickr-months,.flatpickr-weekdays,.flatpickr-weekday{background:var(--s1) !important}
+span.flatpickr-weekday{color:var(--muted) !important}
+.flatpickr-current-month{color:var(--text) !important}
+.flatpickr-monthDropdown-months{background:var(--s2);color:var(--text)}
+.flatpickr-time input,.flatpickr-time .flatpickr-am-pm{background:var(--s2);color:var(--text)}
+.flatpickr-time .flatpickr-time-separator{color:var(--dim)}
+.numInputWrapper:hover,.flatpickr-time input:hover,.flatpickr-time .flatpickr-am-pm:hover{background:var(--s1)}
+.flatpickr-prev-month svg,.flatpickr-next-month svg{fill:var(--text)}
+.flatpickr-input[readonly]{cursor:pointer;background:var(--s2)}
 </style>
 </head>
 <body>
 <div class="topbar">
   <div class="topbar-title">&#128226; Notice Board</div>
   <div class="topbar-links">
-    <a class="nav-btn" href="/admin">&#9881; Admin</a>
-    <a class="nav-btn" href="/print-calendar">&#128438; Print Calendar</a>
-    <a class="nav-btn" href="/print-admin">&#128444; Print Admin</a>
+    <a class="btn btn-ghost btn-sm" href="/admin">&#9881; Admin</a>
+    <a class="btn btn-ghost btn-sm" href="/print-calendar">&#128438; Print Calendar</a>
+    <a class="btn btn-ghost btn-sm" href="/print-admin">&#128444; Print Admin</a>
   </div>
 </div>
 <div class="page-center">
