@@ -1030,3 +1030,285 @@ def build_weekly_pdf(
     c.save()
     buf.seek(0)
     return buf.read()
+
+
+# ---------------------------------------------------------------------------
+# Room schedule calendar PDF — monthly grid
+# Shows all events from room iCal feeds; [TAG] labels kept and colored
+# ---------------------------------------------------------------------------
+def build_room_calendar_pdf(
+    room_ids: list[str],
+    rooms: dict,
+    tag_colors: dict,
+    location_rules: list[dict],
+    start_month: int,
+    start_year: int,
+    end_month: int,
+    end_year: int,
+    updated_by: str = "",
+    cal_subtitle: str = "",
+    custom_notes: dict | None = None,
+) -> bytes:
+    """
+    Monthly room schedule PDF.  Events are colored by [TAG] using tag_colors.
+    Tags are retained in the display title as a colored prefix.
+    """
+    buf = io.BytesIO()
+    custom_notes = custom_notes or {}
+
+    # -- Fetch events from each room's iCal URL ------------------------------
+    all_events: list[dict] = []
+    for rid in room_ids:
+        room = rooms.get(rid, {})
+        url  = room.get("icalUrl", "").strip()
+        url  = url.replace("webcal://", "https://").replace("webcal:", "https:")
+        if not url:
+            continue
+        try:
+            text = _fetch_ical(url)
+            all_events.extend(parse_ical_for_print(text))
+        except Exception:
+            pass
+
+    seen: set[str] = set()
+    deduped: list[dict] = []
+    for ev in all_events:
+        if ev["allday"]:
+            k = f"{ev['title']}|{ev['start']}"
+            if k in seen:
+                continue
+            seen.add(k)
+        deduped.append(ev)
+    by_day = group_events_by_day(deduped)
+
+    # -- Header text ---------------------------------------------------------
+    room_titles = [rooms[rid].get("title", rid) for rid in room_ids if rid in rooms]
+    header_title = " / ".join(room_titles)
+    cal_sub  = cal_subtitle or "Room Schedule"
+    now_str  = datetime.now().strftime("%-m/%-d/%y")
+    updated  = f"Updated {now_str}" + (f" {updated_by}" if updated_by else "")
+
+    # -- Tag color helpers ----------------------------------------------------
+    def _tag_hex(tag: str) -> str:
+        info = tag_colors.get(tag)
+        if not info:
+            for k, v in tag_colors.items():
+                if k.lower() == tag.lower():
+                    info = v; break
+        if isinstance(info, dict):
+            return info.get("color", "#2563c7")
+        if isinstance(info, str):
+            return info
+        return "#2563c7"
+
+    def _tag_full(tag: str) -> str:
+        info = tag_colors.get(tag)
+        if not info:
+            for k, v in tag_colors.items():
+                if k.lower() == tag.lower():
+                    info = v; break
+        if isinstance(info, dict) and info.get("fullName") and info["fullName"] != tag:
+            return info["fullName"]
+        return ""
+
+    # -- Month range ---------------------------------------------------------
+    st = start_year * 12 + start_month
+    et = end_year   * 12 + end_month
+    if et < st:
+        st, et = et, st
+    month_range = []
+    cur = st
+    while cur <= et:
+        month_range.append((cur % 12, cur // 12))
+        cur += 1
+
+    # -- ReportLab document --------------------------------------------------
+    doc = BaseDocTemplate(
+        buf,
+        pagesize=landscape(letter),
+        leftMargin=MARGIN_LR, rightMargin=MARGIN_LR,
+        topMargin=MARGIN_TB,  bottomMargin=MARGIN_TB,
+    )
+
+    def ps(name, font=FONT_REGULAR, size=7, leading=None, color=C_BLACK,
+           align=TA_LEFT, space_before=0, space_after=0):
+        return ParagraphStyle(
+            name, fontName=font, fontSize=size,
+            leading=leading or size * 1.2,
+            textColor=color, alignment=align,
+            spaceBefore=space_before, spaceAfter=space_after,
+        )
+
+    sty_title   = ps("rm_title",   FONT_BOLD,     12, color=C_BLACK,   align=TA_LEFT)
+    sty_cal_sub = ps("rm_calsub",  FONT_ITALIC,   12, color=C_BLACK,   align=TA_CENTER)
+    sty_subj    = ps("rm_subj",    FONT_REGULAR,   7, color=C_FOOTER,  align=TA_CENTER)
+    sty_updated = ps("rm_upd",     FONT_REGULAR,  10, color=colors.HexColor("#444444"), align=TA_RIGHT)
+    sty_month   = ps("rm_month",   FONT_BOLD,     22, color=C_BLACK,   align=TA_CENTER, leading=26)
+    sty_dow     = ps("rm_dow",     FONT_BOLD,      9, color=C_DOW_FG,  align=TA_CENTER)
+    sty_footer  = ps("rm_footer",  FONT_REGULAR,   6, color=C_FOOTER,  align=TA_CENTER)
+    sty_legend  = ps("rm_legend",  FONT_BOLD,    6.5, color=C_LEGEND)
+
+    CONT_HDR_H = 22
+    frame_first = Frame(MARGIN_LR, MARGIN_TB, CONTENT_W, CONTENT_H,
+                        leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+    frame_cont  = Frame(MARGIN_LR, MARGIN_TB, CONTENT_W, CONTENT_H - CONT_HDR_H,
+                        leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+    _state = {"month_label": "???"}
+
+    def _draw_cont_hdr(canvas, doc):
+        canvas.saveState()
+        x, y, w = MARGIN_LR, PAGE_H - MARGIN_TB - 10, CONTENT_W
+        canvas.setFont(FONT_BOLD, 10);       canvas.drawString(x, y, header_title)
+        canvas.setFont(FONT_BOLDITALIC, 10); canvas.drawCentredString(x + w/2, y, f"{_state['month_label']} (cont)")
+        canvas.setFont(FONT_REGULAR, 9);     canvas.drawRightString(x + w, y, updated)
+        canvas.setStrokeColor(C_HEADER_SEP); canvas.setLineWidth(1.5)
+        canvas.line(x, y - 4, x + w, y - 4)
+        canvas.restoreState()
+
+    doc.addPageTemplates([
+        PageTemplate(id="first", frames=[frame_first]),
+        PageTemplate(id="cont",  frames=[frame_cont], onPage=_draw_cont_hdr),
+    ])
+
+    story = []
+    col_w = CONTENT_W / 7
+
+    for page_idx, (month, year) in enumerate(month_range):
+        month_num = month + 1
+
+        if page_idx > 0:
+            from reportlab.platypus import PageBreak, NextPageTemplate
+            story.append(NextPageTemplate("first"))
+            story.append(PageBreak())
+
+        _state["month_label"] = f"{MONTH_NAMES[month]} {year}"
+        from reportlab.platypus import NextPageTemplate
+        story.append(NextPageTemplate("cont"))
+
+        # Header row
+        hdr_data = [[
+            Paragraph(f'<b>{header_title}</b>', sty_title),
+            [Paragraph(f'<i>{cal_sub}</i>', sty_cal_sub),
+             Paragraph("SUBJECT TO CHANGE", sty_subj)],
+            Paragraph(updated, sty_updated),
+        ]]
+        hdr_tbl = Table(hdr_data, colWidths=[CONTENT_W*0.33, CONTENT_W*0.34, CONTENT_W*0.33])
+        hdr_tbl.setStyle(TableStyle([
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+            ("LINEBELOW",     (0,0), (-1,-1), 1.5, C_HEADER_SEP),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+            ("TOPPADDING",    (0,0), (-1,-1), 0),
+        ]))
+        story.append(hdr_tbl)
+        story.append(Spacer(1, 2))
+        story.append(Paragraph(f"{MONTH_NAMES[month]} {year}", sty_month))
+        story.append(Spacer(1, 2))
+
+        ev_size, loc_size, dnum_size = 7.5, 6.5, 8
+        sty_et  = ps(f"rm_et{page_idx}",  FONT_REGULAR, ev_size,   color=C_BLACK,   leading=ev_size*1.35)
+        sty_el  = ps(f"rm_el{page_idx}",  FONT_ITALIC,  loc_size,  color=C_EVT_LOC, leading=loc_size*1.35)
+        sty_dn  = ps(f"rm_dn{page_idx}",  FONT_BOLD,    dnum_size, color=C_BLACK)
+        sty_dno = ps(f"rm_dno{page_idx}", FONT_BOLD,    dnum_size, color=colors.HexColor("#bbbbbb"))
+        sty_note= ps(f"rm_note{page_idx}",FONT_ITALIC,  5.5,       color=C_NOTE)
+
+        weeks = build_month_weeks(year, month_num)
+
+        # Collect tags on this month for legend
+        month_tags: set[str] = set()
+        for week in weeks:
+            for day in week:
+                for ev in by_day.get(day.strftime("%Y-%m-%d"), []):
+                    t = get_tag(ev["title"])
+                    if t:
+                        month_tags.add(t)
+
+        grid_data   = [[Paragraph(f'<b>{d}</b>', sty_dow) for d in DAY_NAMES]]
+        grid_styles = [
+            ("GRID",          (0,0), (-1,-1), 0.5, C_GRID),
+            ("VALIGN",        (0,0), (-1,-1), "TOP"),
+            ("TOPPADDING",    (0,0), (-1,-1), 2),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+            ("LEFTPADDING",   (0,0), (-1,-1), 2),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 2),
+            ("BACKGROUND",    (0,0), (-1,0),  C_DOW_BG),
+            ("TEXTCOLOR",     (0,0), (-1,0),  C_DOW_FG),
+            ("ALIGN",         (0,0), (-1,0),  "CENTER"),
+            ("VALIGN",        (0,0), (-1,0),  "MIDDLE"),
+            ("TOPPADDING",    (0,0), (-1,0),  3),
+            ("BOTTOMPADDING", (0,0), (-1,0),  3),
+        ]
+
+        for row_idx, week in enumerate(weeks):
+            tbl_row   = row_idx + 1
+            row_cells = []
+            for col_idx, day in enumerate(week):
+                key       = day.strftime("%Y-%m-%d")
+                in_month  = day.month == month_num
+                cell_content = []
+
+                date_label = (MONTH_NAMES[day.month-1][:3].upper() + " 1"
+                              if day.day == 1 else str(day.day))
+                cell_content.append(
+                    Paragraph(f'<b>{date_label}</b>', sty_dno if not in_month else sty_dn))
+
+                if not in_month:
+                    grid_styles.append(
+                        ("BACKGROUND", (col_idx, tbl_row), (col_idx, tbl_row), C_OUT_MONTH))
+
+                for ev in by_day.get(key, []):
+                    tag           = get_tag(ev["title"])
+                    # Strip [TAG] brackets; show tag as colored prefix
+                    display_title = re.sub(r'\s*\[[^\]]+\]', '', ev["title"]).strip()
+                    display_loc   = (clean_location(ev["location"], location_rules)
+                                     if ev["location"] and not ev["allday"] else "")
+
+                    hex_c      = _tag_hex(tag) if tag else "#555555"
+                    tag_markup = (f'<font color="{hex_c}"><b>[{tag}]</b></font> '
+                                  if tag else '')
+
+                    if ev["allday"]:
+                        cell_content.append(
+                            Paragraph(f'{tag_markup}<b>{display_title}</b>', sty_et))
+                    else:
+                        time_str = fmt_time(ev["start"])
+                        end_dt   = ev["end"]
+                        if (isinstance(end_dt, datetime) and isinstance(ev["start"], datetime)
+                                and local_date(end_dt) == local_date(ev["start"])
+                                and end_dt != ev["start"]):
+                            time_str += f"\u2013{fmt_time(end_dt)}"
+                        cell_content.append(
+                            Paragraph(f'<b>{time_str}</b> {tag_markup}{display_title}', sty_et))
+
+                    if display_loc:
+                        cell_content.append(Paragraph(display_loc, sty_el))
+
+                note = custom_notes.get(key, "")
+                if note:
+                    cell_content.append(Paragraph(f'<i>{note}</i>', sty_note))
+
+                row_cells.append(cell_content)
+            grid_data.append(row_cells)
+
+        grid_table = Table(grid_data, colWidths=[col_w]*7, repeatRows=1, splitByRow=1)
+        grid_table.setStyle(TableStyle(grid_styles))
+        story.append(grid_table)
+
+        # Legend with colored squares
+        if month_tags:
+            parts = []
+            for t in sorted(month_tags):
+                fn  = _tag_full(t)
+                hex_c = _tag_hex(t)
+                label = f"{t} \u2014 {fn}" if fn else t
+                parts.append(f'<font color="{hex_c}">&#9632;</font> {label}')
+            story.append(HRFlowable(width=CONTENT_W, thickness=0.5,
+                                    color=C_GRID, spaceAfter=2, spaceBefore=3))
+            story.append(Paragraph("   ".join(parts), sty_legend))
+
+        story.append(HRFlowable(width=CONTENT_W, thickness=0.5,
+                                color=C_GRID, spaceAfter=1, spaceBefore=2))
+        story.append(Paragraph(f"Page {page_idx+1} of {len(month_range)}", sty_footer))
+
+    doc.build(story)
+    buf.seek(0)
+    return buf.read()
