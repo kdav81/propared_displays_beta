@@ -97,8 +97,8 @@ These are created or maintained on the server and are not the main source code:
 | URL | Who uses it |
 |---|---|
 | `/admin` | Admin — manage rooms, clients, settings |
-| `/print-calendar` | Admin — generate PDF production calendars or room schedules |
-| `/print-admin` | Admin — manage productions and location rules |
-| `/notice` | Admin — post a notice banner to all displays |
+| `/print-calendar` | Users — generate PDF production calendars or room schedules |
+| `/print-admin` | Users — manage productions and location rules |
+| `/notice` | Users/Admin — post a notice banner to all displays |
 | `/dashboard` | Lobby/office screen |
 | `/display?room=ROOM_ID` | Pi kiosks (set automatically) |
