@@ -36,8 +36,50 @@ SERVICE_NAME="propared-display-server-side-slides"
 PORT=8081
 TZ_TARGET="America/New_York"
 SCRIPT_NAME="install-server-server-side-slides.sh"
+BIN_DIR="${HOME}/bin"
 
 [[ "${APP_USER}" == "root" ]] && die "Do not run as root. Run as 'ubuntu'."
+
+install_shell_helpers() {
+    local bashrc="${HOME}/.bashrc"
+    mkdir -p "${BIN_DIR}"
+    cat > "${BIN_DIR}/slides-dev-logs" << EOF
+#!/usr/bin/env bash
+journalctl -u ${SERVICE_NAME} -f "\$@"
+EOF
+    cat > "${BIN_DIR}/slides-dev-restart" << EOF
+#!/usr/bin/env bash
+sudo systemctl restart ${SERVICE_NAME}
+EOF
+    cat > "${BIN_DIR}/slides-dev-stop" << EOF
+#!/usr/bin/env bash
+sudo systemctl stop ${SERVICE_NAME}
+EOF
+    cat > "${BIN_DIR}/slides-dev-status" << EOF
+#!/usr/bin/env bash
+sudo systemctl status ${SERVICE_NAME}
+EOF
+    cat > "${BIN_DIR}/slides-dev-update" << EOF
+#!/usr/bin/env bash
+bash ${APP_DIR}/${SCRIPT_NAME} --update
+EOF
+    chmod +x "${BIN_DIR}"/slides-dev-*
+    if ! grep -qF 'export PATH="$HOME/bin:$PATH"' "${bashrc}" 2>/dev/null; then
+        echo 'export PATH="$HOME/bin:$PATH"' >> "${bashrc}"
+    fi
+    declare -A alias_map=(
+        ["slides-dev-logs"]="${BIN_DIR}/slides-dev-logs"
+        ["slides-dev-restart"]="${BIN_DIR}/slides-dev-restart"
+        ["slides-dev-stop"]="${BIN_DIR}/slides-dev-stop"
+        ["slides-dev-status"]="${BIN_DIR}/slides-dev-status"
+        ["slides-dev-update"]="${BIN_DIR}/slides-dev-update"
+    )
+    for name in "${!alias_map[@]}"; do
+        sed -i "/^alias ${name}=/d" "${bashrc}" 2>/dev/null || true
+        echo "alias ${name}='${alias_map[$name]}'" >> "${bashrc}"
+    done
+    info "Shell aliases and helper commands added."
+}
 
 header "Propared Calendar Displays — Feature Installer"
 echo "  User      : ${APP_USER}"
@@ -71,6 +113,8 @@ if [[ "${UPDATE_ONLY}" == "true" ]]; then
     "${VENV_DIR}/bin/pip" install --quiet --upgrade pip
     "${VENV_DIR}/bin/pip" install --quiet -r "${APP_DIR}/requirements.txt"
     info "Python packages up to date."
+
+    install_shell_helpers
 
     header "Restarting service"
     sudo systemctl restart "${SERVICE_NAME}"
@@ -218,21 +262,8 @@ sudo systemctl start  "${SERVICE_NAME}-nightly.timer"
 info "Service unit written and enabled."
 info "Nightly 3 AM restart timer enabled."
 
-# ── 6. Convenience aliases ────────────────────────────────────────────────────
-BASHRC="${HOME}/.bashrc"
-declare -A ALIAS_MAP=(
-    ["slides-dev-logs"]="journalctl -u ${SERVICE_NAME} -f"
-    ["slides-dev-restart"]="sudo systemctl restart ${SERVICE_NAME}"
-    ["slides-dev-stop"]="sudo systemctl stop ${SERVICE_NAME}"
-    ["slides-dev-status"]="sudo systemctl status ${SERVICE_NAME}"
-    ["slides-dev-update"]="bash ${APP_DIR}/${SCRIPT_NAME} --update"
-)
-for NAME in "${!ALIAS_MAP[@]}"; do
-    if ! grep -qF "alias ${NAME}=" "${BASHRC}" 2>/dev/null; then
-        echo "alias ${NAME}='${ALIAS_MAP[$NAME]}'" >> "${BASHRC}"
-    fi
-done
-info "Shell aliases added to ~/.bashrc"
+# ── 6. Convenience aliases and helper commands ───────────────────────────────
+install_shell_helpers
 
 # ── 7. Start service ──────────────────────────────────────────────────────────
 header "Step 6 — Starting Service"
