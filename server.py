@@ -10,22 +10,22 @@ Design goals:
     Clients receive pre-parsed JSON; they never touch raw iCal.
   - Background threads refresh each room's calendar on its own schedule.
   - /api/dashboard-data is a pure in-memory read (< 1 ms).
-  - Dropbox photos are cached for 30 min; links refreshed as needed.
+  - Slideshow images are uploaded and served locally by this server.
   - Persistent secret key so admin sessions survive server restarts.
 
 Directory layout (relative to this file):
   server.py
   rooms.json            persistent room config
   tag_colors.json       tag -> {color, fullName}
-  settings.json         global settings (Dropbox, timing, dashboard)
+  settings.json         global settings (timing, dashboard)
   admin_password.txt    sha256 hex of admin password
   notice.json           active notice banner
   notice_password.txt   sha256 hex of notice password
   secret_key.txt        persistent Flask secret key (auto-created)
+  media_library.json    slideshow image metadata
   static/
     logo_<rid>.png      room logos
-  cache/
-    slides.json         cached Dropbox photo links
+    slides/             uploaded slideshow images
   backups/              zip backups (auto-created)
   templates/            Jinja2 HTML files
 """
@@ -59,6 +59,7 @@ from flask import (
     Flask, Response, jsonify, make_response, redirect,
     render_template, request, send_file,
 )
+from werkzeug.utils import secure_filename
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -77,8 +78,9 @@ BASE       = Path(__file__).parent
 CACHE_DIR  = BASE / "cache"
 STATIC_DIR = BASE / "static"
 BACKUP_DIR = BASE / "backups"
+MEDIA_DIR  = STATIC_DIR / "slides"
 
-for _d in (CACHE_DIR, STATIC_DIR, BACKUP_DIR):
+for _d in (CACHE_DIR, STATIC_DIR, BACKUP_DIR, MEDIA_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 ROOMS_FILE           = BASE / "rooms.json"
@@ -91,6 +93,7 @@ NOTICE_PASSWORD_FILE = BASE / "notice_password.txt"
 SECRET_KEY_FILE      = BASE / "secret_key.txt"
 PRINT_SHOWS_FILE     = BASE / "print_shows.json"
 LOCATION_RULES_FILE  = BASE / "location_rules.json"
+MEDIA_LIBRARY_FILE   = BASE / "media_library.json"
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 
@@ -120,11 +123,6 @@ DEFAULT_TAGS: dict = {
 }
 
 DEFAULT_SETTINGS: dict = {
-    "dropboxToken":           "",
-    "dropboxAppKey":          "",
-    "dropboxAppSecret":       "",
-    "dropboxRefreshToken":    "",
-    "dropboxFolder":          "/slideshow",
     "slideDuration":          8,
     "calDuration":            60,
     "dashboardIframeUrl":     "",
@@ -190,6 +188,89 @@ def load_settings() -> dict:
 
 def save_settings(s: dict) -> None:
     _save_json(SETTINGS_FILE, s)
+
+
+def load_media_library() -> list:
+    media = _load_json(MEDIA_LIBRARY_FILE, list)
+    if not isinstance(media, list):
+        return []
+    clean = []
+    for item in media:
+        if not isinstance(item, dict):
+            continue
+        filename = str(item.get("filename", "")).strip()
+        if not filename:
+            continue
+        clean.append({
+            "id":         str(item.get("id", "")).strip() or filename,
+            "filename":   filename,
+            "title":      str(item.get("title", "")).strip(),
+            "originalName": str(item.get("originalName", "")).strip() or filename,
+            "startDate":  str(item.get("startDate", "")).strip(),
+            "endDate":    str(item.get("endDate", "")).strip(),
+            "active":     bool(item.get("active", True)),
+            "uploadedAt": str(item.get("uploadedAt", "")).strip(),
+        })
+    return clean
+
+
+def save_media_library(items: list) -> None:
+    _save_json(MEDIA_LIBRARY_FILE, items)
+
+
+def _parse_optional_date(raw: str):
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _media_public_url(filename: str) -> str:
+    return f"/static/slides/{urllib.parse.quote(filename)}"
+
+
+def _media_is_active(item: dict, today=None) -> bool:
+    if not item.get("active", True):
+        return False
+    today = today or datetime.now().date()
+    start_date = _parse_optional_date(item.get("startDate", ""))
+    end_date = _parse_optional_date(item.get("endDate", ""))
+    if start_date and today < start_date:
+        return False
+    if end_date and today > end_date:
+        return False
+    return True
+
+
+def _media_sort_key(item: dict):
+    return (
+        item.get("startDate", "9999-12-31") or "9999-12-31",
+        item.get("uploadedAt", ""),
+        item.get("title", "").lower(),
+    )
+
+
+def _local_slide_items(active_only: bool = True) -> list[dict]:
+    today = datetime.now().date()
+    items = []
+    for item in load_media_library():
+        path = MEDIA_DIR / item["filename"]
+        if not path.exists():
+            continue
+        if active_only and not _media_is_active(item, today):
+            continue
+        enriched = dict(item)
+        enriched["url"] = _media_public_url(item["filename"])
+        items.append(enriched)
+    items.sort(key=_media_sort_key)
+    return items
+
+
+def _local_slide_links() -> list[str]:
+    return [item["url"] for item in _local_slide_items(active_only=True)]
 
 
 def load_notice() -> dict:
@@ -284,15 +365,29 @@ def require_notice_auth(f):
     return decorated
 
 
+def require_shared_media_auth(f):
+    import functools
+
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not _read_pw_file(NOTICE_PASSWORD_FILE):
+            return Response("Shared media password not set. Visit /media-admin first.", 403)
+        auth = request.authorization
+        if not auth or not _check_pw(auth.password, NOTICE_PASSWORD_FILE):
+            return Response(
+                "Shared media access required.", 401,
+                {"WWW-Authenticate": 'Basic realm="Notice Board"'},
+            )
+        return f(*args, **kwargs)
+
+    return decorated
+
+
 # ---------------------------------------------------------------------------
 # File helpers
 # ---------------------------------------------------------------------------
 def logo_path(rid: str) -> Path:
     return STATIC_DIR / f"logo_{rid}.png"
-
-
-def slides_cache_path() -> Path:
-    return CACHE_DIR / "slides.json"
 
 
 def _to_int(value, default: int, *, minimum: int | None = None, maximum: int | None = None) -> int:
@@ -329,6 +424,18 @@ def _restore_logo_files(archive_names: list[str], zf: zipfile.ZipFile) -> None:
             fp.unlink()
     for logo_name in archived_logos:
         (STATIC_DIR / logo_name).write_bytes(zf.read(f"static/{logo_name}"))
+
+
+def _restore_slide_files(archive_names: list[str], zf: zipfile.ZipFile) -> None:
+    archived_slides = {
+        Path(name).name for name in archive_names
+        if name.startswith("static/slides/") and not name.endswith("/")
+    }
+    for fp in MEDIA_DIR.iterdir():
+        if fp.is_file() and fp.name not in archived_slides:
+            fp.unlink()
+    for slide_name in archived_slides:
+        (MEDIA_DIR / slide_name).write_bytes(zf.read(f"static/slides/{slide_name}"))
 
 
 def _validated_proxy_ical_url(raw_url: str) -> str | None:
@@ -588,118 +695,9 @@ def _boot_ical_cache() -> None:
     _sync_global_calendar_cache(load_settings().get("globalCalendars", []))
 
 
-# ---------------------------------------------------------------------------
-# Dropbox helpers
-# ---------------------------------------------------------------------------
-def _get_dropbox_token(s: dict) -> str:
-    """Return a valid Dropbox access token, using the refresh token when available."""
-    rt  = s.get("dropboxRefreshToken", "").strip()
-    ak  = s.get("dropboxAppKey",       "").strip()
-    ase = s.get("dropboxAppSecret",    "").strip()
-    if rt and ak and ase:
-        try:
-            data = urllib.parse.urlencode({
-                "grant_type":    "refresh_token",
-                "refresh_token": rt,
-                "client_id":     ak,
-                "client_secret": ase,
-            }).encode()
-            req = urllib.request.Request(
-                "https://api.dropbox.com/oauth2/token",
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            with urllib.request.urlopen(req, timeout=10) as r:
-                return json.loads(r.read())["access_token"]
-        except Exception as exc:
-            log.warning("Dropbox token refresh failed: %s", exc)
-    return s.get("dropboxToken", "").strip()
-
-
-def _fetch_dropbox_images(token: str, folder: str) -> list[str]:
-    """Return temporary download links for up to 60 images in the Dropbox folder."""
-    path = "" if folder.strip() in ("", "/") else folder.strip()
-    try:
-        req = urllib.request.Request(
-            "https://api.dropboxapi.com/2/files/list_folder",
-            data=json.dumps({"path": path, "limit": 300}).encode(),
-            headers={
-                "Authorization":  f"Bearer {token}",
-                "Content-Type":   "application/json",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=15) as r:
-            entries = json.loads(r.read()).get("entries", [])
-
-        image_paths = [
-            e["path_lower"] for e in entries
-            if e.get(".tag") == "file"
-            and Path(e["name"]).suffix.lower() in IMAGE_EXTS
-        ]
-        log.info("Dropbox '%s': %d entries, %d images", path, len(entries), len(image_paths))
-
-        links: list[str] = []
-        for p in image_paths[:60]:
-            try:
-                req2 = urllib.request.Request(
-                    "https://api.dropboxapi.com/2/files/get_temporary_link",
-                    data=json.dumps({"path": p}).encode(),
-                    headers={
-                        "Authorization": f"Bearer {token}",
-                        "Content-Type":  "application/json",
-                    },
-                )
-                with urllib.request.urlopen(req2, timeout=10) as r2:
-                    links.append(json.loads(r2.read())["link"])
-            except Exception as exc:
-                log.warning("Dropbox temp link failed for %s: %s", p, exc)
-        return links
-    except Exception as exc:
-        log.warning("Dropbox list_folder failed: %s", exc)
-        return []
-
-
 def get_slides(force: bool = False) -> list[str]:
-    """Return cached Dropbox photo links, refreshing if stale (> 30 min) or forced."""
-    cache = slides_cache_path()
-    if not force and cache.exists():
-        try:
-            data = json.loads(cache.read_text())
-            if time.time() - data.get("fetchedAt", 0) < 1800 and data.get("links"):
-                return data["links"]
-        except Exception:
-            pass
-    s     = load_settings()
-    token = _get_dropbox_token(s)
-    if not token:
-        log.warning("get_slides: no Dropbox token available")
-        return []
-    links = _fetch_dropbox_images(token, s.get("dropboxFolder", ""))
-    if links:
-        cache.write_text(json.dumps({"links": links, "fetchedAt": time.time()}))
-    else:
-        log.warning("get_slides: no images returned from Dropbox")
-    return links
-
-
-def _exchange_dropbox_code(code: str, app_key: str, app_secret: str, redirect_uri: str) -> dict:
-    try:
-        data = urllib.parse.urlencode({
-            "code":          code,
-            "grant_type":    "authorization_code",
-            "client_id":     app_key,
-            "client_secret": app_secret,
-            "redirect_uri":  redirect_uri,
-        }).encode()
-        req = urllib.request.Request(
-            "https://api.dropbox.com/oauth2/token",
-            data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return json.loads(r.read())
-    except Exception as exc:
-        return {"error": str(exc)}
+    """Return active local slideshow image URLs."""
+    return _local_slide_links()
 
 
 # ---------------------------------------------------------------------------
@@ -783,7 +781,7 @@ def _public_room_config(rid: str, rooms: dict, settings: dict) -> dict:
         roomId       = rid,
         tagColors    = load_tags(),
         hasLogo      = logo_path(rid).exists(),
-        hasSlideshow = bool(settings.get("dropboxToken") or settings.get("dropboxRefreshToken")),
+        hasSlideshow = bool(_local_slide_links()),
         calDuration  = settings.get("calDuration",  60),
         slideDuration = settings.get("slideDuration", 8),
     )
@@ -945,34 +943,111 @@ def api_slides():
 
 @app.route("/api/slides/debug")
 def api_slides_debug():
-    s      = load_settings()
-    token  = _get_dropbox_token(s)
-    folder = s.get("dropboxFolder", "").strip()
-    path   = "" if folder in ("", "/") else folder
-    result = {
-        "hasToken":        bool(token),
-        "folder":          folder,
-        "folderPath":      path,
-        "hasAppKey":       bool(s.get("dropboxAppKey")),
-        "hasRefreshToken": bool(s.get("dropboxRefreshToken")),
+    local_items = _local_slide_items(active_only=False)
+    active_local_items = _local_slide_items(active_only=True)
+    return jsonify({
+        "localMediaCount": len(local_items),
+        "activeLocalMediaCount": len(active_local_items),
+        "localMediaEnabled": bool(active_local_items),
+        "sample": [item.get("originalName") for item in active_local_items[:5]],
+    })
+
+
+@app.route("/api/media")
+@require_shared_media_auth
+def api_media_list():
+    return jsonify(_local_slide_items(active_only=False))
+
+
+@app.route("/api/media/upload", methods=["POST"])
+@require_shared_media_auth
+def api_media_upload():
+    upload = request.files.get("file")
+    if not upload or not upload.filename:
+        return Response("No file uploaded", status=400)
+
+    original_name = Path(upload.filename).name
+    ext = Path(original_name).suffix.lower()
+    if ext not in IMAGE_EXTS:
+        return Response("Unsupported image type", status=400)
+
+    safe_name = secure_filename(Path(original_name).stem) or "slide"
+    filename = f"{uuid.uuid4().hex[:12]}-{safe_name}{ext}"
+    dest = MEDIA_DIR / filename
+    start_date = request.form.get("startDate", "").strip()
+    end_date = request.form.get("endDate", "").strip()
+    start_dt = _parse_optional_date(start_date)
+    end_dt = _parse_optional_date(end_date)
+    if start_date and start_dt is None:
+        return Response("Invalid start date", status=400)
+    if end_date and end_dt is None:
+        return Response("Invalid end date", status=400)
+    if start_dt and end_dt and end_dt < start_dt:
+        return Response("End date cannot be earlier than start date", status=400)
+
+    upload.save(dest)
+
+    items = load_media_library()
+    item = {
+        "id":         uuid.uuid4().hex[:12],
+        "filename":   filename,
+        "title":      request.form.get("title", "").strip() or Path(original_name).stem,
+        "originalName": original_name,
+        "startDate":  start_date,
+        "endDate":    end_date,
+        "active":     request.form.get("active", "1") != "0",
+        "uploadedAt": datetime.now().isoformat(),
     }
-    if token:
-        try:
-            req = urllib.request.Request(
-                "https://api.dropboxapi.com/2/files/list_folder",
-                data=json.dumps({"path": path, "limit": 10}).encode(),
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            )
-            with urllib.request.urlopen(req, timeout=10) as r:
-                resp = json.loads(r.read())
-            result.update(
-                ok      = True,
-                entries = len(resp.get("entries", [])),
-                sample  = [e["name"] for e in resp.get("entries", [])[:5]],
-            )
-        except Exception as exc:
-            result.update(ok=False, error=str(exc))
-    return jsonify(result)
+    items.append(item)
+    save_media_library(items)
+    return jsonify({"ok": True, "item": dict(item, url=_media_public_url(filename))})
+
+
+@app.route("/api/media/<media_id>", methods=["PUT", "POST"])
+@require_shared_media_auth
+def api_media_update(media_id):
+    data = request.get_json(force=True, silent=True) or {}
+    items = load_media_library()
+    for item in items:
+        if item["id"] != media_id:
+            continue
+        start_date = str(data.get("startDate", item.get("startDate", ""))).strip()
+        end_date = str(data.get("endDate", item.get("endDate", ""))).strip()
+        start_dt = _parse_optional_date(start_date)
+        end_dt = _parse_optional_date(end_date)
+        if start_date and start_dt is None:
+            return Response("Invalid start date", status=400)
+        if end_date and end_dt is None:
+            return Response("Invalid end date", status=400)
+        if start_dt and end_dt and end_dt < start_dt:
+            return Response("End date cannot be earlier than start date", status=400)
+        item["title"] = str(data.get("title", item.get("title", ""))).strip()
+        item["startDate"] = start_date
+        item["endDate"] = end_date
+        item["active"] = bool(data.get("active", item.get("active", True)))
+        save_media_library(items)
+        return jsonify({"ok": True})
+    return Response("Not found", status=404)
+
+
+@app.route("/api/media/<media_id>", methods=["DELETE"])
+@require_shared_media_auth
+def api_media_delete(media_id):
+    items = load_media_library()
+    kept = []
+    deleted = None
+    for item in items:
+        if item["id"] == media_id and deleted is None:
+            deleted = item
+            continue
+        kept.append(item)
+    if deleted is None:
+        return Response("Not found", status=404)
+    path = MEDIA_DIR / deleted["filename"]
+    if path.exists():
+        path.unlink()
+    save_media_library(kept)
+    return jsonify({"ok": True})
 
 
 # ── Tag colours ──────────────────────────────────────────────────────────────
@@ -1361,11 +1436,11 @@ def display():
 def slide_view():
     rid   = request.args.get("room", "")
     rooms = load_rooms()
-    if not rid or rid not in rooms:
-        return redirect(f"/display?room={rid}")
     s = load_settings()
+    if rid and rid not in rooms:
+        return redirect(f"/display?room={rid}")
     room = {
-        "roomId":        rid,
+        "roomId":        rid if rid in rooms else "",
         "calDuration":   s.get("calDuration",   60),
         "slideDuration": s.get("slideDuration",  8),
     }
@@ -1490,9 +1565,30 @@ def admin():
         rooms             = load_rooms(),
         tag_colors        = load_tags(),
         settings          = s,
-        dropbox_connected = bool(s.get("dropboxRefreshToken") or s.get("dropboxToken")),
-        flash_dropbox     = request.args.get("dropbox"),
-        flash_error       = request.args.get("dropbox_error"),
+    )
+
+
+@app.route("/media-admin", methods=["GET", "POST"])
+def media_admin():
+    setup_needed = not _read_pw_file(NOTICE_PASSWORD_FILE)
+    if request.method == "POST" and setup_needed:
+        if request.form.get("action") == "set_password":
+            pw = request.form.get("password", "").strip()
+            if pw:
+                _write_pw_file(NOTICE_PASSWORD_FILE, pw)
+            return redirect("/media-admin")
+    elif not setup_needed:
+        auth = request.authorization
+        if not auth or not _check_pw(auth.password, NOTICE_PASSWORD_FILE):
+            return Response(
+                "Shared media access required.", 401,
+                {"WWW-Authenticate": 'Basic realm="Notice Board"'},
+            )
+    s = load_settings()
+    return render_template(
+        "media_admin.html",
+        settings=s,
+        setup_needed=setup_needed,
     )
 
 
@@ -1502,44 +1598,10 @@ def admin():
 @require_admin
 def admin_settings():
     s = load_settings()
-    s["dropboxFolder"] = request.form.get("dropboxFolder", s["dropboxFolder"]).strip()
     s["calDuration"]   = _to_int(request.form.get("calDuration"), s["calDuration"], minimum=5, maximum=3600)
     s["slideDuration"] = _to_int(request.form.get("slideDuration"), s["slideDuration"], minimum=1, maximum=3600)
-    for key in ("dropboxToken", "dropboxAppKey", "dropboxAppSecret", "dropboxRefreshToken"):
-        val = request.form.get(key, "").strip()
-        if val:
-            s[key] = val
     save_settings(s)
-    cache = slides_cache_path()
-    if cache.exists():
-        cache.unlink()
     return redirect("/admin")
-
-
-# ── Admin: Dropbox OAuth ──────────────────────────────────────────────────────
-
-@app.route("/admin/dropbox/exchange", methods=["POST"])
-@require_admin
-def admin_dropbox_exchange():
-    code = request.form.get("code", "").strip()
-    if not code:
-        return redirect("/admin?dropbox_error=No+code+provided")
-    s          = load_settings()
-    app_key    = s.get("dropboxAppKey",    "").strip()
-    app_secret = s.get("dropboxAppSecret", "").strip()
-    if not app_key or not app_secret:
-        return redirect("/admin?dropbox_error=Save+App+Key+and+Secret+first")
-    result = _exchange_dropbox_code(code, app_key, app_secret, "http://localhost/dropbox-auth")
-    if "access_token" in result:
-        s["dropboxToken"]        = result["access_token"]
-        s["dropboxRefreshToken"] = result.get("refresh_token", "")
-        save_settings(s)
-        cache = slides_cache_path()
-        if cache.exists():
-            cache.unlink()
-        return redirect("/admin?dropbox=connected")
-    err = result.get("error_description") or result.get("error", "Unknown error")
-    return redirect("/admin?dropbox_error=" + urllib.parse.quote(str(err)))
 
 
 # ── Admin: dashboard settings ─────────────────────────────────────────────────
@@ -1654,7 +1716,8 @@ def _make_backup_zip() -> io.BytesIO:
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for fname in (
             "rooms.json", "tag_colors.json", "settings.json",
-            "notice.json", "print_shows.json", "location_rules.json",
+            "notice.json", "notice_password.txt", "print_shows.json",
+            "location_rules.json", "media_library.json",
         ):
             p = BASE / fname
             if p.exists():
@@ -1663,6 +1726,10 @@ def _make_backup_zip() -> io.BytesIO:
             for fn in STATIC_DIR.iterdir():
                 if fn.name.startswith("logo_") and fn.suffix == ".png":
                     zf.write(fn, f"static/{fn.name}")
+        if MEDIA_DIR.is_dir():
+            for fn in MEDIA_DIR.iterdir():
+                if fn.is_file():
+                    zf.write(fn, f"static/slides/{fn.name}")
         manifest = {
             "version":   4,
             "createdAt": datetime.now().isoformat(),
@@ -1728,11 +1795,13 @@ def admin_restore():
             names = zf.namelist()
             for fname in (
                 "rooms.json", "tag_colors.json", "settings.json",
-                "notice.json", "print_shows.json", "location_rules.json",
+                "notice.json", "notice_password.txt", "print_shows.json",
+                "location_rules.json", "media_library.json",
             ):
                 if fname in names:
                     (BASE / fname).write_bytes(zf.read(fname))
             _restore_logo_files(names, zf)
+            _restore_slide_files(names, zf)
         restored_rooms = load_rooms()
         restored_settings = load_settings()
         for rid in list(ical_cache._data):
