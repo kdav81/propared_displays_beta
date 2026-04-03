@@ -32,8 +32,51 @@ VENV_DIR="${APP_DIR}/venv"
 SERVICE_NAME="propared-display"
 PORT=80
 TZ_TARGET="America/New_York"
+SCRIPT_NAME="install-server-testing.sh"
+BIN_DIR="${HOME}/bin"
 
 [[ "${APP_USER}" == "root" ]] && die "Do not run as root. Run as 'ubuntu'."
+
+install_shell_helpers() {
+    local bashrc="${HOME}/.bashrc"
+    mkdir -p "${BIN_DIR}"
+    cat > "${BIN_DIR}/display-logs" << EOF
+#!/usr/bin/env bash
+journalctl -u ${SERVICE_NAME} -f "\$@"
+EOF
+    cat > "${BIN_DIR}/display-restart" << EOF
+#!/usr/bin/env bash
+sudo systemctl restart ${SERVICE_NAME}
+EOF
+    cat > "${BIN_DIR}/display-stop" << EOF
+#!/usr/bin/env bash
+sudo systemctl stop ${SERVICE_NAME}
+EOF
+    cat > "${BIN_DIR}/display-status" << EOF
+#!/usr/bin/env bash
+sudo systemctl status ${SERVICE_NAME}
+EOF
+    cat > "${BIN_DIR}/display-update" << EOF
+#!/usr/bin/env bash
+bash ${APP_DIR}/${SCRIPT_NAME} --update
+EOF
+    chmod +x "${BIN_DIR}"/display-*
+    if ! grep -qF 'export PATH="$HOME/bin:$PATH"' "${bashrc}" 2>/dev/null; then
+        echo 'export PATH="$HOME/bin:$PATH"' >> "${bashrc}"
+    fi
+    declare -A alias_map=(
+        ["display-logs"]="${BIN_DIR}/display-logs"
+        ["display-restart"]="${BIN_DIR}/display-restart"
+        ["display-stop"]="${BIN_DIR}/display-stop"
+        ["display-status"]="${BIN_DIR}/display-status"
+        ["display-update"]="${BIN_DIR}/display-update"
+    )
+    for name in "${!alias_map[@]}"; do
+        sed -i "/^alias ${name}=/d" "${bashrc}" 2>/dev/null || true
+        echo "alias ${name}='${alias_map[$name]}'" >> "${bashrc}"
+    done
+    info "Shell aliases and helper commands added."
+}
 
 header "Propared Calendar Displays — Server Installer (branch: ${BRANCH})"
 echo "  User      : ${APP_USER}"
@@ -66,6 +109,8 @@ if [[ "${UPDATE_ONLY}" == "true" ]]; then
     "${VENV_DIR}/bin/pip" install --quiet --upgrade pip
     "${VENV_DIR}/bin/pip" install --quiet -r "${APP_DIR}/requirements.txt"
     info "Python packages up to date."
+
+    install_shell_helpers
 
     header "Restarting service"
     sudo systemctl restart "${SERVICE_NAME}"
@@ -220,21 +265,8 @@ sudo systemctl start  "${SERVICE_NAME}-nightly.timer"
 info "Service unit written and enabled."
 info "Nightly 3 AM restart timer enabled."
 
-# ── 6. Convenience aliases ────────────────────────────────────────────────────
-BASHRC="${HOME}/.bashrc"
-declare -A ALIAS_MAP=(
-    ["display-logs"]="journalctl -u ${SERVICE_NAME} -f"
-    ["display-restart"]="sudo systemctl restart ${SERVICE_NAME}"
-    ["display-stop"]="sudo systemctl stop ${SERVICE_NAME}"
-    ["display-status"]="sudo systemctl status ${SERVICE_NAME}"
-    ["display-update"]="bash ${APP_DIR}/install-server-testing.sh --update"
-)
-for NAME in "${!ALIAS_MAP[@]}"; do
-    if ! grep -qF "alias ${NAME}=" "${BASHRC}" 2>/dev/null; then
-        echo "alias ${NAME}='${ALIAS_MAP[$NAME]}'" >> "${BASHRC}"
-    fi
-done
-info "Shell aliases added to ~/.bashrc"
+# ── 6. Convenience aliases and helper commands ───────────────────────────────
+install_shell_helpers
 
 # ── 7. Start service ──────────────────────────────────────────────────────────
 header "Step 6 — Starting Service"

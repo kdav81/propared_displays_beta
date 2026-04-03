@@ -1716,7 +1716,8 @@ def _make_backup_zip() -> io.BytesIO:
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for fname in (
             "rooms.json", "tag_colors.json", "settings.json",
-            "notice.json", "print_shows.json", "location_rules.json", "media_library.json",
+            "notice.json", "notice_password.txt", "print_shows.json",
+            "location_rules.json", "media_library.json",
         ):
             p = BASE / fname
             if p.exists():
@@ -1794,7 +1795,8 @@ def admin_restore():
             names = zf.namelist()
             for fname in (
                 "rooms.json", "tag_colors.json", "settings.json",
-                "notice.json", "print_shows.json", "location_rules.json", "media_library.json",
+                "notice.json", "notice_password.txt", "print_shows.json",
+                "location_rules.json", "media_library.json",
             ):
                 if fname in names:
                     (BASE / fname).write_bytes(zf.read(fname))
