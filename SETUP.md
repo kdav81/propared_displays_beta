@@ -174,6 +174,8 @@ Run this on whichever machine will be your server (Oracle Cloud VM or local Pi),
 | `install-server-testing.sh` | Sandbox/testing installs and updates from the `testing` branch |
 | `install-client.sh` | Raspberry Pi room display clients |
 
+The repo now keeps only these current installers, so older one-file legacy installers are no longer part of the normal setup path.
+
 ### Fresh install — production branch
 
 ```bash
