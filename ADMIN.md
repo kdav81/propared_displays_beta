@@ -207,18 +207,39 @@ The **Saved on Pi** section lists recent backups stored on the server itself. Th
 
 ## 9. Print Calendar
 
-The print calendar tool at `/print-calendar` generates formatted PDF rehearsal calendars from your Propared iCal feeds.
+The print calendar tool at `/print-calendar` generates formatted PDFs from either:
+
+- configured **productions** from Print Admin
+- configured **rooms** from the main Admin page
+
+The page only works with one source type at a time, so you choose either productions or rooms for each PDF.
 
 ### Generating a calendar
 
-1. **Select Production(s)** — check one or more productions. Drag to reorder if generating a multi-production calendar
-2. **Calendar Type** — choose Monthly (one page per month) or Weekly (one page per week)
-3. **Date Range** — set the start and end month/year (monthly) or specific dates (weekly)
-4. **Calendar Options**:
+1. **Calendar Source** — choose **Productions** or **Rooms**
+2. **Select item(s)** — check one or more productions or rooms. Drag to reorder if you want a specific order in a combined calendar title
+3. **Calendar Type** — choose Monthly (one page per month) or Weekly (one page per week)
+4. **Date Range** — set the start and end month/year (monthly) or specific dates (weekly)
+5. **Calendar Options**:
    - **Calendar Subtitle** — shown in the header of every page (e.g. "Rehearsal Performance Calendar")
    - **Updated By** — your initials, shown in the header
    - **Apply location rules** — when checked, location names are substituted using the rules defined in Print Admin. Uncheck to show the raw original location from Propared
-5. Click **Generate PDF** — the file downloads automatically and a preview appears below
+6. Click **Generate PDF** — the file downloads automatically and a preview appears below
+
+### Production vs room behavior
+
+| Mode | What it uses | Color behavior | Tag behavior |
+|---|---|---|---|
+| **Productions — Monthly** | Print Admin productions and their iCal feeds | Black-and-white friendly monthly layout | Production tags are handled the same way as before |
+| **Productions — Weekly** | Print Admin productions and their iCal feeds | Colored event blocks using tag mappings | Multi-production weekly calendars can show tag prefixes/legends |
+| **Rooms — Monthly** | Room feeds from the main Admin page | Black-and-white friendly monthly layout | Room tags stay visible as bracketed labels, but monthly output does not use color fills |
+| **Rooms — Weekly** | Room feeds from the main Admin page | Colored event blocks using the same tag colors configured in Admin | Room tags stay visible so you can tell event types apart by both label and color |
+
+### Default date behavior
+
+- **Monthly calendars** default to the current month
+- The default **end month** is two months after the current month
+- **Weekly calendars** default to the current week through four weeks out
 
 ---
 

@@ -166,6 +166,15 @@ Once you can SSH in, continue to [Section 4](#4-installing-the-server-software).
 
 Run this on whichever machine will be your server (Oracle Cloud VM or local Pi), after connecting via SSH.
 
+### Installer script quick reference
+
+| Script | Use it for |
+|---|---|
+| `install-server.sh` | Production installs and updates from the `main` branch |
+| `install-server-testing.sh` | Sandbox/testing installs and updates from the `testing` branch |
+| `install-client.sh` | Raspberry Pi room display clients |
+| `install.sh` | Older self-extracting legacy installer kept for backward compatibility |
+
 ### Fresh install — production branch
 
 ```bash
