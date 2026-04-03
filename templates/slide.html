@@ -30,6 +30,7 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'In
 var SERVER  = '{{ server_url }}';
 var ROOM_ID = '{{ room.roomId }}';
 var CFG     = {{ room | tojson }};
+var HAS_ROOM = !!ROOM_ID;
 
 var DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -46,7 +47,8 @@ var imgEl=document.getElementById('photo-img'), statusEl=document.getElementById
 
 function pickIndex(total){
   var hash=0;
-  for(var i=0;i<ROOM_ID.length;i++) hash=(hash*31+ROOM_ID.charCodeAt(i))&0xffff;
+  var seed = HAS_ROOM ? ROOM_ID : 'global-slideshow';
+  for(var i=0;i<seed.length;i++) hash=(hash*31+seed.charCodeAt(i))&0xffff;
   return (hash+Math.floor(Date.now()/((CFG.calDuration||60)*1000)))%total;
 }
 
@@ -54,7 +56,7 @@ async function loadAndShow(){
   try{
     var data=await (await fetch(SERVER+'/api/slides')).json();
     var links=data.links||[];
-    if(!links.length){ statusEl.textContent='No photos found in Dropbox folder.'; return; }
+    if(!links.length){ statusEl.textContent='No slideshow images are currently available.'; return; }
     statusEl.style.display='none';
     var idx=pickIndex(links.length);
     imgEl.onerror=function(){ imgEl.src=links[(idx+1)%links.length]; };
@@ -63,7 +65,9 @@ async function loadAndShow(){
   } catch(e){ statusEl.textContent='Could not load photos.'; }
 }
 loadAndShow();
-setTimeout(function(){ window.location.href=SERVER+'/display?room='+ROOM_ID; },(CFG.calDuration||60)*1000);
+if(HAS_ROOM){
+  setTimeout(function(){ window.location.href=SERVER+'/display?room='+ROOM_ID; },(CFG.calDuration||60)*1000);
+}
 </script>
 </body>
 </html>

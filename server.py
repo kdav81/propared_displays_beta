@@ -59,6 +59,7 @@ from flask import (
     Flask, Response, jsonify, make_response, redirect,
     render_template, request, send_file,
 )
+from werkzeug.utils import secure_filename
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -77,8 +78,9 @@ BASE       = Path(__file__).parent
 CACHE_DIR  = BASE / "cache"
 STATIC_DIR = BASE / "static"
 BACKUP_DIR = BASE / "backups"
+MEDIA_DIR  = STATIC_DIR / "slides"
 
-for _d in (CACHE_DIR, STATIC_DIR, BACKUP_DIR):
+for _d in (CACHE_DIR, STATIC_DIR, BACKUP_DIR, MEDIA_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 ROOMS_FILE           = BASE / "rooms.json"
@@ -91,6 +93,7 @@ NOTICE_PASSWORD_FILE = BASE / "notice_password.txt"
 SECRET_KEY_FILE      = BASE / "secret_key.txt"
 PRINT_SHOWS_FILE     = BASE / "print_shows.json"
 LOCATION_RULES_FILE  = BASE / "location_rules.json"
+MEDIA_LIBRARY_FILE   = BASE / "media_library.json"
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 
@@ -190,6 +193,89 @@ def load_settings() -> dict:
 
 def save_settings(s: dict) -> None:
     _save_json(SETTINGS_FILE, s)
+
+
+def load_media_library() -> list:
+    media = _load_json(MEDIA_LIBRARY_FILE, list)
+    if not isinstance(media, list):
+        return []
+    clean = []
+    for item in media:
+        if not isinstance(item, dict):
+            continue
+        filename = str(item.get("filename", "")).strip()
+        if not filename:
+            continue
+        clean.append({
+            "id":         str(item.get("id", "")).strip() or filename,
+            "filename":   filename,
+            "title":      str(item.get("title", "")).strip(),
+            "originalName": str(item.get("originalName", "")).strip() or filename,
+            "startDate":  str(item.get("startDate", "")).strip(),
+            "endDate":    str(item.get("endDate", "")).strip(),
+            "active":     bool(item.get("active", True)),
+            "uploadedAt": str(item.get("uploadedAt", "")).strip(),
+        })
+    return clean
+
+
+def save_media_library(items: list) -> None:
+    _save_json(MEDIA_LIBRARY_FILE, items)
+
+
+def _parse_optional_date(raw: str):
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _media_public_url(filename: str) -> str:
+    return f"/static/slides/{urllib.parse.quote(filename)}"
+
+
+def _media_is_active(item: dict, today=None) -> bool:
+    if not item.get("active", True):
+        return False
+    today = today or datetime.now().date()
+    start_date = _parse_optional_date(item.get("startDate", ""))
+    end_date = _parse_optional_date(item.get("endDate", ""))
+    if start_date and today < start_date:
+        return False
+    if end_date and today > end_date:
+        return False
+    return True
+
+
+def _media_sort_key(item: dict):
+    return (
+        item.get("startDate", "9999-12-31") or "9999-12-31",
+        item.get("uploadedAt", ""),
+        item.get("title", "").lower(),
+    )
+
+
+def _local_slide_items(active_only: bool = True) -> list[dict]:
+    today = datetime.now().date()
+    items = []
+    for item in load_media_library():
+        path = MEDIA_DIR / item["filename"]
+        if not path.exists():
+            continue
+        if active_only and not _media_is_active(item, today):
+            continue
+        enriched = dict(item)
+        enriched["url"] = _media_public_url(item["filename"])
+        items.append(enriched)
+    items.sort(key=_media_sort_key)
+    return items
+
+
+def _local_slide_links() -> list[str]:
+    return [item["url"] for item in _local_slide_items(active_only=True)]
 
 
 def load_notice() -> dict:
@@ -329,6 +415,18 @@ def _restore_logo_files(archive_names: list[str], zf: zipfile.ZipFile) -> None:
             fp.unlink()
     for logo_name in archived_logos:
         (STATIC_DIR / logo_name).write_bytes(zf.read(f"static/{logo_name}"))
+
+
+def _restore_slide_files(archive_names: list[str], zf: zipfile.ZipFile) -> None:
+    archived_slides = {
+        Path(name).name for name in archive_names
+        if name.startswith("static/slides/") and not name.endswith("/")
+    }
+    for fp in MEDIA_DIR.iterdir():
+        if fp.is_file() and fp.name not in archived_slides:
+            fp.unlink()
+    for slide_name in archived_slides:
+        (MEDIA_DIR / slide_name).write_bytes(zf.read(f"static/slides/{slide_name}"))
 
 
 def _validated_proxy_ical_url(raw_url: str) -> str | None:
@@ -660,7 +758,11 @@ def _fetch_dropbox_images(token: str, folder: str) -> list[str]:
 
 
 def get_slides(force: bool = False) -> list[str]:
-    """Return cached Dropbox photo links, refreshing if stale (> 30 min) or forced."""
+    """Return active local slides, or fallback to cached Dropbox photo links."""
+    local_links = _local_slide_links()
+    if local_links:
+        return local_links
+
     cache = slides_cache_path()
     if not force and cache.exists():
         try:
@@ -945,11 +1047,16 @@ def api_slides():
 
 @app.route("/api/slides/debug")
 def api_slides_debug():
+    local_items = _local_slide_items(active_only=False)
+    active_local_items = _local_slide_items(active_only=True)
     s      = load_settings()
     token  = _get_dropbox_token(s)
     folder = s.get("dropboxFolder", "").strip()
     path   = "" if folder in ("", "/") else folder
     result = {
+        "localMediaCount": len(local_items),
+        "activeLocalMediaCount": len(active_local_items),
+        "localMediaEnabled": bool(active_local_items),
         "hasToken":        bool(token),
         "folder":          folder,
         "folderPath":      path,
@@ -973,6 +1080,103 @@ def api_slides_debug():
         except Exception as exc:
             result.update(ok=False, error=str(exc))
     return jsonify(result)
+
+
+@app.route("/api/media")
+@require_admin
+def api_media_list():
+    return jsonify(_local_slide_items(active_only=False))
+
+
+@app.route("/api/media/upload", methods=["POST"])
+@require_admin
+def api_media_upload():
+    upload = request.files.get("file")
+    if not upload or not upload.filename:
+        return Response("No file uploaded", status=400)
+
+    original_name = Path(upload.filename).name
+    ext = Path(original_name).suffix.lower()
+    if ext not in IMAGE_EXTS:
+        return Response("Unsupported image type", status=400)
+
+    safe_name = secure_filename(Path(original_name).stem) or "slide"
+    filename = f"{uuid.uuid4().hex[:12]}-{safe_name}{ext}"
+    dest = MEDIA_DIR / filename
+    start_date = request.form.get("startDate", "").strip()
+    end_date = request.form.get("endDate", "").strip()
+    start_dt = _parse_optional_date(start_date)
+    end_dt = _parse_optional_date(end_date)
+    if start_date and start_dt is None:
+        return Response("Invalid start date", status=400)
+    if end_date and end_dt is None:
+        return Response("Invalid end date", status=400)
+    if start_dt and end_dt and end_dt < start_dt:
+        return Response("End date cannot be earlier than start date", status=400)
+
+    upload.save(dest)
+
+    items = load_media_library()
+    item = {
+        "id":         uuid.uuid4().hex[:12],
+        "filename":   filename,
+        "title":      request.form.get("title", "").strip() or Path(original_name).stem,
+        "originalName": original_name,
+        "startDate":  start_date,
+        "endDate":    end_date,
+        "active":     request.form.get("active", "1") != "0",
+        "uploadedAt": datetime.now().isoformat(),
+    }
+    items.append(item)
+    save_media_library(items)
+    return jsonify({"ok": True, "item": dict(item, url=_media_public_url(filename))})
+
+
+@app.route("/api/media/<media_id>", methods=["PUT"])
+@require_admin
+def api_media_update(media_id):
+    data = request.get_json(force=True, silent=True) or {}
+    items = load_media_library()
+    for item in items:
+        if item["id"] != media_id:
+            continue
+        start_date = str(data.get("startDate", item.get("startDate", ""))).strip()
+        end_date = str(data.get("endDate", item.get("endDate", ""))).strip()
+        start_dt = _parse_optional_date(start_date)
+        end_dt = _parse_optional_date(end_date)
+        if start_date and start_dt is None:
+            return Response("Invalid start date", status=400)
+        if end_date and end_dt is None:
+            return Response("Invalid end date", status=400)
+        if start_dt and end_dt and end_dt < start_dt:
+            return Response("End date cannot be earlier than start date", status=400)
+        item["title"] = str(data.get("title", item.get("title", ""))).strip()
+        item["startDate"] = start_date
+        item["endDate"] = end_date
+        item["active"] = bool(data.get("active", item.get("active", True)))
+        save_media_library(items)
+        return jsonify({"ok": True})
+    return Response("Not found", status=404)
+
+
+@app.route("/api/media/<media_id>", methods=["DELETE"])
+@require_admin
+def api_media_delete(media_id):
+    items = load_media_library()
+    kept = []
+    deleted = None
+    for item in items:
+        if item["id"] == media_id and deleted is None:
+            deleted = item
+            continue
+        kept.append(item)
+    if deleted is None:
+        return Response("Not found", status=404)
+    path = MEDIA_DIR / deleted["filename"]
+    if path.exists():
+        path.unlink()
+    save_media_library(kept)
+    return jsonify({"ok": True})
 
 
 # ── Tag colours ──────────────────────────────────────────────────────────────
@@ -1361,11 +1565,11 @@ def display():
 def slide_view():
     rid   = request.args.get("room", "")
     rooms = load_rooms()
-    if not rid or rid not in rooms:
-        return redirect(f"/display?room={rid}")
     s = load_settings()
+    if rid and rid not in rooms:
+        return redirect(f"/display?room={rid}")
     room = {
-        "roomId":        rid,
+        "roomId":        rid if rid in rooms else "",
         "calDuration":   s.get("calDuration",   60),
         "slideDuration": s.get("slideDuration",  8),
     }
@@ -1493,6 +1697,16 @@ def admin():
         dropbox_connected = bool(s.get("dropboxRefreshToken") or s.get("dropboxToken")),
         flash_dropbox     = request.args.get("dropbox"),
         flash_error       = request.args.get("dropbox_error"),
+    )
+
+
+@app.route("/media-admin")
+@require_admin
+def media_admin():
+    s = load_settings()
+    return render_template(
+        "media_admin.html",
+        settings=s,
     )
 
 
@@ -1654,7 +1868,7 @@ def _make_backup_zip() -> io.BytesIO:
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for fname in (
             "rooms.json", "tag_colors.json", "settings.json",
-            "notice.json", "print_shows.json", "location_rules.json",
+            "notice.json", "print_shows.json", "location_rules.json", "media_library.json",
         ):
             p = BASE / fname
             if p.exists():
@@ -1663,6 +1877,10 @@ def _make_backup_zip() -> io.BytesIO:
             for fn in STATIC_DIR.iterdir():
                 if fn.name.startswith("logo_") and fn.suffix == ".png":
                     zf.write(fn, f"static/{fn.name}")
+        if MEDIA_DIR.is_dir():
+            for fn in MEDIA_DIR.iterdir():
+                if fn.is_file():
+                    zf.write(fn, f"static/slides/{fn.name}")
         manifest = {
             "version":   4,
             "createdAt": datetime.now().isoformat(),
@@ -1728,11 +1946,12 @@ def admin_restore():
             names = zf.namelist()
             for fname in (
                 "rooms.json", "tag_colors.json", "settings.json",
-                "notice.json", "print_shows.json", "location_rules.json",
+                "notice.json", "print_shows.json", "location_rules.json", "media_library.json",
             ):
                 if fname in names:
                     (BASE / fname).write_bytes(zf.read(fname))
             _restore_logo_files(names, zf)
+            _restore_slide_files(names, zf)
         restored_rooms = load_rooms()
         restored_settings = load_settings()
         for rid in list(ical_cache._data):

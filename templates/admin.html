@@ -10,6 +10,7 @@
 <div class="topbar">
   <div class="topbar-title"><span class="dot"></span>Theatre and Dance Room Display Admin</div>
   <div class="topbar-links">
+    <a class="btn btn-ghost btn-sm" href="/media-admin">&#128247; Media Library</a>
     <a class="btn btn-ghost btn-sm" href="/print-calendar">&#128438; Print Calendar</a>
     <a class="btn btn-ghost btn-sm" href="/print-admin">&#128444; Print Admin</a>
     <a class="btn btn-ghost btn-sm" href="/notice">&#128226; Notice</a>
@@ -205,10 +206,14 @@
 </div>
 <div class="section-body" id="bdy-dropbox">
   <div class="card">
+    <div class="card-hint" style="margin-bottom:14px">
+      The new <a href="/media-admin">Media Library</a> lets you upload slideshow images directly to the server
+      with optional start and end dates. Local media is used first, and Dropbox remains available as fallback.
+    </div>
     <div class="dropbox-status {{ 'connected' if dropbox_connected else 'disconnected' }}">
       <span class="status-dot"></span>
       <span class="status-text">
-        {% if dropbox_connected %}Dropbox connected &mdash; photos shared across all rooms
+        {% if dropbox_connected %}Dropbox connected &mdash; fallback slideshow source shared across all rooms
         {% else %}Dropbox not connected{% endif %}
       </span>
       {% if dropbox_connected %}
