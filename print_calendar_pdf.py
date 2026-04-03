@@ -833,7 +833,7 @@ def build_weekly_pdf(
                 sy = allday_top - (strip_idx + 1) * STRIP_H
                 c.setFillColor(colors.HexColor(hex_c))
                 c.rect(x + 1, sy + 1, DAY_W - 2, STRIP_H - 1, fill=1, stroke=0)
-                c.setFillColor(colors.white)
+                c.setFillColor(C_BLACK)
                 c.setFont(FONT_BOLD, 6)
                 txt = title
                 while c.stringWidth(txt, FONT_BOLD, 6) > DAY_W - 4 and len(txt) > 3:
@@ -966,7 +966,7 @@ def build_weekly_pdf(
                 c.roundRect(x_ev, y_bot, w_ev, bh, 1.5, fill=1, stroke=1)
 
                 # Text inside block
-                c.setFillColor(colors.white)
+                c.setFillColor(C_BLACK)
                 ty = y_top - 6.5
 
                 display_title = ev["title"] if preserve_tags else clean_title(ev["title"])
@@ -1090,19 +1090,6 @@ def build_room_calendar_pdf(
     cal_sub  = cal_subtitle or "Room Schedule"
     now_str  = datetime.now().strftime("%-m/%-d/%y")
     updated  = f"Updated {now_str}" + (f" {updated_by}" if updated_by else "")
-
-    # -- Tag color helpers ----------------------------------------------------
-    def _tag_hex(tag: str) -> str:
-        info = tag_colors.get(tag)
-        if not info:
-            for k, v in tag_colors.items():
-                if k.lower() == tag.lower():
-                    info = v; break
-        if isinstance(info, dict):
-            return info.get("color", "#2563c7")
-        if isinstance(info, str):
-            return info
-        return "#2563c7"
 
     def _tag_full(tag: str) -> str:
         info = tag_colors.get(tag)
@@ -1265,9 +1252,7 @@ def build_room_calendar_pdf(
                     display_loc   = (clean_location(ev["location"], location_rules)
                                      if ev["location"] and not ev["allday"] else "")
 
-                    hex_c      = _tag_hex(tag) if tag else "#555555"
-                    tag_markup = (f'<font color="{hex_c}"><b>[{tag}]</b></font> '
-                                  if tag else '')
+                    tag_markup = f'<b>[{tag}]</b> ' if tag else ''
 
                     if ev["allday"]:
                         cell_content.append(
@@ -1301,9 +1286,8 @@ def build_room_calendar_pdf(
             parts = []
             for t in sorted(month_tags):
                 fn  = _tag_full(t)
-                hex_c = _tag_hex(t)
                 label = f"{t} \u2014 {fn}" if fn else t
-                parts.append(f'<font color="{hex_c}">&#9632;</font> {label}')
+                parts.append(label)
             story.append(HRFlowable(width=CONTENT_W, thickness=0.5,
                                     color=C_GRID, spaceAfter=2, spaceBefore=3))
             story.append(Paragraph("   ".join(parts), sty_legend))
