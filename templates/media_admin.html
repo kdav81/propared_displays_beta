@@ -68,6 +68,15 @@
 </div>
 {% else %}
 <div class="page">
+  {% if request.args.get('site_logo_updated') %}
+  <div class="alert alert-success">&#10003; Site logo updated.</div>
+  {% endif %}
+  {% if request.args.get('site_logo_deleted') %}
+  <div class="alert alert-success">&#10003; Site logo removed.</div>
+  {% endif %}
+  {% if request.args.get('site_logo_error') %}
+  <div class="alert alert-error">&#10007; {{ request.args.get('site_logo_error')|replace('+', ' ') }}</div>
+  {% endif %}
   <div class="grid">
     <div class="card">
       <div class="sec">Upload Image</div>
@@ -113,6 +122,32 @@
     </div>
 
     <div>
+      <div class="card" style="margin-bottom:18px">
+        <div class="sec">Site Logo</div>
+        <div class="hint" style="margin-bottom:14px">
+          This logo appears on the server home page. Upload a replacement here if another department needs to brand the landing page.
+        </div>
+        {% if site_logo_url %}
+        <div class="media-thumb" style="max-width:320px;margin-bottom:14px;border:1px solid var(--border);border-radius:12px;overflow:hidden">
+          <img src="{{ site_logo_url }}" alt="Current site logo" style="object-fit:contain;padding:16px;background:var(--s2)">
+        </div>
+        {% endif %}
+        <form method="POST" enctype="multipart/form-data" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+          <input type="hidden" name="action" value="upload_site_logo">
+          <div class="fg" style="flex:1 1 260px;margin:0">
+            <label class="fl">Upload Logo</label>
+            <input class="fi" type="file" name="siteLogo" accept="image/*" required>
+          </div>
+          <button class="btn btn-primary" type="submit">Save Logo</button>
+        </form>
+        {% if site_logo_url %}
+        <form method="POST" style="margin-top:10px">
+          <input type="hidden" name="action" value="delete_site_logo">
+          <button class="btn btn-danger btn-sm" type="submit" onclick="return confirm('Remove the current site logo?')">Remove Logo</button>
+        </form>
+        {% endif %}
+      </div>
+
       <div class="card" style="margin-bottom:18px">
         <div class="sec">Slideshow Settings</div>
         <div class="hint">

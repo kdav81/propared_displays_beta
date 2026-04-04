@@ -8,6 +8,7 @@ CACHE_DIR = BASE / "cache"
 STATIC_DIR = BASE / "static"
 BACKUP_DIR = BASE / "backups"
 MEDIA_DIR = STATIC_DIR / "slides"
+SITE_LOGO_STEM = "site_logo"
 
 ROOMS_FILE = BASE / "rooms.json"
 CLIENTS_FILE = BASE / "clients.json"
@@ -61,4 +62,3 @@ def load_secret_key() -> str:
     key = secrets.token_hex(32)
     SECRET_KEY_FILE.write_text(key)
     return key
-
