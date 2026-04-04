@@ -9,7 +9,7 @@ A web-based room display system for the University of Delaware's Department of T
 | Component | Description |
 |---|---|
 | **Room Displays** | Raspberry Pi kiosks running Chromium show a live calendar for one room — current event, upcoming events, and an optional photo slideshow |
-| **Admin Panel** | Web interface to manage rooms, clients, global calendars, slideshow settings, and backups |
+| **Admin Panel** | Web interface to manage rooms, clients, global calendars, slideshow settings, media access, and backups |
 | **Print Calendar** | Generates printable PDF calendars from Propared iCal feeds |
 | **Notice Board** | Posts an emergency/info banner across all room displays instantly |
 | **Office Dashboard** | A combined view of all rooms plus an embedded calendar, for a lobby or office screen |
@@ -84,11 +84,12 @@ These are created or maintained on the server and are not the main source code:
 | `rooms.json` | Room definitions and room display settings |
 | `clients.json` | Registered Raspberry Pi clients and their assignments |
 | `tag_colors.json` | Tag color and full-name mappings used by displays and weekly print calendars |
-| `settings.json` | Global display, dashboard, and Dropbox settings |
+| `settings.json` | Global display and dashboard settings |
+| `media_library.json` | Slideshow media metadata including scheduling and active state |
 | `print_shows.json` | Production definitions and iCal feeds for print calendars |
 | `location_rules.json` | Location cleanup rules used by print calendar generation |
 | `notice.json` | Current notice-board message state |
-| `admin_password.txt` / `notice_password.txt` / `secret_key.txt` | Local secrets and auth data |
+| `admin_password.txt` / `notice_password.txt` / `secret_key.txt` | Local secrets and auth data (`notice_password.txt` is shared by Notice and Media Library) |
 
 ---
 
@@ -97,6 +98,7 @@ These are created or maintained on the server and are not the main source code:
 | URL | Who uses it |
 |---|---|
 | `/admin` | Admin — manage rooms, clients, settings |
+| `/media-admin` | Limited-access media library for slideshow uploads and scheduling |
 | `/print-calendar` | Users — generate PDF production calendars or room schedules |
 | `/print-admin` | Users — manage productions and location rules |
 | `/notice` | Users/Admin — post a notice banner to all displays |

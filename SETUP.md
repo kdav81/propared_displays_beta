@@ -156,7 +156,7 @@ Replace the IP, gateway, and DNS with your network's values.
 - Displays must be on the **same network** as the server Pi, or on a network that can reach it
 - The Admin panel and display URLs will use the Pi's local IP (e.g. `http://192.168.1.50/admin`)
 - The server Pi must remain powered on whenever displays are in use
-- Dropbox and Propared iCal feeds still require internet access — make sure the Pi has a working internet connection
+- Propared iCal feeds still require internet access — make sure the Pi has a working internet connection
 
 Once you can SSH in, continue to [Section 4](#4-installing-the-server-software).
 
@@ -231,9 +231,16 @@ Repeat for each room.
 
 If your Propared events use `[TAG]` labels in their titles (e.g. `Tech Rehearsal [THTR]`), assign colors and full names to each tag in the **Tag Color & Name Mapping** section. These appear as a color-coded legend on every display. See [ADMIN.md](ADMIN.md#3-tag-colors) for details.
 
-### Connect Dropbox for the photo slideshow (optional)
+### Set up the slideshow media library (optional)
 
-If you want room displays to show rotating photos between calendar views, connect a Dropbox account. Expand **Slideshow & Dropbox** in the Admin panel and follow the four-step setup wizard. See [ADMIN.md](ADMIN.md#7-slideshow--dropbox) for details.
+If you want room displays to show rotating photos between calendar views:
+
+1. Open `/media-admin`
+2. Set the shared Notice/Media password if prompted
+3. Upload images directly to the server
+4. Optionally set start and end dates for scheduled display
+
+See [ADMIN.md](ADMIN.md#7-slideshow) for details.
 
 ---
 

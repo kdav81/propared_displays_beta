@@ -12,7 +12,7 @@ Day-to-day reference for managing Propared Calendar Displays. For initial instal
 4. [Clients (Pi Displays)](#4-clients-pi-displays)
 5. [Global Calendars](#5-global-calendars)
 6. [Office Dashboard](#6-office-dashboard)
-7. [Slideshow & Dropbox](#7-slideshow--dropbox)
+7. [Slideshow](#7-slideshow)
 8. [Backup & Restore](#8-backup--restore)
 9. [Print Calendar](#9-print-calendar)
 10. [Print Admin — Productions & Location Rules](#10-print-admin--productions--location-rules)
@@ -30,7 +30,7 @@ The page is divided into collapsible sections. Click any section header to expan
 **Sections that start collapsed** (set-once settings you rarely change):
 - Global Calendars
 - Office Dashboard
-- Slideshow & Dropbox
+- Slideshow
 - Backup & Restore
 
 **Sections that start expanded** (things you use regularly):
@@ -54,7 +54,7 @@ Each room corresponds to one physical display screen. Rooms pull from a Propared
    - **Propared iCal URL** — the webcal or iCal feed URL from your Propared production. In Propared, go to the production's settings and copy the iCal/webcal feed link
    - **Refresh Interval** — how often (in minutes) the server checks for new events. 5 minutes is recommended
    - **Start / End Hour** — the display only shows the calendar during these hours. Outside these hours the screen goes to a minimal state
-   - **Rotate to photo slideshow** — if checked, the display alternates between the calendar and photos from Dropbox
+   - **Rotate to photo slideshow** — if checked, the display alternates between the calendar and images from the shared server media library
    - **Logo** — optional image shown in the top-right corner of the display
 
 ### Editing a room
@@ -155,7 +155,7 @@ Click **Save Dashboard Settings** to apply. Click **Preview** to open the dashbo
 
 ---
 
-## 7. Slideshow & Dropbox
+## 7. Slideshow
 
 The slideshow rotates photos between calendar views on room displays and the dashboard.
 
@@ -166,24 +166,34 @@ The slideshow rotates photos between calendar views on room displays and the das
 
 Click **Save Timing** after changing these.
 
-### Dropbox connection
+### Media Library
 
-Photos are pulled from a Dropbox folder. The connection is set up once and rarely needs to change.
+Slideshow images are uploaded directly to the server through the **Media Library** page at `/media-admin`.
 
-**To connect or reconnect Dropbox**, expand the **Slideshow & Dropbox** section and follow the four steps:
+The Media Library uses the same shared password as the Notice page, so you can give someone limited slideshow access without giving them full Admin access.
 
-1. Create a Dropbox app at [dropbox.com/developers/apps](https://www.dropbox.com/developers/apps) with Scoped access → Full Dropbox. Enable `files.metadata.read` and `files.content.read`. Add `http://localhost/dropbox-auth` as a redirect URI
-2. Enter the App Key and Secret and click **Save App Key & Secret**
-3. Click **Open Dropbox Authorization** and log in to Dropbox
-4. Copy the `code=` value from the URL your browser lands on and paste it into the Exchange field
+Each media item can be:
 
-Once connected, photos load automatically. Click **Refresh photos** to force an immediate reload if you add new images to Dropbox.
+- always available
+- scheduled with a start date
+- scheduled with an end date
+- scheduled with both a start and end date
+- disabled without being deleted
+
+### Shared password
+
+The first time you open `/media-admin`, you can set the shared Notice/Media password if it has not already been created through the Notice page.
+
+After that:
+
+- `/notice` and `/media-admin` use the same password
+- `/admin` still uses its own separate admin password
 
 ---
 
 ## 8. Backup & Restore
 
-Backups capture everything: rooms, tag colors, settings, logos, productions, and location rules.
+Backups capture everything: rooms, tag colors, settings, logos, slideshow media, productions, location rules, and the shared Notice/Media password.
 
 ### Creating a backup
 
@@ -201,7 +211,7 @@ Backups capture everything: rooms, tag colors, settings, logos, productions, and
 
 ### Backups saved on the server
 
-The **Saved on Pi** section lists recent backups stored on the server itself. These are useful if you need to roll back without a local copy. Click **Refresh** to update the list.
+The **Saved on Server** section lists recent backups stored on the server itself. These are useful if you need to roll back without a local copy. Click **Refresh** to update the list.
 
 ---
 
