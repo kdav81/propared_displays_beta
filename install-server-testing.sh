@@ -195,7 +195,7 @@ if ! sudo iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null; then
     sudo iptables -I INPUT 4 -p tcp --dport 443 -j ACCEPT
     info "Added iptables rule: allow TCP in on 443"
 fi
-# Outbound: allow reaching Dropbox, GitHub, iCal feeds etc.
+# Outbound: allow reaching GitHub, iCal feeds, and other external services.
 if ! sudo iptables -C OUTPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null; then
     sudo iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
     info "Added iptables rule: allow TCP out on 443"

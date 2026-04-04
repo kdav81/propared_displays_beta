@@ -193,11 +193,11 @@
 
 <!-- Slideshow -->
 <hr class="divider">
-<div class="sec" id="hdr-dropbox" onclick="secToggle('bdy-dropbox')" style="margin-top:28px">
+<div class="sec" id="hdr-slideshow" onclick="secToggle('bdy-slideshow')" style="margin-top:28px">
   <span>Slideshow <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">server media and timing</span></span>
   <span class="chevron">&#9660;</span>
 </div>
-<div class="section-body" id="bdy-dropbox">
+<div class="section-body" id="bdy-slideshow">
   <div class="card">
     <div class="card-hint" style="margin-bottom:14px">
       Use the <a href="/media-admin">Media Library</a> to upload slideshow images directly to the server.
@@ -256,7 +256,7 @@
     <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--border)">
       <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;
         display:flex;align-items:center;justify-content:space-between">
-        <span>Saved on Pi</span>
+        <span>Saved on Server</span>
         <button class="btn btn-ghost btn-sm" onclick="loadBackupList()">&#8635; Refresh</button>
       </div>
       <div id="backup-list" style="font-size:12px;color:var(--muted)">Loading&hellip;</div>
@@ -279,9 +279,9 @@
         <div class="fg"><label class="fl">Display Title</label>
           <input class="fi" name="title" placeholder="Dance Studio Schedule" required></div>
         <div class="fsep">Calendar</div>
-        <div class="fg"><label class="fl">Google Calendar iCal URL</label>
-          <input class="fi" name="icalUrl" placeholder="https://calendar.google.com/calendar/ical/...">
-          <div class="fh">Calendar Settings &rarr; your calendar &rarr; "Secret address in iCal format"</div></div>
+        <div class="fg"><label class="fl">Propared iCal URL</label>
+          <input class="fi" name="icalUrl" placeholder="https://.../calendar.ics or webcal://...">
+          <div class="fh">Paste the Propared iCal/webcal feed URL for this room or calendar.</div></div>
         <div class="fg"><label class="fl">Refresh Interval (minutes)</label>
           <input class="fi" name="refresh" type="number" value="5" min="1" max="60"></div>
         <div class="fsep">Display Hours</div>
@@ -325,8 +325,9 @@
         <div class="fg"><label class="fl">Display Title</label>
           <input class="fi" name="title" id="e-title" required></div>
         <div class="fsep">Calendar</div>
-        <div class="fg"><label class="fl">Google Calendar iCal URL</label>
-          <input class="fi" name="icalUrl" id="e-ical"></div>
+        <div class="fg"><label class="fl">Propared iCal URL</label>
+          <input class="fi" name="icalUrl" id="e-ical">
+          <div class="fh">Paste the Propared iCal/webcal feed URL for this room or calendar.</div></div>
         <div class="fg"><label class="fl">Refresh Interval (minutes)</label>
           <input class="fi" name="refresh" id="e-refresh" type="number" min="1" max="60"></div>
         <div class="fsep">Display Hours</div>
@@ -372,7 +373,7 @@ window.ADMIN_BOOTSTRAP = {
 // ── Collapsible sections ───────────────────────────────────────────────────
 var SEC_KEY = 'propared-sec-state';
 // Sections collapsed by default (set-once, rarely changed)
-var DEFAULT_CLOSED = ['bdy-global-cals', 'bdy-dashboard', 'bdy-dropbox', 'bdy-backup'];
+var DEFAULT_CLOSED = ['bdy-global-cals', 'bdy-dashboard', 'bdy-slideshow', 'bdy-backup'];
 
 function secToggle(id) {
   var body = document.getElementById(id);
