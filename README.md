@@ -53,6 +53,24 @@ A web-based room display system for the University of Delaware's Department of T
 - **[SETUP.md](SETUP.md)** — Install the server and set up Raspberry Pi clients
 - **[ADMIN.md](ADMIN.md)** — Day-to-day guide: managing rooms, productions, backups, notices
 
+### Client install/update from GitHub
+
+For Raspberry Pi display clients, you can pull the installer directly from GitHub instead of copying it by thumbdrive:
+
+```bash
+# Production client installer
+curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/main/install-client.sh
+bash install-client.sh
+```
+
+```bash
+# Testing/sandbox client installer
+curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/testing/install-client.sh
+bash install-client.sh
+```
+
+The script will prompt for the server address and can be safely re-run on an existing Pi to update or repoint that client.
+
 ---
 
 ## Repository Layout
