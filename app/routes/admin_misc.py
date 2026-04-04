@@ -25,7 +25,6 @@ def register_admin_misc_routes(app, *, ical_cache, sync_global_calendar_cache, t
         rooms = load_rooms()
         return render_template(
             "home.html",
-            rooms=rooms,
             room_count=len(rooms),
         )
 
