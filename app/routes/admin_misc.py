@@ -20,6 +20,15 @@ from app.storage import (
 
 
 def register_admin_misc_routes(app, *, ical_cache, sync_global_calendar_cache, to_int, log) -> None:
+    @app.route("/")
+    def home():
+        rooms = load_rooms()
+        return render_template(
+            "home.html",
+            rooms=rooms,
+            room_count=len(rooms),
+        )
+
     @app.route("/admin/setup", methods=["GET", "POST"])
     def admin_setup():
         if read_password_hash(PASSWORD_FILE):
