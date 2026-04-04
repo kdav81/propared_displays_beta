@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Propared Calendar Displays — Production Server Installer (main branch)
+# Propared Calendar Displays — Testing Server Installer (sandbox / testing branch)
 # Target: Oracle Cloud Free Tier, Ubuntu 22.04 — or any Debian-based Linux server
 #
 # Run as: ubuntu (the default Oracle Cloud user), NOT root
 # Usage:
-#   bash install-server.sh            # fresh install
-#   bash install-server.sh --update   # pull latest code, preserve all data
+#   bash install-server-testing.sh            # fresh install
+#   bash install-server-testing.sh --update   # pull latest code, preserve all data
 # =============================================================================
 set -euo pipefail
 
-BRANCH="main"
+BRANCH="testing"
 REPO="https://github.com/kdav81/propared_displays_beta.git"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
@@ -32,8 +32,51 @@ VENV_DIR="${APP_DIR}/venv"
 SERVICE_NAME="propared-display"
 PORT=80
 TZ_TARGET="America/New_York"
+SCRIPT_NAME="install-server-testing.sh"
+BIN_DIR="${HOME}/bin"
 
 [[ "${APP_USER}" == "root" ]] && die "Do not run as root. Run as 'ubuntu'."
+
+install_shell_helpers() {
+    local bashrc="${HOME}/.bashrc"
+    mkdir -p "${BIN_DIR}"
+    cat > "${BIN_DIR}/display-logs" << EOF
+#!/usr/bin/env bash
+journalctl -u ${SERVICE_NAME} -f "\$@"
+EOF
+    cat > "${BIN_DIR}/display-restart" << EOF
+#!/usr/bin/env bash
+sudo systemctl restart ${SERVICE_NAME}
+EOF
+    cat > "${BIN_DIR}/display-stop" << EOF
+#!/usr/bin/env bash
+sudo systemctl stop ${SERVICE_NAME}
+EOF
+    cat > "${BIN_DIR}/display-status" << EOF
+#!/usr/bin/env bash
+sudo systemctl status ${SERVICE_NAME}
+EOF
+    cat > "${BIN_DIR}/display-update" << EOF
+#!/usr/bin/env bash
+bash ${APP_DIR}/${SCRIPT_NAME} --update
+EOF
+    chmod +x "${BIN_DIR}"/display-*
+    if ! grep -qF 'export PATH="$HOME/bin:$PATH"' "${bashrc}" 2>/dev/null; then
+        echo 'export PATH="$HOME/bin:$PATH"' >> "${bashrc}"
+    fi
+    declare -A alias_map=(
+        ["display-logs"]="${BIN_DIR}/display-logs"
+        ["display-restart"]="${BIN_DIR}/display-restart"
+        ["display-stop"]="${BIN_DIR}/display-stop"
+        ["display-status"]="${BIN_DIR}/display-status"
+        ["display-update"]="${BIN_DIR}/display-update"
+    )
+    for name in "${!alias_map[@]}"; do
+        sed -i "/^alias ${name}=/d" "${bashrc}" 2>/dev/null || true
+        echo "alias ${name}='${alias_map[$name]}'" >> "${bashrc}"
+    done
+    info "Shell aliases and helper commands added."
+}
 
 header "Propared Calendar Displays — Server Installer (branch: ${BRANCH})"
 echo "  User      : ${APP_USER}"
@@ -66,6 +109,8 @@ if [[ "${UPDATE_ONLY}" == "true" ]]; then
     "${VENV_DIR}/bin/pip" install --quiet --upgrade pip
     "${VENV_DIR}/bin/pip" install --quiet -r "${APP_DIR}/requirements.txt"
     info "Python packages up to date."
+
+    install_shell_helpers
 
     header "Restarting service"
     sudo systemctl restart "${SERVICE_NAME}"
@@ -150,7 +195,7 @@ if ! sudo iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null; then
     sudo iptables -I INPUT 4 -p tcp --dport 443 -j ACCEPT
     info "Added iptables rule: allow TCP in on 443"
 fi
-# Outbound: allow reaching Dropbox, GitHub, iCal feeds etc.
+# Outbound: allow reaching GitHub, iCal feeds, and other external services.
 if ! sudo iptables -C OUTPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null; then
     sudo iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
     info "Added iptables rule: allow TCP out on 443"
@@ -220,21 +265,8 @@ sudo systemctl start  "${SERVICE_NAME}-nightly.timer"
 info "Service unit written and enabled."
 info "Nightly 3 AM restart timer enabled."
 
-# ── 6. Convenience aliases ────────────────────────────────────────────────────
-BASHRC="${HOME}/.bashrc"
-declare -A ALIAS_MAP=(
-    ["display-logs"]="journalctl -u ${SERVICE_NAME} -f"
-    ["display-restart"]="sudo systemctl restart ${SERVICE_NAME}"
-    ["display-stop"]="sudo systemctl stop ${SERVICE_NAME}"
-    ["display-status"]="sudo systemctl status ${SERVICE_NAME}"
-    ["display-update"]="bash ${APP_DIR}/install-server.sh --update"
-)
-for NAME in "${!ALIAS_MAP[@]}"; do
-    if ! grep -qF "alias ${NAME}=" "${BASHRC}" 2>/dev/null; then
-        echo "alias ${NAME}='${ALIAS_MAP[$NAME]}'" >> "${BASHRC}"
-    fi
-done
-info "Shell aliases added to ~/.bashrc"
+# ── 6. Convenience aliases and helper commands ───────────────────────────────
+install_shell_helpers
 
 # ── 7. Start service ──────────────────────────────────────────────────────────
 header "Step 6 — Starting Service"
@@ -251,10 +283,10 @@ sleep 2
 # Summary
 # =============================================================================
 echo
-echo -e "${GREEN}══════════════════════════════════════════${NC}"
+echo -e "${YELLOW}══════════════════════════════════════════${NC}"
 if systemctl is-active --quiet "${SERVICE_NAME}"; then
-    echo -e "${GREEN}  ✓  Propared Calendar Displays server is running!${NC}"
-    echo -e "${GREEN}══════════════════════════════════════════${NC}"
+    echo -e "${YELLOW}  ✓  Propared Calendar Displays server is running! [TESTING]${NC}"
+    echo -e "${YELLOW}══════════════════════════════════════════${NC}"
     echo
     PUBLIC_IP=$(curl -sf --max-time 5 http://checkip.amazonaws.com 2>/dev/null || hostname -I | awk '{print $1}')
     echo "  Branch       : ${BRANCH}"
@@ -264,11 +296,11 @@ if systemctl is-active --quiet "${SERVICE_NAME}"; then
     echo "  Alias        : display-logs  (reload shell first)"
     echo
     echo "  To update without reinstalling:"
-    echo "    bash ${APP_DIR}/install-server.sh --update"
+    echo "    bash ${APP_DIR}/install-server-testing.sh --update"
     echo "    (or: display-update  after reloading shell)"
 else
     echo -e "${RED}  ✗  Service failed to start${NC}"
-    echo -e "${GREEN}══════════════════════════════════════════${NC}"
+    echo -e "${YELLOW}══════════════════════════════════════════${NC}"
     echo
     warn "Check logs: journalctl -u ${SERVICE_NAME} -n 50"
     exit 1
