@@ -25,6 +25,18 @@ Day-to-day reference for managing Propared Calendar Displays. For initial instal
 
 Open `http://YOUR_SERVER_IP/admin` in any browser.
 
+### Common URLs
+
+| URL | Purpose |
+|---|---|
+| `/` | Landing page with links to the main tools |
+| `/admin` | Full admin panel |
+| `/media-admin` | Shared-password slideshow and site-logo management |
+| `/print-calendar` | Print calendar generation |
+| `/print-admin` | Production and location-rule setup for print calendars |
+| `/notice` | Shared-password notice board |
+| `/dashboard` | Office/lobby dashboard view |
+
 The page is divided into collapsible sections. Click any section header to expand or collapse it. The system remembers which sections you left open or closed.
 
 **Sections that start collapsed** (set-once settings you rarely change):
@@ -39,6 +51,8 @@ The page is divided into collapsible sections. Click any section header to expan
 - Clients
 
 Navigation buttons at the top right link to Print Calendar, Print Admin, and the Notice Board.
+
+The bare server URL (`/`) now opens a landing page with quick links to Admin, Media Library, Notice, Print Calendar, and Dashboard.
 
 ---
 
@@ -105,6 +119,8 @@ Each Raspberry Pi registers itself with the server when the client installer run
 | **IP** | The Pi's local IP address |
 | **Room** | Which room this Pi is currently displaying |
 | **Last seen** | How long ago the Pi last checked in (green = online, red = offline) |
+
+“Offline” here means the server has not seen a recent heartbeat from that Pi. It does not always mean the hardware is dead — it can also mean Wi-Fi, power, or kiosk-process trouble.
 
 ### Assigning a room
 
@@ -180,6 +196,17 @@ Each media item can be:
 - scheduled with both a start and end date
 - disabled without being deleted
 
+### Site logo
+
+At the bottom of the Media Library page there is a collapsible **Site Logo** section.
+
+Use it to:
+- upload the logo shown on the landing page at `/`
+- replace that logo later without editing files directly
+- remove the landing-page logo if you want a text-only header again
+
+This is intentionally tucked away because it is not something you need to change often.
+
 ### Shared password
 
 The first time you open `/media-admin`, you can set the shared Notice/Media password if it has not already been created through the Notice page.
@@ -244,6 +271,12 @@ The page only works with one source type at a time, so you choose either product
 | **Productions — Weekly** | Print Admin productions and their iCal feeds | Colored event blocks using tag mappings | Multi-production weekly calendars can show tag prefixes/legends |
 | **Rooms — Monthly** | Room feeds from the main Admin page | Black-and-white friendly monthly layout | Room tags stay visible as bracketed labels, but monthly output does not use color fills |
 | **Rooms — Weekly** | Room feeds from the main Admin page | Colored event blocks using the same tag colors configured in Admin | Room tags stay visible so you can tell event types apart by both label and color |
+
+### Duplicate handling
+
+If the same event appears more than once across attached feeds, the print renderer now collapses exact duplicates so they only print once.
+
+For production calendars, the monthly and weekly PDF generators also no longer add a printed short-tag prefix to untagged events on their own.
 
 ### Default date behavior
 
