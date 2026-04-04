@@ -46,6 +46,21 @@
     color:var(--accent);
     margin-bottom:12px;
   }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    margin-bottom:12px;
+  }
+  .brand-logo{
+    max-width:240px;
+    width:min(34vw,240px);
+    height:auto;
+    display:block;
+  }
+  .brand-copy{
+    min-width:0;
+  }
   h1{
     margin:0 0 10px;
     font-size:clamp(2rem,4vw,3.4rem);
@@ -58,20 +73,6 @@
     color:var(--muted);
     font-size:1.08rem;
     line-height:1.55;
-  }
-  .hero-meta{
-    display:flex;
-    gap:12px;
-    flex-wrap:wrap;
-    margin-top:20px;
-  }
-  .pill{
-    border:1px solid var(--border);
-    background:rgba(255,255,255,.7);
-    border-radius:999px;
-    padding:9px 14px;
-    font:600 13px/1.2 "Trebuchet MS",Verdana,sans-serif;
-    color:var(--muted);
   }
   .grid{
     display:grid;
@@ -155,13 +156,16 @@
 <body>
   <div class="page">
     <section class="hero">
-      <div class="eyebrow">Theatre and Dance Room Displays</div>
-      <h1>Server Home</h1>
-      <p>This page is the front door for the display server. Use it to jump to the main admin and printing tools without remembering the full route for each page.</p>
-      <div class="hero-meta">
-        <div class="pill">{{ room_count }} room{{ "" if room_count == 1 else "s" }} configured</div>
-        <div class="pill">Open this server by IP and start here</div>
+      <div class="brand">
+        {% if site_logo_url %}
+        <img class="brand-logo" src="{{ site_logo_url }}" alt="University of Delaware Theatre and Dance">
+        {% endif %}
+        <div class="brand-copy">
+          <div class="eyebrow">Theatre and Dance Room Displays</div>
+          <h1>Server Home</h1>
+        </div>
       </div>
+      <p>This page is the front door for the display server. Use it to jump to the main admin and printing tools without remembering the full route for each page.</p>
     </section>
 
     <section class="grid">

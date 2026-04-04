@@ -8,11 +8,13 @@ from flask import Response, jsonify, redirect, render_template, request
 from werkzeug.utils import secure_filename
 
 from app.auth import require_shared_media_auth
-from app.config import IMAGE_EXTS, MEDIA_DIR, NOTICE_PASSWORD_FILE
+from app.config import IMAGE_EXTS, MEDIA_DIR, NOTICE_PASSWORD_FILE, SITE_LOGO_STEM, STATIC_DIR
 from app.services.media_library import (
     local_slide_items,
     media_public_url,
     parse_optional_date,
+    site_logo_path,
+    site_logo_url,
 )
 from app.storage import (
     check_password,
@@ -25,6 +27,21 @@ from app.storage import (
 
 
 def register_media_routes(app) -> None:
+    def _delete_site_logo() -> None:
+        for ext in IMAGE_EXTS:
+            candidate = STATIC_DIR / f"{SITE_LOGO_STEM}{ext}"
+            if candidate.exists():
+                candidate.unlink()
+
+    def _save_site_logo(upload):
+        original_name = Path(upload.filename).name
+        ext = Path(original_name).suffix.lower()
+        if ext not in IMAGE_EXTS:
+            return "Unsupported image type"
+        _delete_site_logo()
+        upload.save(STATIC_DIR / f"{SITE_LOGO_STEM}{ext}")
+        return None
+
     @app.route("/api/media")
     @require_shared_media_auth
     def api_media_list():
@@ -135,5 +152,21 @@ def register_media_routes(app) -> None:
                     401,
                     {"WWW-Authenticate": 'Basic realm="Notice Board"'},
                 )
-        return render_template("media_admin.html", settings=load_settings(), setup_needed=setup_needed)
-
+            action = request.form.get("action")
+            if action == "upload_site_logo":
+                upload = request.files.get("siteLogo")
+                if not upload or not upload.filename:
+                    return redirect("/media-admin?site_logo_error=Please+choose+an+image")
+                error = _save_site_logo(upload)
+                if error:
+                    return redirect("/media-admin?site_logo_error=" + error.replace(" ", "+"))
+                return redirect("/media-admin?site_logo_updated=1")
+            if action == "delete_site_logo":
+                _delete_site_logo()
+                return redirect("/media-admin?site_logo_deleted=1")
+        return render_template(
+            "media_admin.html",
+            settings=load_settings(),
+            setup_needed=setup_needed,
+            site_logo_url=site_logo_url(),
+        )

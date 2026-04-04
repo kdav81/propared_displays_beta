@@ -9,6 +9,7 @@ from flask import Response, jsonify, redirect, render_template, request, send_fi
 from app.auth import require_admin
 from app.config import BACKUP_DIR, NOTICE_PASSWORD_FILE, PASSWORD_FILE
 from app.services.backup import make_backup_zip, restore_backup_archive
+from app.services.media_library import site_logo_url
 from app.storage import (
     check_password,
     load_rooms,
@@ -22,11 +23,7 @@ from app.storage import (
 def register_admin_misc_routes(app, *, ical_cache, sync_global_calendar_cache, to_int, log) -> None:
     @app.route("/")
     def home():
-        rooms = load_rooms()
-        return render_template(
-            "home.html",
-            room_count=len(rooms),
-        )
+        return render_template("home.html", site_logo_url=site_logo_url())
 
     @app.route("/admin/setup", methods=["GET", "POST"])
     def admin_setup():
