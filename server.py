@@ -54,48 +54,36 @@ except ImportError:
 
 from flask import (
     Flask, Response, jsonify, make_response, redirect,
-    render_template, request, send_file,
+    render_template, request,
 )
-from werkzeug.utils import secure_filename
 
-from app.auth import require_admin, require_notice_auth, require_shared_media_auth
+from app.auth import require_admin
 from app.config import (
     BACKUP_DIR,
-    IMAGE_EXTS,
-    MEDIA_DIR,
-    NOTICE_PASSWORD_FILE,
-    PASSWORD_FILE,
     STATIC_DIR,
     ensure_runtime_dirs,
     load_secret_key,
 )
-from app.services.backup import make_backup_zip, restore_backup_archive
 from app.services.media_library import (
     local_slide_items as _local_slide_items,
     local_slide_links as _local_slide_links,
-    media_public_url as _media_public_url,
-    parse_optional_date as _parse_optional_date,
 )
+from app.routes.admin_misc import register_admin_misc_routes
+from app.routes.media import register_media_routes
+from app.routes.notice import register_notice_routes
 from app.storage import (
-    check_password as _check_pw,
     load_clients,
     load_location_rules,
-    load_media_library,
-    load_notice,
     load_print_shows,
     load_rooms,
     load_settings,
     load_tags,
-    read_password_hash as _read_pw_file,
     save_clients,
     save_location_rules,
-    save_media_library,
-    save_notice,
     save_print_shows,
     save_rooms,
     save_settings,
     save_tags,
-    write_password as _write_pw_file,
 )
 
 # ---------------------------------------------------------------------------
@@ -118,6 +106,7 @@ ensure_runtime_dirs()
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
 app.secret_key = load_secret_key()
+
 
 
 # ---------------------------------------------------------------------------
@@ -408,6 +397,17 @@ def _boot_ical_cache() -> None:
     _sync_global_calendar_cache(load_settings().get("globalCalendars", []))
 
 
+register_media_routes(app)
+register_notice_routes(app)
+register_admin_misc_routes(
+    app,
+    ical_cache=ical_cache,
+    sync_global_calendar_cache=_sync_global_calendar_cache,
+    to_int=_to_int,
+    log=log,
+)
+
+
 def get_slides(force: bool = False) -> list[str]:
     """Return active local slideshow image URLs."""
     return _local_slide_links()
@@ -660,103 +660,6 @@ def api_slides_debug():
     })
 
 
-@app.route("/api/media")
-@require_shared_media_auth
-def api_media_list():
-    return jsonify(_local_slide_items(active_only=False))
-
-
-@app.route("/api/media/upload", methods=["POST"])
-@require_shared_media_auth
-def api_media_upload():
-    upload = request.files.get("file")
-    if not upload or not upload.filename:
-        return Response("No file uploaded", status=400)
-
-    original_name = Path(upload.filename).name
-    ext = Path(original_name).suffix.lower()
-    if ext not in IMAGE_EXTS:
-        return Response("Unsupported image type", status=400)
-
-    safe_name = secure_filename(Path(original_name).stem) or "slide"
-    filename = f"{uuid.uuid4().hex[:12]}-{safe_name}{ext}"
-    dest = MEDIA_DIR / filename
-    start_date = request.form.get("startDate", "").strip()
-    end_date = request.form.get("endDate", "").strip()
-    start_dt = _parse_optional_date(start_date)
-    end_dt = _parse_optional_date(end_date)
-    if start_date and start_dt is None:
-        return Response("Invalid start date", status=400)
-    if end_date and end_dt is None:
-        return Response("Invalid end date", status=400)
-    if start_dt and end_dt and end_dt < start_dt:
-        return Response("End date cannot be earlier than start date", status=400)
-
-    upload.save(dest)
-
-    items = load_media_library()
-    item = {
-        "id":         uuid.uuid4().hex[:12],
-        "filename":   filename,
-        "title":      request.form.get("title", "").strip() or Path(original_name).stem,
-        "originalName": original_name,
-        "startDate":  start_date,
-        "endDate":    end_date,
-        "active":     request.form.get("active", "1") != "0",
-        "uploadedAt": datetime.now().isoformat(),
-    }
-    items.append(item)
-    save_media_library(items)
-    return jsonify({"ok": True, "item": dict(item, url=_media_public_url(filename))})
-
-
-@app.route("/api/media/<media_id>", methods=["PUT", "POST"])
-@require_shared_media_auth
-def api_media_update(media_id):
-    data = request.get_json(force=True, silent=True) or {}
-    items = load_media_library()
-    for item in items:
-        if item["id"] != media_id:
-            continue
-        start_date = str(data.get("startDate", item.get("startDate", ""))).strip()
-        end_date = str(data.get("endDate", item.get("endDate", ""))).strip()
-        start_dt = _parse_optional_date(start_date)
-        end_dt = _parse_optional_date(end_date)
-        if start_date and start_dt is None:
-            return Response("Invalid start date", status=400)
-        if end_date and end_dt is None:
-            return Response("Invalid end date", status=400)
-        if start_dt and end_dt and end_dt < start_dt:
-            return Response("End date cannot be earlier than start date", status=400)
-        item["title"] = str(data.get("title", item.get("title", ""))).strip()
-        item["startDate"] = start_date
-        item["endDate"] = end_date
-        item["active"] = bool(data.get("active", item.get("active", True)))
-        save_media_library(items)
-        return jsonify({"ok": True})
-    return Response("Not found", status=404)
-
-
-@app.route("/api/media/<media_id>", methods=["DELETE"])
-@require_shared_media_auth
-def api_media_delete(media_id):
-    items = load_media_library()
-    kept = []
-    deleted = None
-    for item in items:
-        if item["id"] == media_id and deleted is None:
-            deleted = item
-            continue
-        kept.append(item)
-    if deleted is None:
-        return Response("Not found", status=404)
-    path = MEDIA_DIR / deleted["filename"]
-    if path.exists():
-        path.unlink()
-    save_media_library(kept)
-    return jsonify({"ok": True})
-
-
 # ── Tag colours ──────────────────────────────────────────────────────────────
 
 @app.route("/api/tag-colors", methods=["GET"])
@@ -773,33 +676,6 @@ def api_tag_colors_post():
     save_tags(data)
     return jsonify({"ok": True})
 
-
-# ── Notice ───────────────────────────────────────────────────────────────────
-
-@app.route("/api/notice")
-def api_notice():
-    n   = load_notice()
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    if not n.get("active"):
-        return jsonify({"active": False})
-    start = n.get("startTime", "")
-    end   = n.get("endTime",   "")
-    if (not start or now >= start) and (not end or now <= end):
-        return jsonify({
-            "active":  True,
-            "message": n.get("message", ""),
-            "version": n.get("version", 0),
-        })
-    return jsonify({"active": False})
-
-
-@app.route("/api/notice/push", methods=["POST"])
-@require_notice_auth
-def api_notice_push():
-    n = load_notice()
-    n["version"] = n.get("version", 0) + 1
-    save_notice(n)
-    return jsonify({"ok": True})
 
 @app.route('/print-calendar')
 def print_calendar():
@@ -1194,111 +1070,6 @@ def proxy_ical():
 
 
 
-# ── Notice page ───────────────────────────────────────────────────────────────
-
-@app.route("/notice", methods=["GET", "POST"])
-def notice_page():
-    setup_needed = not _read_pw_file(NOTICE_PASSWORD_FILE)
-    msg = ""
-    n   = load_notice()
-
-    if request.method == "POST":
-        action = request.form.get("action")
-
-        if action == "set_password":
-            pw = request.form.get("password", "").strip()
-            if pw:
-                _write_pw_file(NOTICE_PASSWORD_FILE, pw)
-            return redirect("/notice")
-
-        # All other actions require auth
-        auth = request.authorization
-        if not auth or not _check_pw(auth.password, NOTICE_PASSWORD_FILE):
-            return Response(
-                "Notice access required.", 401,
-                {"WWW-Authenticate": 'Basic realm="Notice Board"'},
-            )
-        if action == "save":
-            n["message"]   = request.form.get("message", "").strip()
-            n["startTime"] = request.form.get("startTime", "").strip()
-            n["endTime"]   = request.form.get("endTime",   "").strip()
-            n["active"]    = request.form.get("active") == "1"
-            save_notice(n)
-            msg = "Notice saved."
-        elif action == "clear":
-            n = {"active": False, "message": "", "startTime": "", "endTime": "", "version": 0}
-            save_notice(n)
-            msg = "Notice cleared."
-
-    else:  # GET
-        auth = request.authorization
-        if not setup_needed and (not auth or not _check_pw(auth.password, NOTICE_PASSWORD_FILE)):
-            return Response(
-                "Notice access required.", 401,
-                {"WWW-Authenticate": 'Basic realm="Notice Board"'},
-            )
-
-    return render_template("notice.html", n=n, msg=msg, setup_needed=setup_needed)
-
-
-# ── Admin: setup ──────────────────────────────────────────────────────────────
-
-@app.route("/admin/setup", methods=["GET", "POST"])
-def admin_setup():
-    if _read_pw_file(PASSWORD_FILE):
-        return redirect("/admin")
-    error = None
-    if request.method == "POST":
-        pw  = request.form.get("password",  "").strip()
-        pw2 = request.form.get("password2", "").strip()
-        if len(pw) < 6:
-            error = "Password must be at least 6 characters."
-        elif pw != pw2:
-            error = "Passwords do not match."
-        else:
-            _write_pw_file(PASSWORD_FILE, pw)
-            return redirect("/admin")
-    return render_template("admin_setup.html", error=error)
-
-
-# ── Admin: main ───────────────────────────────────────────────────────────────
-
-@app.route("/admin")
-@require_admin
-def admin():
-    s = load_settings()
-    return render_template(
-        "admin.html",
-        rooms             = load_rooms(),
-        tag_colors        = load_tags(),
-        settings          = s,
-    )
-
-
-@app.route("/media-admin", methods=["GET", "POST"])
-def media_admin():
-    setup_needed = not _read_pw_file(NOTICE_PASSWORD_FILE)
-    if request.method == "POST" and setup_needed:
-        if request.form.get("action") == "set_password":
-            pw = request.form.get("password", "").strip()
-            if pw:
-                _write_pw_file(NOTICE_PASSWORD_FILE, pw)
-            return redirect("/media-admin")
-    elif not setup_needed:
-        auth = request.authorization
-        if not auth or not _check_pw(auth.password, NOTICE_PASSWORD_FILE):
-            return Response(
-                "Shared media access required.", 401,
-                {"WWW-Authenticate": 'Basic realm="Notice Board"'},
-            )
-    s = load_settings()
-    return render_template(
-        "media_admin.html",
-        settings=s,
-        setup_needed=setup_needed,
-    )
-
-
 # ── Admin: global settings ────────────────────────────────────────────────────
 
 @app.route("/admin/settings", methods=["POST"])
@@ -1415,75 +1186,6 @@ def admin_room_delete(rid):
         p.unlink()
     return redirect("/admin")
 
-
-# ── Admin: backup & restore ───────────────────────────────────────────────────
-
-@app.route("/admin/backup")
-@require_admin
-def admin_backup():
-    buf = make_backup_zip(list(load_rooms().keys()))
-    ts  = datetime.now().strftime("%Y%m%d-%H%M%S")
-    fn  = f"propared-backup-{ts}.zip"
-    (BACKUP_DIR / fn).write_bytes(buf.read())
-    buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name=fn, mimetype="application/zip")
-
-
-@app.route("/admin/backup/list")
-@require_admin
-def admin_backup_list():
-    backups = []
-    if BACKUP_DIR.is_dir():
-        for fp in sorted(BACKUP_DIR.glob("*.zip"), reverse=True):
-            backups.append({
-                "name":  fp.name,
-                "size":  fp.stat().st_size,
-                "mtime": fp.stat().st_mtime,
-            })
-    return jsonify(backups)
-
-
-@app.route("/admin/backup/download/<filename>")
-@require_admin
-def admin_backup_download(filename):
-    fp = BACKUP_DIR / Path(filename).name   # Path.name prevents traversal
-    if not fp.exists():
-        return Response("Not found", 404)
-    return send_file(fp, as_attachment=True, download_name=fp.name, mimetype="application/zip")
-
-
-@app.route("/admin/backup/delete/<filename>", methods=["POST"])
-@require_admin
-def admin_backup_delete(filename):
-    fp = BACKUP_DIR / Path(filename).name
-    if fp.exists():
-        fp.unlink()
-    return redirect("/admin#backup")
-
-
-@app.route("/admin/restore", methods=["POST"])
-@require_admin
-def admin_restore():
-    f = request.files.get("backup")
-    if not f or not f.filename.endswith(".zip"):
-        return redirect("/admin?restore_error=Please+upload+a+valid+.zip+file")
-    try:
-        restore_backup_archive(f.read())
-        restored_rooms = load_rooms()
-        restored_settings = load_settings()
-        for rid in list(ical_cache._data):
-            if rid not in restored_rooms:
-                ical_cache.remove(rid)
-        # Restart iCal refresh for restored rooms
-        for rid, room in restored_rooms.items():
-            url = room.get("icalUrl", "").strip()
-            if url:
-                ical_cache.schedule(rid, url, _to_int(room.get("refresh"), 5, minimum=1, maximum=1440))
-        _sync_global_calendar_cache(restored_settings.get("globalCalendars", []))
-        return redirect("/admin?restored=1")
-    except Exception as exc:
-        log.error("Restore failed: %s", exc)
-        return redirect("/admin?restore_error=" + urllib.parse.quote(str(exc)))
 
 # ===========================================================================
 # Entry point
