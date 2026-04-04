@@ -32,18 +32,15 @@ Directory layout (relative to this file):
 
 from __future__ import annotations
 
-import hashlib
 import io
 import json
 import logging
 import os
-import secrets
 import threading
 import time
 import urllib.parse
 import urllib.request
 import uuid
-import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -61,6 +58,46 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
+from app.auth import require_admin, require_notice_auth, require_shared_media_auth
+from app.config import (
+    BACKUP_DIR,
+    IMAGE_EXTS,
+    MEDIA_DIR,
+    NOTICE_PASSWORD_FILE,
+    PASSWORD_FILE,
+    STATIC_DIR,
+    ensure_runtime_dirs,
+    load_secret_key,
+)
+from app.services.backup import make_backup_zip, restore_backup_archive
+from app.services.media_library import (
+    local_slide_items as _local_slide_items,
+    local_slide_links as _local_slide_links,
+    media_public_url as _media_public_url,
+    parse_optional_date as _parse_optional_date,
+)
+from app.storage import (
+    check_password as _check_pw,
+    load_clients,
+    load_location_rules,
+    load_media_library,
+    load_notice,
+    load_print_shows,
+    load_rooms,
+    load_settings,
+    load_tags,
+    read_password_hash as _read_pw_file,
+    save_clients,
+    save_location_rules,
+    save_media_library,
+    save_notice,
+    save_print_shows,
+    save_rooms,
+    save_settings,
+    save_tags,
+    write_password as _write_pw_file,
+)
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -74,313 +111,13 @@ log = logging.getLogger("propared")
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-BASE       = Path(__file__).parent
-CACHE_DIR  = BASE / "cache"
-STATIC_DIR = BASE / "static"
-BACKUP_DIR = BASE / "backups"
-MEDIA_DIR  = STATIC_DIR / "slides"
-
-for _d in (CACHE_DIR, STATIC_DIR, BACKUP_DIR, MEDIA_DIR):
-    _d.mkdir(parents=True, exist_ok=True)
-
-ROOMS_FILE           = BASE / "rooms.json"
-CLIENTS_FILE         = BASE / "clients.json"   # persistent client registry
-TAGS_FILE            = BASE / "tag_colors.json"
-SETTINGS_FILE        = BASE / "settings.json"
-PASSWORD_FILE        = BASE / "admin_password.txt"
-NOTICE_FILE          = BASE / "notice.json"
-NOTICE_PASSWORD_FILE = BASE / "notice_password.txt"
-SECRET_KEY_FILE      = BASE / "secret_key.txt"
-PRINT_SHOWS_FILE     = BASE / "print_shows.json"
-LOCATION_RULES_FILE  = BASE / "location_rules.json"
-MEDIA_LIBRARY_FILE   = BASE / "media_library.json"
-
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+ensure_runtime_dirs()
 
 # ---------------------------------------------------------------------------
 # Flask app  (persistent secret key so sessions survive restarts)
 # ---------------------------------------------------------------------------
-def _load_secret_key() -> str:
-    if SECRET_KEY_FILE.exists():
-        return SECRET_KEY_FILE.read_text().strip()
-    key = secrets.token_hex(32)
-    SECRET_KEY_FILE.write_text(key)
-    return key
-
 app = Flask(__name__)
-app.secret_key = _load_secret_key()
-
-# ---------------------------------------------------------------------------
-# Defaults
-# ---------------------------------------------------------------------------
-DEFAULT_TAGS: dict = {
-    "Class":     {"color": "#2563c7", "fullName": "Class"},
-    "SPDance":   {"color": "#16213e", "fullName": "Spring Dance Concert"},
-    "Rehearsal": {"color": "#7b2d8b", "fullName": "Rehearsal"},
-    "ND":        {"color": "#c0392b", "fullName": "Notre Dame"},
-    "Hold":      {"color": "#555555", "fullName": "Hold"},
-    "default":   {"color": "#2563c7", "fullName": ""},
-}
-
-DEFAULT_SETTINGS: dict = {
-    "slideDuration":          8,
-    "calDuration":            60,
-    "dashboardIframeUrl":     "",
-    "dashboardRooms":         [],
-    "dashboardCalDuration":   60,
-    "dashboardSlideDuration": 8,
-    "globalCalendars":        [],
-}
-
-# ---------------------------------------------------------------------------
-# JSON persistence helpers
-# ---------------------------------------------------------------------------
-_file_lock = threading.Lock()
-
-
-def _load_json(path: Path, default):
-    try:
-        if path.exists():
-            with path.open() as f:
-                return json.load(f)
-    except Exception as exc:
-        log.warning("Failed to load %s: %s", path.name, exc)
-    return default() if callable(default) else default
-
-
-def _save_json(path: Path, data) -> None:
-    with _file_lock:
-        tmp = path.with_suffix(".tmp")
-        with tmp.open("w") as f:
-            json.dump(data, f, indent=2)
-        tmp.replace(path)
-
-
-def load_rooms() -> dict:
-    return _load_json(ROOMS_FILE, dict)
-
-
-def save_rooms(r: dict) -> None:
-    _save_json(ROOMS_FILE, r)
-
-
-def load_tags() -> dict:
-    tc = _load_json(TAGS_FILE, lambda: dict(DEFAULT_TAGS))
-    # Migrate bare colour strings from old format
-    for k in list(tc):
-        if isinstance(tc[k], str):
-            tc[k] = {"color": tc[k], "fullName": k}
-    for k, v in DEFAULT_TAGS.items():
-        tc.setdefault(k, v)
-    return tc
-
-
-def save_tags(tc: dict) -> None:
-    _save_json(TAGS_FILE, tc)
-
-
-def load_settings() -> dict:
-    s = _load_json(SETTINGS_FILE, lambda: dict(DEFAULT_SETTINGS))
-    for k, v in DEFAULT_SETTINGS.items():
-        s.setdefault(k, v)
-    return s
-
-
-def save_settings(s: dict) -> None:
-    _save_json(SETTINGS_FILE, s)
-
-
-def load_media_library() -> list:
-    media = _load_json(MEDIA_LIBRARY_FILE, list)
-    if not isinstance(media, list):
-        return []
-    clean = []
-    for item in media:
-        if not isinstance(item, dict):
-            continue
-        filename = str(item.get("filename", "")).strip()
-        if not filename:
-            continue
-        clean.append({
-            "id":         str(item.get("id", "")).strip() or filename,
-            "filename":   filename,
-            "title":      str(item.get("title", "")).strip(),
-            "originalName": str(item.get("originalName", "")).strip() or filename,
-            "startDate":  str(item.get("startDate", "")).strip(),
-            "endDate":    str(item.get("endDate", "")).strip(),
-            "active":     bool(item.get("active", True)),
-            "uploadedAt": str(item.get("uploadedAt", "")).strip(),
-        })
-    return clean
-
-
-def save_media_library(items: list) -> None:
-    _save_json(MEDIA_LIBRARY_FILE, items)
-
-
-def _parse_optional_date(raw: str):
-    raw = (raw or "").strip()
-    if not raw:
-        return None
-    try:
-        return datetime.strptime(raw, "%Y-%m-%d").date()
-    except ValueError:
-        return None
-
-
-def _media_public_url(filename: str) -> str:
-    return f"/static/slides/{urllib.parse.quote(filename)}"
-
-
-def _media_is_active(item: dict, today=None) -> bool:
-    if not item.get("active", True):
-        return False
-    today = today or datetime.now().date()
-    start_date = _parse_optional_date(item.get("startDate", ""))
-    end_date = _parse_optional_date(item.get("endDate", ""))
-    if start_date and today < start_date:
-        return False
-    if end_date and today > end_date:
-        return False
-    return True
-
-
-def _media_sort_key(item: dict):
-    return (
-        item.get("startDate", "9999-12-31") or "9999-12-31",
-        item.get("uploadedAt", ""),
-        item.get("title", "").lower(),
-    )
-
-
-def _local_slide_items(active_only: bool = True) -> list[dict]:
-    today = datetime.now().date()
-    items = []
-    for item in load_media_library():
-        path = MEDIA_DIR / item["filename"]
-        if not path.exists():
-            continue
-        if active_only and not _media_is_active(item, today):
-            continue
-        enriched = dict(item)
-        enriched["url"] = _media_public_url(item["filename"])
-        items.append(enriched)
-    items.sort(key=_media_sort_key)
-    return items
-
-
-def _local_slide_links() -> list[str]:
-    return [item["url"] for item in _local_slide_items(active_only=True)]
-
-
-def load_notice() -> dict:
-    return _load_json(NOTICE_FILE, lambda: {
-        "active": False, "message": "", "startTime": "", "endTime": "", "version": 0,
-    })
-
-
-def save_notice(n: dict) -> None:
-    _save_json(NOTICE_FILE, n)
-
-
-def load_print_shows() -> dict:
-    return _load_json(PRINT_SHOWS_FILE, dict)
-
-
-def save_print_shows(shows: dict) -> None:
-    _save_json(PRINT_SHOWS_FILE, shows)
-
-
-DEFAULT_LOCATION_RULES = [
-    {
-        "keywords":    "thompson theatre, dressing rooms, green room",
-        "replacement": "Thompson Theatre",
-    },
-]
-
-
-def load_location_rules() -> list:
-    if LOCATION_RULES_FILE.exists():
-        try:
-            return json.loads(LOCATION_RULES_FILE.read_text())
-        except Exception:
-            pass
-    return list(DEFAULT_LOCATION_RULES)
-
-
-def save_location_rules(rules: list) -> None:
-    _save_json(LOCATION_RULES_FILE, rules)
-
-
-# ---------------------------------------------------------------------------
-# Auth helpers
-# ---------------------------------------------------------------------------
-def _read_pw_file(path: Path) -> str:
-    try:
-        return path.read_text().strip() if path.exists() else ""
-    except Exception:
-        return ""
-
-
-def _write_pw_file(path: Path, pw: str) -> None:
-    path.write_text(hashlib.sha256(pw.encode()).hexdigest())
-
-
-def _check_pw(pw: str, path: Path) -> bool:
-    stored = _read_pw_file(path)
-    return bool(stored) and hashlib.sha256(pw.encode()).hexdigest() == stored
-
-
-def require_admin(f):
-    import functools
-
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        if not _read_pw_file(PASSWORD_FILE):
-            return redirect("/admin/setup")
-        auth = request.authorization
-        if not auth or not _check_pw(auth.password, PASSWORD_FILE):
-            return Response(
-                "Admin access required.", 401,
-                {"WWW-Authenticate": 'Basic realm="Propared Calendar Displays Admin"'},
-            )
-        return f(*args, **kwargs)
-
-    return decorated
-
-
-def require_notice_auth(f):
-    import functools
-
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not _check_pw(auth.password, NOTICE_PASSWORD_FILE):
-            return Response(
-                "Notice access required.", 401,
-                {"WWW-Authenticate": 'Basic realm="Notice Board"'},
-            )
-        return f(*args, **kwargs)
-
-    return decorated
-
-
-def require_shared_media_auth(f):
-    import functools
-
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        if not _read_pw_file(NOTICE_PASSWORD_FILE):
-            return Response("Shared media password not set. Visit /media-admin first.", 403)
-        auth = request.authorization
-        if not auth or not _check_pw(auth.password, NOTICE_PASSWORD_FILE):
-            return Response(
-                "Shared media access required.", 401,
-                {"WWW-Authenticate": 'Basic realm="Notice Board"'},
-            )
-        return f(*args, **kwargs)
-
-    return decorated
+app.secret_key = load_secret_key()
 
 
 # ---------------------------------------------------------------------------
@@ -412,30 +149,6 @@ def _sync_global_calendar_cache(calendars: list[dict]) -> None:
         url = gc.get("url", "").strip()
         if gc_id and url:
             global_cal_cache.schedule(gc_id, url, 60)
-
-
-def _restore_logo_files(archive_names: list[str], zf: zipfile.ZipFile) -> None:
-    archived_logos = {
-        Path(name).name for name in archive_names
-        if name.startswith("static/logo_") and name.endswith(".png")
-    }
-    for fp in STATIC_DIR.glob("logo_*.png"):
-        if fp.name not in archived_logos:
-            fp.unlink()
-    for logo_name in archived_logos:
-        (STATIC_DIR / logo_name).write_bytes(zf.read(f"static/{logo_name}"))
-
-
-def _restore_slide_files(archive_names: list[str], zf: zipfile.ZipFile) -> None:
-    archived_slides = {
-        Path(name).name for name in archive_names
-        if name.startswith("static/slides/") and not name.endswith("/")
-    }
-    for fp in MEDIA_DIR.iterdir():
-        if fp.is_file() and fp.name not in archived_slides:
-            fp.unlink()
-    for slide_name in archived_slides:
-        (MEDIA_DIR / slide_name).write_bytes(zf.read(f"static/slides/{slide_name}"))
 
 
 def _validated_proxy_ical_url(raw_url: str) -> str | None:
@@ -764,12 +477,6 @@ def _room_status(rid: str) -> dict:
 # ---------------------------------------------------------------------------
 # Client registry  (keyed by client_id UUID — persistent)
 # ---------------------------------------------------------------------------
-def load_clients() -> dict:
-    return _load_json(CLIENTS_FILE, dict)
-
-def save_clients(data: dict) -> None:
-    _save_json(CLIENTS_FILE, data)
-
 _clients: dict[str, dict] = {}   # client_id -> {hostname, ip, role, room, last_seen, screenOn, screenOff, scheduleEnabled}
 
 # ---------------------------------------------------------------------------
@@ -1711,39 +1418,10 @@ def admin_room_delete(rid):
 
 # ── Admin: backup & restore ───────────────────────────────────────────────────
 
-def _make_backup_zip() -> io.BytesIO:
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for fname in (
-            "rooms.json", "tag_colors.json", "settings.json",
-            "notice.json", "notice_password.txt", "print_shows.json",
-            "location_rules.json", "media_library.json",
-        ):
-            p = BASE / fname
-            if p.exists():
-                zf.write(p, fname)
-        if STATIC_DIR.is_dir():
-            for fn in STATIC_DIR.iterdir():
-                if fn.name.startswith("logo_") and fn.suffix == ".png":
-                    zf.write(fn, f"static/{fn.name}")
-        if MEDIA_DIR.is_dir():
-            for fn in MEDIA_DIR.iterdir():
-                if fn.is_file():
-                    zf.write(fn, f"static/slides/{fn.name}")
-        manifest = {
-            "version":   4,
-            "createdAt": datetime.now().isoformat(),
-            "rooms":     list(load_rooms().keys()),
-        }
-        zf.writestr("manifest.json", json.dumps(manifest, indent=2))
-    buf.seek(0)
-    return buf
-
-
 @app.route("/admin/backup")
 @require_admin
 def admin_backup():
-    buf = _make_backup_zip()
+    buf = make_backup_zip(list(load_rooms().keys()))
     ts  = datetime.now().strftime("%Y%m%d-%H%M%S")
     fn  = f"propared-backup-{ts}.zip"
     (BACKUP_DIR / fn).write_bytes(buf.read())
@@ -1790,18 +1468,7 @@ def admin_restore():
     if not f or not f.filename.endswith(".zip"):
         return redirect("/admin?restore_error=Please+upload+a+valid+.zip+file")
     try:
-        buf = io.BytesIO(f.read())
-        with zipfile.ZipFile(buf, "r") as zf:
-            names = zf.namelist()
-            for fname in (
-                "rooms.json", "tag_colors.json", "settings.json",
-                "notice.json", "notice_password.txt", "print_shows.json",
-                "location_rules.json", "media_library.json",
-            ):
-                if fname in names:
-                    (BASE / fname).write_bytes(zf.read(fname))
-            _restore_logo_files(names, zf)
-            _restore_slide_files(names, zf)
+        restore_backup_archive(f.read())
         restored_rooms = load_rooms()
         restored_settings = load_settings()
         for rid in list(ical_cache._data):
