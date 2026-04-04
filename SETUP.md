@@ -296,12 +296,32 @@ ssh pi@192.168.1.x
 
 Once SSH'd into the Pi:
 
+#### Pull the client installer from GitHub
+
+For production clients:
+
+```bash
+curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/main/install-client.sh
+bash install-client.sh
+```
+
+For testing/sandbox clients:
+
+```bash
+curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/testing/install-client.sh
+bash install-client.sh
+```
+
+#### Alternative: pull the installer from your server
+
 ```bash
 curl -O http://YOUR_SERVER_IP/install-client.sh
 bash install-client.sh
 ```
 
 The installer will ask for your server's IP address, test the connection, and then run through setup automatically.
+
+> Safe to re-run: use the same commands later on any Pi when you want to update the client from GitHub or point it at a different server. The installer will detect the existing config and let you keep or replace it.
 
 **What the installer does:**
 
@@ -399,6 +419,24 @@ This will:
 | `watchdog-run` | Manually run one watchdog cycle |
 
 > These aliases are added to `~/.bashrc` by the installer. Run `source ~/.bashrc` or open a new terminal session after install if they're not available yet.
+
+### Updating a client from GitHub
+
+On any Pi client, you can refresh the installer directly from GitHub and run it again:
+
+```bash
+# Production
+curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/main/install-client.sh
+bash install-client.sh
+```
+
+```bash
+# Testing / sandbox
+curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/testing/install-client.sh
+bash install-client.sh
+```
+
+This is the recommended replacement for the old thumbdrive workflow.
 
 ---
 
