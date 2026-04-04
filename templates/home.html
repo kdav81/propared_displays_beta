@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Propared Displays/Printing Home Page</title>
+<style>
+  :root{
+    --bg:#f4efe4;
+    --panel:#fffaf1;
+    --panel-strong:#f8f0df;
+    --text:#231a11;
+    --muted:#67584a;
+    --border:#d9cbb3;
+    --accent:#9b4d24;
+    --accent-strong:#7d3814;
+    --shadow:0 18px 48px rgba(36,24,14,.12);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Georgia,"Times New Roman",serif;
+    color:var(--text);
+    background:
+      radial-gradient(circle at top left, rgba(155,77,36,.12), transparent 28%),
+      linear-gradient(160deg, #f7f1e6 0%, #efe5d2 100%);
+    min-height:100vh;
+  }
+  .page{
+    max-width:1100px;
+    margin:0 auto;
+    padding:36px 22px 48px;
+  }
+  .hero{
+    background:linear-gradient(135deg, rgba(255,250,241,.95), rgba(248,240,223,.98));
+    border:1px solid var(--border);
+    border-radius:28px;
+    padding:30px;
+    box-shadow:var(--shadow);
+    margin-bottom:26px;
+  }
+  .eyebrow{
+    font:600 12px/1.2 "Trebuchet MS",Verdana,sans-serif;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin-bottom:12px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    margin-bottom:12px;
+  }
+  .brand-logo{
+    max-width:240px;
+    width:min(34vw,240px);
+    height:auto;
+    display:block;
+  }
+  .brand-copy{
+    min-width:0;
+  }
+  h1{
+    margin:0 0 10px;
+    font-size:clamp(2rem,4vw,3.4rem);
+    line-height:1.02;
+    font-weight:700;
+  }
+  .hero p{
+    margin:0;
+    max-width:720px;
+    color:var(--muted);
+    font-size:1.08rem;
+    line-height:1.55;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:18px;
+  }
+  .card{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    min-height:220px;
+    padding:22px;
+    border-radius:24px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    box-shadow:0 10px 24px rgba(45,28,12,.08);
+  }
+  .icon{
+    width:52px;
+    height:52px;
+    border-radius:16px;
+    display:grid;
+    place-items:center;
+    background:var(--panel-strong);
+    border:1px solid var(--border);
+    font-size:24px;
+  }
+  .card h2{
+    margin:0;
+    font-size:1.35rem;
+  }
+  .card p{
+    margin:0;
+    color:var(--muted);
+    line-height:1.5;
+    flex:1;
+  }
+  .actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:10px 14px;
+    border-radius:999px;
+    text-decoration:none;
+    font:600 13px/1.2 "Trebuchet MS",Verdana,sans-serif;
+    border:1px solid var(--border);
+    color:var(--text);
+    background:#fff;
+  }
+  .btn.primary{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fffdf8;
+  }
+  .btn:hover{
+    background:#fff7ea;
+  }
+  .btn.primary:hover{
+    background:var(--accent-strong);
+  }
+  .route{
+    font:600 12px/1.3 Consolas,"Courier New",monospace;
+    color:var(--accent);
+    background:#fff7ea;
+    border:1px solid #ecdabf;
+    border-radius:10px;
+    padding:8px 10px;
+    display:inline-block;
+  }
+  @media (max-width:760px){
+    .page{padding:20px 14px 28px}
+    .hero,.card{border-radius:22px}
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="brand">
+        {% if site_logo_url %}
+        <img class="brand-logo" src="{{ site_logo_url }}" alt="University of Delaware Theatre and Dance">
+        {% endif %}
+        <div class="brand-copy">
+          <div class="eyebrow">Propared Calendar Display/Printing</div>
+          <h1>Server Home</h1>
+        </div>
+      </div>
+      <p>This Page contains all the links for the different pages used for managing the Room Displays and the Printing Tool</p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="icon">A</div>
+        <h2>Admin</h2>
+        <p>Manage rooms, tag colors, slideshow timing, global calendars, clients, and backups.</p>
+        <div class="route">/admin</div>
+        <div class="actions">
+          <a class="btn primary" href="/admin">Open Admin</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="icon">M</div>
+        <h2>Media Library</h2>
+        <p>Upload slideshow images, set start and end dates, and manage what can appear on room screens.</p>
+        <div class="route">/media-admin</div>
+        <div class="actions">
+          <a class="btn primary" href="/media-admin">Open Media</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="icon">N</div>
+        <h2>Notice</h2>
+        <p>Create or clear a shared notice message for displays.</p>
+        <div class="route">/notice</div>
+        <div class="actions">
+          <a class="btn primary" href="/notice">Open Notice</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="icon">P</div>
+        <h2>Print Calendar</h2>
+        <p>Generate room or production calendars in monthly or weekly format for printing.</p>
+        <div class="route">/print-calendar</div>
+        <div class="actions">
+          <a class="btn primary" href="/print-calendar">Open Print</a>
+          <a class="btn" href="/print-admin">Print Admin</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="icon">D</div>
+        <h2>Dashboard</h2>
+        <p>Open the office dashboard view that rotates between the selected room statuses and slideshow.</p>
+        <div class="route">/dashboard</div>
+        <div class="actions">
+          <a class="btn primary" href="/dashboard">Open Dashboard</a>
+        </div>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

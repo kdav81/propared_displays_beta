@@ -3,73 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Print Calendar Generator</title>
+<title>Propare Calendar Printing Tool</title>
+<link rel="stylesheet" href="/static/admin/shared.css">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@300;400;600;700&display=swap');
-
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --bg:#111318;--surface:#1a1d26;--border:#3a4055;
-  --accent:#5b7cfa;--text:#eceef5;--muted:#9ba3bc;--dim:#505878;
-  --green:#22a058;
-}
-body{background:var(--bg);color:var(--text);font-family:'Source Sans 3',sans-serif;min-height:100vh;font-size:16px}
-
-.topbar{background:var(--surface);border-bottom:2px solid var(--border);padding:0 32px;height:64px;
-  display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
-.topbar-title{font-size:19px;font-weight:700;color:#fff;flex:1}
-.topbar-links{display:flex;gap:10px}
-
 .ui{max-width:720px;margin:0 auto;padding:36px 24px 80px}
 
-.section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:26px 28px;margin-bottom:18px}
+.section{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:26px 28px;margin-bottom:18px}
 .section-title{font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
   color:#fff;margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--border)}
 
 .field{margin-bottom:18px}
 .field:last-child{margin-bottom:0}
-.field label{display:block;font-size:14px;font-weight:600;color:var(--muted);margin-bottom:7px}
+.field label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:7px}
 .field input,.field select,.field textarea{
   width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
-  padding:11px 14px;border-radius:8px;font-size:15px;font-family:'Source Sans 3',sans-serif;
-  transition:border-color .15s}
+  padding:10px 13px;border-radius:8px;font-size:14px;font-family:inherit;transition:border-color .15s}
 .field input[type=date]{color-scheme:dark}
 .field input:focus,.field select:focus,.field textarea:focus{
-  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,124,250,.15)}
+  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,110,247,.15)}
 .field textarea{resize:vertical;min-height:70px;line-height:1.6}
 
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 
-/* Show selection — draggable */
-.show-picks{display:flex;flex-direction:column;gap:6px}
-.show-pick{display:flex;align-items:center;gap:10px;background:var(--bg);border:2px solid var(--border);
+.pick-list{display:flex;flex-direction:column;gap:6px}
+.pick-row{display:flex;align-items:center;gap:10px;background:var(--bg);border:2px solid var(--border);
   border-radius:8px;padding:10px 14px;transition:border-color .15s,background .15s;user-select:none}
-.show-pick:hover{border-color:var(--accent)}
-.show-pick.selected{border-color:var(--accent);background:rgba(91,124,250,.1)}
-.show-pick.drag-over{border-color:#f59e0b;background:rgba(245,158,11,.08)}
-.show-pick.dragging{opacity:.4}
+.pick-row:hover{border-color:var(--accent)}
+.pick-row.selected{border-color:var(--accent);background:rgba(79,110,247,.1)}
+.pick-row.drag-over{border-color:#f59e0b;background:rgba(245,158,11,.08)}
+.pick-row.dragging{opacity:.4}
 .drag-handle{color:var(--dim);cursor:grab;font-size:16px;flex-shrink:0;line-height:1}
 .drag-handle:active{cursor:grabbing}
-.show-pick input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--accent);cursor:pointer}
-.show-pick-title{font-size:15px;font-weight:600;color:#fff;flex:1}
-.no-shows{font-size:15px;color:var(--muted);font-style:italic;padding:4px 0}
+.pick-row input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--accent);cursor:pointer}
+.pick-title{font-size:14px;font-weight:600;color:#fff;flex:1}
+.pick-meta{font-size:12px;color:var(--muted)}
+.no-items{font-size:14px;color:var(--muted);font-style:italic;padding:4px 0}
 
-/* Calendar type toggle */
-.type-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content}
+.type-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content}
 .type-btn{padding:9px 22px;font-size:14px;font-weight:600;cursor:pointer;border:none;
-  background:transparent;color:var(--muted);font-family:'Source Sans 3',sans-serif;transition:all .15s}
+  background:transparent;color:var(--muted);font-family:inherit;transition:all .15s}
 .type-btn.active{background:var(--accent);color:#fff}
 
-/* Buttons */
-.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:8px;
-  font-size:15px;font-weight:600;cursor:pointer;border:none;font-family:'Source Sans 3',sans-serif;transition:all .15s}
-.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#4a6be8}
-.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}.btn-ghost:hover{border-color:#fff;color:#fff}
-.btn-sm{padding:8px 16px;font-size:14px}
+.helper{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.6}
 
 .btn-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:22px}
-#status{font-size:15px;color:var(--green);font-weight:600}
-#err{font-size:15px;color:#fc8181;font-weight:600}
+#status{font-size:14px;color:var(--success);font-weight:600}
+#err{font-size:14px;color:#fc8181;font-weight:600}
 #preview-container{margin-top:28px;display:none}
 #preview-box{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 6px 30px rgba(0,0,0,.5)}
 </style>
@@ -79,17 +58,29 @@ body{background:var(--bg);color:var(--text);font-family:'Source Sans 3',sans-ser
 <div class="topbar">
   <div class="topbar-title">&#128438; Propared Calendar Print Tool</div>
   <div class="topbar-links">
-    <a class="btn btn-ghost btn-sm" href="/print-admin">&#9881; Manage Productions</a>
-    <a class="btn btn-ghost btn-sm" href="/admin">&#8592; Main Admin</a>
+    <a class="btn btn-ghost btn-sm" href="/admin">&#9881; Admin</a>
+    <a class="btn btn-ghost btn-sm" href="/print-admin">&#128444; Print Admin</a>
+    <a class="btn btn-ghost btn-sm" href="/notice">&#128226; Notice</a>
   </div>
 </div>
 
 <div class="ui">
 
   <div class="section">
-    <div class="section-title">Select Production(s)</div>
-    <div class="show-picks" id="show-picks">
-      <div class="no-shows">Loading productions&#8230;</div>
+    <div class="section-title">Calendar Source</div>
+    <div class="type-toggle">
+      <button class="type-btn active" id="sourceProductions" onclick="setSource('productions')">Productions</button>
+      <button class="type-btn" id="sourceRooms" onclick="setSource('rooms')">Rooms</button>
+    </div>
+    <div class="helper" id="sourceHelp">
+      Choose productions from the print admin setup. Room schedules use the same rooms and tag colors already configured in the display admin page.
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title" id="pickSectionTitle">Select Production(s)</div>
+    <div class="pick-list" id="pick-list">
+      <div class="no-items">Loading items&#8230;</div>
     </div>
   </div>
 
@@ -169,12 +160,19 @@ body{background:var(--bg);color:var(--text);font-family:'Source Sans 3',sans-ser
   <div class="section">
     <div class="section-title">Calendar Options</div>
     <div class="field">
-      <label>Calendar Subtitle</label>
-      <input id="calSubtitle" type="text" placeholder="Calendar Name" value="Rehearsal Performance Calendar">
+      <label>Calendar Title</label>
+      <input id="calSubtitle" type="text" placeholder="Calendar Header">
     </div>
-    <div class="field" style="margin-bottom:0">
+    <div class="field">
       <label>Updated By <span style="font-weight:400;color:var(--muted)">(initials shown in header)</span></label>
       <input id="updatedBy" type="text" placeholder="kmd" style="max-width:160px">
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:15px;font-weight:400;color:var(--text)">
+        <input type="checkbox" id="applyLocRules" checked
+               style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">
+        <span>Apply location rules <span style="color:var(--muted);font-size:14px">&mdash; uncheck to show original calendar locations</span></span>
+      </label>
     </div>
   </div>
 
@@ -199,590 +197,268 @@ var SERVER = (location.hostname==='localhost'||location.hostname==='127.0.0.1')
   ? 'http://localhost:5000' : '';
 
 var SHOWS = {};
+var ROOMS = [];
 var TAG_COLORS = {};
 var LOCATION_RULES = [];
+var _calType = 'monthly';
+var _calSource = 'productions';
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 async function fetchWithTimeout(url, ms){
-  var controller=new AbortController();
-  var timer=setTimeout(function(){ controller.abort(); }, ms);
+  var controller = new AbortController();
+  var timer = setTimeout(function(){ controller.abort(); }, ms);
   try{
-    var r=await fetch(url,{signal:controller.signal});
+    var r = await fetch(url, {signal: controller.signal});
     clearTimeout(timer);
     return r;
-  } catch(e){ clearTimeout(timer); throw e; }
+  } catch(e){
+    clearTimeout(timer);
+    throw e;
+  }
 }
 
-async function loadShows(){
-  var [r1,r2,r3]=await Promise.allSettled([
-    fetchWithTimeout(SERVER+'/api/print-shows',   8000),
-    fetchWithTimeout(SERVER+'/api/tag-colors',    8000),
-    fetchWithTimeout(SERVER+'/api/location-rules',8000),
+async function loadData(){
+  var results = await Promise.allSettled([
+    fetchWithTimeout(SERVER + '/api/print-shows', 8000),
+    fetchWithTimeout(SERVER + '/api/rooms-print', 8000),
+    fetchWithTimeout(SERVER + '/api/tag-colors', 8000),
+    fetchWithTimeout(SERVER + '/api/location-rules', 8000)
   ]);
-  try{ SHOWS         = r1.status==='fulfilled'&&r1.value.ok ? await r1.value.json() : {}; } catch(e){ SHOWS={}; }
-  try{ TAG_COLORS    = r2.status==='fulfilled'&&r2.value.ok ? await r2.value.json() : {}; } catch(e){ TAG_COLORS={}; }
-  try{ LOCATION_RULES= r3.status==='fulfilled'&&r3.value.ok ? await r3.value.json() : []; } catch(e){ LOCATION_RULES=[]; }
-  renderShowPicks();
+
+  try{ SHOWS = results[0].status === 'fulfilled' && results[0].value.ok ? await results[0].value.json() : {}; } catch(e){ SHOWS = {}; }
+  try{ ROOMS = results[1].status === 'fulfilled' && results[1].value.ok ? await results[1].value.json() : []; } catch(e){ ROOMS = []; }
+  try{ TAG_COLORS = results[2].status === 'fulfilled' && results[2].value.ok ? await results[2].value.json() : {}; } catch(e){ TAG_COLORS = {}; }
+  try{ LOCATION_RULES = results[3].status === 'fulfilled' && results[3].value.ok ? await results[3].value.json() : []; } catch(e){ LOCATION_RULES = []; }
+
+  renderPickList();
 }
 
-function renderShowPicks(){
-  var container=document.getElementById('show-picks');
-  var ids=Object.keys(SHOWS);
-  if(!ids.length){
-    container.innerHTML='<div class="no-shows">No productions configured. <a href="/print-admin" style="color:var(--accent)">Add one &#8594;</a></div>';
+function currentItems(){
+  if(_calSource === 'rooms'){
+    return ROOMS.map(function(room){
+      return {
+        id: room.id,
+        title: room.title || room.id,
+        meta: room.icalUrl ? 'Linked to room display calendar' : 'No iCal feed configured'
+      };
+    });
+  }
+
+  return Object.keys(SHOWS).map(function(id){
+    var show = SHOWS[id];
+    return {
+      id: id,
+      title: show.shortTitle || show.title || id,
+      meta: show.season || ((show.feeds || []).length ? ((show.feeds || []).length + ' feed' + ((show.feeds || []).length === 1 ? '' : 's')) : 'No feeds configured')
+    };
+  });
+}
+
+function renderPickList(){
+  var container = document.getElementById('pick-list');
+  var title = document.getElementById('pickSectionTitle');
+  var help = document.getElementById('sourceHelp');
+  var items = currentItems();
+
+  title.textContent = _calSource === 'rooms' ? 'Select Room(s)' : 'Select Production(s)';
+  help.textContent = _calSource === 'rooms'
+    ? 'Rooms come from the display admin setup. Room calendars keep their [TAG] labels and use the same tag colors configured there.'
+    : 'Choose productions from the print admin setup. Room schedules use the same rooms and tag colors already configured in the display admin page.';
+
+  if(!items.length){
+    if(_calSource === 'rooms'){
+      container.innerHTML = '<div class="no-items">No rooms are configured yet. <a href="/admin" style="color:var(--accent)">Set them up in Admin &#8594;</a></div>';
+    } else {
+      container.innerHTML = '<div class="no-items">No productions configured. <a href="/print-admin" style="color:var(--accent)">Add one &#8594;</a></div>';
+    }
     return;
   }
-  container.innerHTML='';
-  ids.forEach(function(id){
-    var s=SHOWS[id];
-    var label=s.shortTitle||s.title;
-    var row=document.createElement('div');
-    row.className='show-pick';
-    row.draggable=true;
-    row.dataset.id=id;
-    row.innerHTML='<span class="drag-handle">&#8942;&#8942;</span>'
-      +'<input type="checkbox" value="'+id+'" onchange="togglePick(this)">'
-      +'<div class="show-pick-title">'+esc(label)+'</div>';
+
+  container.innerHTML = '';
+  items.forEach(function(item){
+    var row = document.createElement('div');
+    row.className = 'pick-row';
+    row.draggable = true;
+    row.dataset.id = item.id;
+    row.innerHTML = '<span class="drag-handle">&#8942;&#8942;</span>'
+      + '<input type="checkbox" value="' + esc(item.id) + '" onchange="togglePick(this)">'
+      + '<div style="flex:1">'
+      + '<div class="pick-title">' + esc(item.title) + '</div>'
+      + (item.meta ? '<div class="pick-meta">' + esc(item.meta) + '</div>' : '')
+      + '</div>';
     container.appendChild(row);
   });
   initDrag();
 }
 
 function initDrag(){
-  var container=document.getElementById('show-picks');
-  var dragging=null;
-  container.addEventListener('dragstart',function(e){
-    dragging=e.target.closest('.show-pick');
-    if(dragging){ setTimeout(function(){ dragging.classList.add('dragging'); },0); }
+  var container = document.getElementById('pick-list');
+  var dragging = null;
+  container.addEventListener('dragstart', function(e){
+    dragging = e.target.closest('.pick-row');
+    if(dragging){ setTimeout(function(){ dragging.classList.add('dragging'); }, 0); }
   });
-  container.addEventListener('dragend',function(){
+  container.addEventListener('dragend', function(){
     if(dragging) dragging.classList.remove('dragging');
-    container.querySelectorAll('.show-pick').forEach(function(r){ r.classList.remove('drag-over'); });
-    dragging=null;
+    container.querySelectorAll('.pick-row').forEach(function(r){ r.classList.remove('drag-over'); });
+    dragging = null;
   });
-  container.addEventListener('dragover',function(e){
+  container.addEventListener('dragover', function(e){
     e.preventDefault();
-    var target=e.target.closest('.show-pick');
-    if(!target||target===dragging) return;
-    container.querySelectorAll('.show-pick').forEach(function(r){ r.classList.remove('drag-over'); });
+    var target = e.target.closest('.pick-row');
+    if(!target || target === dragging) return;
+    container.querySelectorAll('.pick-row').forEach(function(r){ r.classList.remove('drag-over'); });
     target.classList.add('drag-over');
-    var rect=target.getBoundingClientRect();
-    if(e.clientY>rect.top+rect.height/2) container.insertBefore(dragging,target.nextSibling);
-    else container.insertBefore(dragging,target);
+    var rect = target.getBoundingClientRect();
+    if(e.clientY > rect.top + rect.height / 2) container.insertBefore(dragging, target.nextSibling);
+    else container.insertBefore(dragging, target);
   });
-  container.addEventListener('dragleave',function(e){
-    var t=e.target.closest('.show-pick'); if(t) t.classList.remove('drag-over');
+  container.addEventListener('dragleave', function(e){
+    var target = e.target.closest('.pick-row');
+    if(target) target.classList.remove('drag-over');
   });
-  container.addEventListener('drop',function(e){ e.preventDefault(); });
+  container.addEventListener('drop', function(e){ e.preventDefault(); });
 }
 
 function togglePick(cb){
-  cb.closest('.show-pick').classList.toggle('selected',cb.checked);
+  cb.closest('.pick-row').classList.toggle('selected', cb.checked);
 }
 
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function setSource(source){
+  _calSource = source;
+  document.getElementById('sourceProductions').classList.toggle('active', source === 'productions');
+  document.getElementById('sourceRooms').classList.toggle('active', source === 'rooms');
+  document.getElementById('preview-container').style.display = 'none';
+  renderPickList();
 
-async function fetchIcal(url,label){
-  var proxyUrl=SERVER+'/api/proxy-ical?url='+encodeURIComponent(url);
-  var r=await fetch(proxyUrl);
-  if(!r.ok) throw new Error('Failed to fetch feed'+(label?' "'+label+'"':'')+' ('+r.status+')');
-  return parseIcal(await r.text(),label);
-}
-
-function parseIcal(txt,feedLabel){
-  var evs=[];
-  function parseVal(raw){
-    if(!raw) return null;
-    var val=raw.replace(/^[^:]*:/,'').trim();
-    if(!val) return null;
-    if(val.indexOf('T')>=0){
-      var utc=val.charAt(15)==='Z';
-      var iso=val.slice(0,4)+'-'+val.slice(4,6)+'-'+val.slice(6,8)+'T'
-             +val.slice(9,11)+':'+val.slice(11,13)+':'+(val.slice(13,15)||'00')+(utc?'Z':'');
-      return new Date(iso);
-    }
-    return new Date(val.slice(0,4)+'-'+val.slice(4,6)+'-'+val.slice(6,8)+'T00:00:00');
+  var titleInput = document.getElementById('calSubtitle');
+  if(!titleInput.value.trim()){
+    titleInput.placeholder = source === 'rooms' ? 'Room Schedule' : 'Rehearsal Performance Calendar';
   }
-  txt.split('BEGIN:VEVENT').slice(1).forEach(function(block){
-    block=block.replace(/\r\n[ \t]/g,'').replace(/\n[ \t]/g,'');
-    var sm=block.match(/^SUMMARY[^:]*:(.+)$/m);
-    var sl=block.match(/^DTSTART[^\r\n]*/m);
-    var el=block.match(/^DTEND[^\r\n]*/m);
-    var ll=block.match(/^LOCATION[^:]*:(.*)$/m);
-    if(!sm||!sl) return;
-    var dtLine=sl[0];
-    var dtVal=dtLine.replace(/^[^:]*:/,'').trim();
-    var allDay=dtVal.indexOf('T')<0;
-    var start=parseVal(dtLine);
-    var end=el?parseVal(el[0]):null;
-    if(!start) return;
-    var title=sm[1].trim().replace(/\\,/g,',').replace(/\\n/g,' ').replace(/\\;/g,';').replace(/\\:/g,':');
-    var location=ll?ll[1].trim().replace(/\\,/g,','):'';
-    evs.push({title:title,start:start,end:end||start,allDay:allDay,location:location,feedLabel:feedLabel||''});
-  });
-  return evs;
 }
-
-function cleanTitle(title){
-  var tags=[],re=/\[([^\]]+)\]/g,m;
-  while((m=re.exec(title))!==null) tags.push(m[1].trim());
-  if(!tags.length) return title;
-  var unique=tags.filter(function(t,i,a){ return a.indexOf(t)===i; });
-  return unique.length<=1?title.replace(/\s*\[[^\]]+\]/g,'').trim():title;
-}
-
-function cleanLocation(loc){
-  var cleaned=loc.replace(/\s*\([^)]*\)/g,'').trim();
-  for(var i=0;i<LOCATION_RULES.length;i++){
-    var rule=LOCATION_RULES[i];
-    var keywords=(rule.keywords||'').split(',').map(function(k){ return k.trim().toLowerCase(); }).filter(Boolean);
-    if(!keywords.length) continue;
-    var locLower=cleaned.toLowerCase();
-    var matched=keywords.some(function(kw){ return locLower.indexOf(kw)>=0; });
-    if(matched) return rule.replacement||cleaned;
-  }
-  return cleaned;
-}
-
-function fmtTime(d){
-  var h=d.getHours(),m=d.getMinutes(),ap=h>=12?'pm':'am';
-  h=h%12||12;
-  return h+(m?':'+String(m).padStart(2,'0'):'')+ap;
-}
-
-
-var MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
-var DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-
-function buildCalendarHTML(evs,opts){
-  var startMonth=opts.startMonth, startYear=opts.startYear;
-  var endMonth=opts.endMonth,     endYear=opts.endYear;
-  var notes=opts.notes||{}, multiShow=opts.multiShow||false, tagColors=opts.tagColors||{};
-
-  var st=startYear*12+startMonth, et=endYear*12+endMonth;
-  if(et<st){
-    var tmp=st; st=et; et=tmp;
-    startMonth=st%12; startYear=Math.floor(st/12);
-    endMonth=et%12;   endYear=Math.floor(et/12);
-  }
-
-  var firstDay=new Date(startYear,startMonth,1);
-  var lastDay=new Date(endYear,endMonth+1,0);
-  var gridStart=new Date(firstDay);
-  gridStart.setDate(firstDay.getDate()-firstDay.getDay());
-  var gridEnd=new Date(lastDay);
-  gridEnd.setDate(lastDay.getDate()+(6-lastDay.getDay()));
-
-  // Group events by date key — expand multi-day all-day events across all their days
-  var evsByDay={};
-  function addToDay(key, ev){
-    if(!evsByDay[key]) evsByDay[key]=[];
-    evsByDay[key].push(ev);
-  }
-  evs.forEach(function(ev){
-    if(ev.allDay && ev.end > ev.start){
-      // Expand across each day in the range (end is exclusive in iCal)
-      var cur=new Date(ev.start.getFullYear(),ev.start.getMonth(),ev.start.getDate());
-      var endD=new Date(ev.end.getFullYear(),ev.end.getMonth(),ev.end.getDate());
-      while(cur<endD){
-        var key=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');
-        addToDay(key,ev);
-        cur.setDate(cur.getDate()+1);
-      }
-    } else {
-      var d=ev.start;
-      var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      addToDay(key,ev);
-    }
-  });
-  Object.keys(evsByDay).forEach(function(k){ evsByDay[k].sort(function(a,b){ return a.start-b.start; }); });
-
-  var weeks=[],cur=new Date(gridStart);
-  while(cur<=gridEnd){
-    var wk=[];
-    for(var d=0;d<7;d++){ wk.push(new Date(cur)); cur.setDate(cur.getDate()+1); }
-    weeks.push(wk);
-  }
-
-  var today=new Date();
-  var todayKey=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-
-  var pages=[],curM=-1,curP=[];
-  weeks.forEach(function(wk){
-    var mc={};
-    wk.forEach(function(d){ var m=d.getMonth(); mc[m]=(mc[m]||0)+1; });
-    var dom=parseInt(Object.keys(mc).reduce(function(a,b){ return mc[a]>mc[b]?a:b; }));
-    if(dom!==curM){
-      if(curP.length) pages.push({weeks:curP,month:curM,year:curP[0][0].getFullYear()});
-      curM=dom; curP=[];
-    }
-    curP.push(wk);
-  });
-  if(curP.length) pages.push({weeks:curP,month:curM,year:curP[0][0].getFullYear()});
-
-  var titles=opts.showTitles||[], seasons=opts.showSeasons||[];
-  var updatedBy=opts.updatedBy||'';
-  var uniqueSeasons=[...new Set(seasons.filter(Boolean))];
-  var headerTitle,headerSub;
-  if(!multiShow){ headerTitle=titles[0]||''; headerSub=seasons[0]||''; }
-  else { headerTitle=uniqueSeasons.length?uniqueSeasons.join(' / '):titles.join(' / '); headerSub=''; }
-  var calSub=opts.showSubtitles&&opts.showSubtitles[0]?opts.showSubtitles[0]:'Rehearsal Performance Calendar';
-  var nowStr=new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'});
-  var updated='Updated '+nowStr+(updatedBy?' '+updatedBy:'');
-
-  function getTag(title){ var m=title.match(/\[([^\]]+)\]/); return m?m[1].trim():null; }
-  function resolveFullName(tag){
-    if(!tag) return '';
-    var info=tagColors[tag];
-    if(!info){ var l=tag.toLowerCase(); for(var k in tagColors){ if(k.toLowerCase()===l){info=tagColors[k];break;} } }
-    if(!info) return '';
-    return (typeof info==='object'&&info.fullName&&info.fullName!==tag)?info.fullName:'';
-  }
-  function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  var pageHtmls=[];
-  pages.forEach(function(page,pageIdx){
-    var numWeeks=page.weeks.length;
-    var pageHtml='<div class="cal-page'+(pageIdx>0?' cal-page-break':'')+'" data-weeks="'+numWeeks+'">';
-    pageHtml+='<div class="cal-header">'
-      +'<div class="cal-header-left"><div class="show-title">'+escH(headerTitle)+'</div>'
-      +(headerSub?'<div class="show-season">'+escH(headerSub)+'</div>':'')
-      +'</div>'
-      +'<div class="cal-header-center"><div class="cal-sub">'+escH(calSub)+'</div>'
-      +'<div class="cal-footer-note">SUBJECT TO CHANGE</div></div>'
-      +'<div class="cal-header-right"><div class="cal-updated">'+escH(updated)+'</div></div>'
-      +'</div>';
-    pageHtml+='<div class="month-label">'+MONTH_NAMES[page.month]+' '+page.year+'</div>';
-    pageHtml+='<div class="cal-dow-row">';
-    DAY_NAMES.forEach(function(n){ pageHtml+='<div class="cal-dow">'+n+'</div>'; });
-    pageHtml+='</div>';
-
-    var pageTags={};
-    pageHtml+='<div class="cal-weeks">';
-    page.weeks.forEach(function(week){
-      pageHtml+='<div class="cal-week">';
-      week.forEach(function(day){
-        var key=day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
-        var inMonth=day.getMonth()===page.month;
-        var isToday=key===todayKey;
-        pageHtml+='<div class="cal-cell'+(inMonth?'':' out-of-month')+(isToday?' is-today':'')+'">';
-        pageHtml+='<div class="cell-date"><span class="date-num">'
-          +(day.getDate()===1?MONTH_NAMES[day.getMonth()].slice(0,3).toUpperCase()+' ':'')
-          +day.getDate()+'</span></div>';
-
-        (evsByDay[key]||[]).forEach(function(ev){
-          var tag=getTag(ev.title);
-          var displayTitle=cleanTitle(ev.title);
-          var displayLoc=(!ev.allDay&&ev.location)?cleanLocation(ev.location):'';
-          if(multiShow&&tag) pageTags[tag]=true;
-          pageHtml+='<div class="cell-event">';
-          if(!ev.allDay){
-            pageHtml+='<span class="ev-time">'+fmtTime(ev.start);
-            var sameD=ev.end.getDate()===ev.start.getDate()&&ev.end.getMonth()===ev.start.getMonth();
-            if(ev.end>ev.start&&sameD) pageHtml+=' \u2013 '+fmtTime(ev.end);
-            pageHtml+='</span> ';
-          }
-          if(multiShow&&tag) pageHtml+='<span class="ev-show-prefix">'+escH(tag)+':</span> ';
-          pageHtml+='<span class="ev-title">'+escH(displayTitle)+'</span>';
-          if(displayLoc) pageHtml+='<div class="ev-location">'+escH(displayLoc)+'</div>';
-          pageHtml+='</div>';
-        });
-
-        if(notes[key]) pageHtml+='<div class="cell-note">'+escH(notes[key])+'</div>';
-        pageHtml+='</div>';
-      });
-      pageHtml+='</div>';
-    });
-    pageHtml+='</div>';
-
-    var tagKeys=Object.keys(pageTags).sort();
-    if(multiShow&&tagKeys.length){
-      pageHtml+='<div class="show-legend">';
-      tagKeys.forEach(function(tag){
-        var fullName=resolveFullName(tag);
-        var label=fullName?escH(tag)+' \u2014 '+escH(fullName):escH(tag);
-        pageHtml+='<div class="legend-item"><span class="legend-label">'+label+'</span></div>';
-      });
-      pageHtml+='</div>';
-    }
-    pageHtml+='<div class="page-footer">Page '+(pageIdx+1)+' of '+pages.length+'</div>';
-    pageHtml+='</div>';
-    pageHtmls.push(pageHtml);
-  });
-  return pageHtmls.join('');
-}
-
-function buildPrintDoc(calHtml){
-  // All measurements in mm for a landscape A4/Letter page (279x216mm usable at 0 margin)
-  // Page padding: 6mm all sides → usable: 267w x 204h
-  // Chrome (header+monthlabel+dow+legend+footer) ≈ 28mm
-  // Grid gets remaining ≈ 176mm split equally across N rows
-  // We embed per-week-count CSS rules so cells are always exact height
-
-  var css=[
-    '@import url("https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@300;400;600;700&display=swap");',
-    '*{margin:0;padding:0;box-sizing:border-box}',
-    'html,body{background:#fff;color:#000;font-family:"Source Sans 3",sans-serif}',
-
-    // Page — slightly reduced height to prevent blank page overflow
-    '.cal-page{',
-    '  width:267mm;height:202mm;',
-    '  padding:0;margin:7mm auto;',
-    '  display:flex;flex-direction:column;',
-    '  overflow:hidden;',
-    '}',
-    // Page break BEFORE each page after the first — never a trailing break
-    '.cal-page-break{page-break-before:always}',
-
-    // Header
-    '.cal-header{',
-    '  display:grid;grid-template-columns:1fr 2fr 1fr;',
-    '  align-items:center;gap:4mm;',
-    '  border-bottom:2pt solid #000;',
-    '  padding-bottom:1.5mm;margin-bottom:1mm;',
-    '  flex-shrink:0;',
-    '}',
-    '.show-title{font-family:"Libre Baskerville",serif;font-size:12pt;font-weight:700;line-height:1.2}',
-    '.show-season{font-size:10pt;color:#333;margin-top:1px}',
-    '.cal-header-center{text-align:center}',
-    '.cal-sub{font-family:"Libre Baskerville",serif;font-size:12pt;font-style:italic}',
-    '.cal-footer-note{font-size:8pt;letter-spacing:1px;text-transform:uppercase;color:#666;margin-top:2px}',
-    '.cal-header-right{text-align:right}',
-    '.cal-updated{font-size:10pt;color:#555}',
-
-    // Month label
-    '.month-label{',
-    '  text-align:center;font-family:"Libre Baskerville",serif;',
-    '  font-size:22pt;font-weight:700;',
-    '  margin:1mm 0 1mm;flex-shrink:0;line-height:1;',
-    '}',
-
-    // DOW row
-    '.cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);background:#222;color:#fff;flex-shrink:0}',
-    '.cal-dow{padding:1.5mm 2mm;font-size:9pt;font-weight:700;text-align:center;border-right:1px solid #555}',
-    '.cal-dow:last-child{border-right:none}',
-
-    // Grid
-    '.cal-weeks{',
-    '  display:flex;flex-direction:column;',
-    '  flex:1;min-height:0;overflow:hidden;',
-    '  border-left:0.5pt solid #aaa;border-top:0.5pt solid #aaa;',
-    '}',
-    '.cal-week{display:grid;grid-template-columns:repeat(7,1fr);flex:1;min-height:0;overflow:hidden}',
-
-    // Cells
-    '.cal-cell{',
-    '  border-right:0.5pt solid #aaa;border-bottom:0.5pt solid #aaa;',
-    '  padding:1mm 1.5mm;',
-    '  overflow:hidden;',
-    '  display:flex;flex-direction:column;',
-    '  min-height:0;',
-    '}',
-    '.out-of-month{background:#f5f5f5}',
-    '.out-of-month .date-num{color:#bbb}',
-    '.is-today .cell-date{background:#c0392b;border-radius:2px}',
-    '.is-today .date-num{color:#fff}',
-
-    // Date number
-    '.cell-date{flex-shrink:0;line-height:1;margin-bottom:0.5mm}',
-    '.date-num{display:inline-block;font-size:6.5pt;font-weight:700;padding:0.5px 1.5px}',
-
-    // Events
-    '.cell-event{line-height:1.2;margin-bottom:0.3mm;flex-shrink:0;overflow:hidden}',
-    '.ev-time{font-weight:700;white-space:nowrap}',
-    '.ev-show-prefix{font-weight:700;white-space:nowrap}',
-    '.ev-title{display:block;overflow:hidden}',
-    '.ev-location{color:#444;line-height:1.1;padding-left:1px;font-style:italic;overflow:hidden}',
-
-    // Notes
-    '.cell-note{font-style:italic;color:#555;margin-top:0.5mm;padding-top:0.5mm;',
-    '  border-top:0.3pt dashed #ccc;flex-shrink:0;overflow:hidden}',
-
-    // Legend
-    '.show-legend{display:flex;flex-wrap:wrap;gap:5mm;padding:1.5mm 0 1mm;',
-    '  border-top:0.5pt solid #ccc;flex-shrink:0}',
-    '.legend-item{font-size:6.5pt;color:#333;font-weight:600}',
-
-    // Footer
-    '.page-footer{text-align:center;font-size:6.5pt;color:#888;',
-    '  padding-top:1mm;border-top:0.5pt solid #ccc;flex-shrink:0}',
-
-    // Event font size by week count
-    '[data-weeks="4"] .cell-event{font-size:8pt}',
-    '[data-weeks="4"] .ev-location{font-size:7pt}',
-    '[data-weeks="4"] .cell-note{font-size:7pt}',
-    '[data-weeks="4"] .date-num{font-size:8pt}',
-    '[data-weeks="5"] .cell-event{font-size:7pt}',
-    '[data-weeks="5"] .ev-location{font-size:6.5pt}',
-    '[data-weeks="5"] .cell-note{font-size:6.5pt}',
-    '[data-weeks="5"] .date-num{font-size:7pt}',
-    '[data-weeks="6"] .cell-event{font-size:6pt}',
-    '[data-weeks="6"] .ev-location{font-size:5.5pt}',
-    '[data-weeks="6"] .cell-note{font-size:5.5pt}',
-    '[data-weeks="6"] .date-num{font-size:6pt}',
-
-    '@page{size:landscape;margin:8mm 12mm}',
-    'html,body{margin:0;padding:0;background:#fff;color:#000;font-family:"Source Sans 3",sans-serif}',
-    '.cal-page{width:255mm;height:200mm;display:flex;flex-direction:column;overflow:hidden}',
-    '.cal-page~.cal-page{page-break-before:always}'
-  ].join('\n');
-
-  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Calendar</title>'
-    +'<style>'+css+'</style>'
-    +'</head><body>'
-    +calHtml
-    +'</body></html>';
-}
-
-var _lastOpts=null;
-var _calType='monthly';
 
 function setType(type){
-  _calType=type;
-  document.getElementById('typeMonthly').classList.toggle('active',type==='monthly');
-  document.getElementById('typeWeekly').classList.toggle('active',type==='weekly');
-  document.getElementById('monthlyRange').style.display=type==='monthly'?'':'none';
-  document.getElementById('weeklyRange').style.display=type==='weekly'?'':'none';
+  _calType = type;
+  document.getElementById('typeMonthly').classList.toggle('active', type === 'monthly');
+  document.getElementById('typeWeekly').classList.toggle('active', type === 'weekly');
+  document.getElementById('monthlyRange').style.display = type === 'monthly' ? '' : 'none';
+  document.getElementById('weeklyRange').style.display = type === 'weekly' ? '' : 'none';
+}
+
+function selectedIds(){
+  var ids = [];
+  document.querySelectorAll('.pick-row').forEach(function(row){
+    var cb = row.querySelector('input[type=checkbox]');
+    if(cb && cb.checked) ids.push(cb.value);
+  });
+  return ids;
 }
 
 async function generate(){
-  var statusEl=document.getElementById('status');
-  var errEl=document.getElementById('err');
-  statusEl.textContent=''; errEl.textContent='';
+  var statusEl = document.getElementById('status');
+  var errEl = document.getElementById('err');
+  var previewEl = document.getElementById('preview-container');
+  statusEl.textContent = '';
+  errEl.textContent = '';
+  previewEl.style.display = 'none';
 
-  // Collect selectedIds in DOM order (respects drag reorder)
-  var selectedIds=[];
-  document.querySelectorAll('.show-pick').forEach(function(row){
-    var cb=row.querySelector('input[type=checkbox]');
-    if(cb&&cb.checked) selectedIds.push(cb.value);
-  });
-  if(!selectedIds.length){ errEl.textContent='\u2715 Select at least one production.'; return; }
-
-  statusEl.textContent='Fetching calendar data\u2026';
-  var allEvs=[],showTitles=[],showSeasons=[];
-  var calSubtitle=document.getElementById('calSubtitle').value.trim()||'Rehearsal Performance Calendar';
-
-  try{
-    for(var i=0;i<selectedIds.length;i++){
-      var s=SHOWS[selectedIds[i]];
-      showTitles.push(s.title);
-      showSeasons.push(s.season||'');
-      for(var j=0;j<(s.feeds||[]).length;j++){
-        var f=s.feeds[j];
-        var evs=await fetchIcal(f.url,f.label);
-        if(s.shortTag){
-          evs.forEach(function(ev){
-            if(!ev.title.match(/\[[^\]]+\]/)) ev.title=ev.title+' ['+s.shortTag+']';
-          });
-        }
-        allEvs=allEvs.concat(evs);
-      }
-    }
-  } catch(e){
-    statusEl.textContent='';
-    errEl.textContent='\u2715 '+e.message;
+  var ids = selectedIds();
+  if(!ids.length){
+    errEl.textContent = _calSource === 'rooms'
+      ? '\u2715 Select at least one room.'
+      : '\u2715 Select at least one production.';
     return;
   }
 
-  // Dedup all-day events — same title on same day only appears once
-  var seenAllDay={};
-  allEvs=allEvs.filter(function(ev){
-    if(!ev.allDay) return true;
-    var key=ev.title+'|'+(ev.start instanceof Date?ev.start.toDateString():ev.start);
-    if(seenAllDay[key]) return false;
-    seenAllDay[key]=true;
-    return true;
-  });
+  statusEl.textContent = 'Generating PDF\u2026';
 
-  statusEl.textContent='Generating PDF\u2026';
+  var calSubtitle = document.getElementById('calSubtitle').value.trim()
+    || (_calSource === 'rooms' ? 'Room Schedule' : 'Rehearsal Performance Calendar');
 
-  var pdfOpts={
-    showIds    : selectedIds,
-    calType    : _calType,
-    startMonth : parseInt(document.getElementById('startMonth').value),
-    startYear  : parseInt(document.getElementById('startYear').value),
-    endMonth   : parseInt(document.getElementById('endMonth').value),
-    endYear    : parseInt(document.getElementById('endYear').value),
-    startDate  : document.getElementById('startDate').value,
-    endDate    : document.getElementById('endDate').value,
-    updatedBy  : document.getElementById('updatedBy').value.trim(),
+  var payload = {
+    calSource: _calSource,
+    calType: _calType,
+    updatedBy: document.getElementById('updatedBy').value.trim(),
     calSubtitle: calSubtitle,
     customNotes: {},
-    multiShow  : selectedIds.length>1,
+    applyLocationRules: document.getElementById('applyLocRules').checked
   };
-  _lastOpts=pdfOpts;
 
-  // Show preview (monthly only — weekly grid is complex to preview in HTML)
-  if(_calType==='monthly'){
-    var opts={
-      startMonth:pdfOpts.startMonth, startYear:pdfOpts.startYear,
-      endMonth:pdfOpts.endMonth,     endYear:pdfOpts.endYear,
-      updatedBy:pdfOpts.updatedBy,   notes:{},
-      multiShow:pdfOpts.multiShow,   tagColors:TAG_COLORS,
-      showTitles:showTitles, showSeasons:showSeasons,
-      showSubtitles:[calSubtitle]
-    };
-    var calHtml=buildCalendarHTML(allEvs,opts);
-    var doc=buildPrintDoc(calHtml);
-    var preview=document.getElementById('preview-box');
-    var scale=0.48;
-    var escaped=doc.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-    preview.innerHTML='<div style="transform:scale('+scale+');transform-origin:top left;width:'+(100/scale)+'%;pointer-events:none">'
-      +'<iframe style="width:297mm;height:210mm;border:none" srcdoc="'+escaped+'"></iframe>'
-      +'</div><div style="height:'+(210*scale*3.7796)+'px"></div>';
-    document.getElementById('preview-container').style.display='';
+  if(_calSource === 'rooms') payload.roomIds = ids;
+  else {
+    payload.showIds = ids;
+    payload.multiShow = ids.length > 1;
   }
 
-  // Generate PDF
-  fetch(SERVER+'/api/generate-calendar-pdf',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(pdfOpts)
+  if(_calType === 'monthly'){
+    payload.startMonth = parseInt(document.getElementById('startMonth').value, 10);
+    payload.startYear = parseInt(document.getElementById('startYear').value, 10);
+    payload.endMonth = parseInt(document.getElementById('endMonth').value, 10);
+    payload.endYear = parseInt(document.getElementById('endYear').value, 10);
+  } else {
+    payload.startDate = document.getElementById('startDate').value;
+    payload.endDate = document.getElementById('endDate').value;
+  }
+
+  fetch(SERVER + '/api/generate-calendar-pdf', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
   })
   .then(function(r){
-    if(!r.ok) throw new Error('Server error '+r.status);
+    if(!r.ok) throw new Error('Server error ' + r.status);
     return r.blob();
   })
   .then(function(blob){
-    var url=URL.createObjectURL(blob);
-    window.open(url,'_blank');
-    setTimeout(function(){ URL.revokeObjectURL(url); },60000);
-    statusEl.textContent='\u2713 PDF ready';
+    var url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+    statusEl.textContent = '\u2713 PDF ready';
   })
   .catch(function(e){
-    errEl.textContent='\u2715 PDF generation failed: '+e.message;
-    statusEl.textContent='';
+    statusEl.textContent = '';
+    errEl.textContent = '\u2715 PDF generation failed: ' + e.message;
   });
 }
 
 (function(){
-  // Monthly defaults: Jan current year – Dec current year
-  var y=new Date().getFullYear();
-  document.getElementById('startMonth').value=0;
-  document.getElementById('endMonth').value=11;
-  // Set year dropdowns to current year
-  ['startYear','endYear'].forEach(function(id){
-    var sel=document.getElementById(id);
-    for(var i=0;i<sel.options.length;i++){
-      if(parseInt(sel.options[i].value)===y){ sel.selectedIndex=i; break; }
+  var y = new Date().getFullYear();
+  var now = new Date();
+  var startMonth = now.getMonth();
+  var endDateForMonth = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+  var endMonth = endDateForMonth.getMonth();
+  var endYearForMonth = endDateForMonth.getFullYear();
+
+  document.getElementById('startMonth').value = startMonth;
+  document.getElementById('endMonth').value = endMonth;
+  ['startYear', 'endYear'].forEach(function(id){
+    var sel = document.getElementById(id);
+    for(var i = 0; i < sel.options.length; i++){
+      var targetYear = id === 'endYear' ? endYearForMonth : y;
+      if(parseInt(sel.options[i].value, 10) === targetYear){ sel.selectedIndex = i; break; }
     }
   });
-  // Weekly defaults: this Monday through Sunday 4 weeks later
-  var now=new Date();
-  var day=now.getDay(); // 0=Sun, 1=Mon
-  var mon=new Date(now); mon.setDate(now.getDate()-(day===0?6:day-1));
-  var sun=new Date(mon); sun.setDate(mon.getDate()+27);
-  function fmt(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-  document.getElementById('startDate').value=fmt(mon);
-  document.getElementById('endDate').value=fmt(sun);
+
+  var day = now.getDay();
+  var mon = new Date(now);
+  mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  var sun = new Date(mon);
+  sun.setDate(mon.getDate() + 27);
+  function fmt(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  document.getElementById('startDate').value = fmt(mon);
+  document.getElementById('endDate').value = fmt(sun);
+
+  setSource('productions');
 })();
 
-loadShows();
+loadData();
 setTimeout(function(){
-  var el=document.getElementById('show-picks');
-  if(el&&el.innerHTML.indexOf('Loading')>=0){
-    el.innerHTML='<div class="no-shows" style="color:#f87171">Could not reach server. Check that the classroom-display service is running.</div>';
+  var el = document.getElementById('pick-list');
+  if(el && el.innerHTML.indexOf('Loading') >= 0){
+    el.innerHTML = '<div class="no-items" style="color:#f87171">Could not reach server. Check that the propared-display service is running.</div>';
   }
-},10000);
+}, 10000);
 </script>
 </body>
 </html>

@@ -9,15 +9,14 @@
 <body>
 <div class="topbar">
   <div class="topbar-title"><span class="dot"></span>Theatre and Dance Room Display Admin</div>
+  <div class="topbar-links">
+    <a class="btn btn-ghost btn-sm" href="/media-admin">&#128247; Media Library</a>
+    <a class="btn btn-ghost btn-sm" href="/print-calendar">&#128438; Print Calendar</a>
+    <a class="btn btn-ghost btn-sm" href="/print-admin">&#128444; Print Admin</a>
+    <a class="btn btn-ghost btn-sm" href="/notice">&#128226; Notice</a>
+  </div>
 </div>
 <div class="page">
-
-{% if flash_dropbox == 'connected' %}
-<div class="alert alert-success">&#10003; Dropbox connected! Photos will load within a minute.</div>
-{% endif %}
-{% if flash_error %}
-<div class="alert alert-error">&#10007; Dropbox error: {{ flash_error }}</div>
-{% endif %}
 {% if request.args.get('restored') %}
 <div class="alert alert-success">&#10003; Backup restored. All rooms and settings reloaded.</div>
 {% endif %}
@@ -26,288 +25,242 @@
 {% endif %}
 
 <!-- Rooms -->
-<div class="sec">Rooms ({{ rooms|length }})</div>
-<div class="room-grid">
-  {% for rid, room in rooms.items() %}
-  <div class="room-card">
-    <div class="room-card-head">
-      <div>
-        <div class="room-name">{{ room.title }}</div>
-        <span class="room-id">{{ rid }}</span>
+<div class="sec" id="hdr-rooms" onclick="secToggle('bdy-rooms')">
+  <span>Rooms ({{ rooms|length }})</span>
+  <span class="chevron">&#9660;</span>
+</div>
+<div class="section-body" id="bdy-rooms">
+  <div class="room-grid">
+    {% for rid, room in rooms.items() %}
+    <div class="room-card">
+      <div class="room-card-head">
+        <div>
+          <div class="room-name">{{ room.title }}</div>
+          <span class="room-id">{{ rid }}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          {% if room.icalUrl %}<span class="pill pill-green">&#9679; iCal</span>
+          {% else %}<span class="pill pill-red">&#9675; No iCal</span>{% endif %}
+          {% if room.showSlideshow %}<span class="pill pill-blue">&#8635; Slideshow</span>{% endif %}
+        </div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        {% if room.icalUrl %}<span class="pill pill-green">&#9679; iCal</span>
-        {% else %}<span class="pill pill-red">&#9675; No iCal</span>{% endif %}
-        {% if room.showSlideshow %}<span class="pill pill-blue">&#8635; Slideshow</span>{% endif %}
+      <div class="room-body">
+        <div class="meta-row"><span class="lbl">Refresh</span><span class="val">every {{ room.refresh }} min</span></div>
+        <div class="url-row">
+          <code id="url-{{ rid }}">/display?room={{ rid }}</code>
+          <a class="btn btn-ghost btn-sm" href="/display?room={{ rid }}" target="_blank">Open</a>
+        </div>
+      </div>
+      <div class="room-foot">
+        <button class="btn btn-ghost btn-sm" onclick="openEdit('{{ rid }}')">Edit</button>
+        <form method="POST" action="/admin/room/{{ rid }}/delete"
+              onsubmit="return confirm('Delete {{ room.title }}?')" style="margin-left:auto">
+          <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+        </form>
       </div>
     </div>
-    <div class="room-body">
-      <div class="meta-row"><span class="lbl">Refresh</span><span class="val">every {{ room.refresh }} min</span></div>
-      <div class="url-row">
-        <code id="url-{{ rid }}">/display?room={{ rid }}</code>
-        <a class="btn btn-ghost btn-sm" href="/display?room={{ rid }}" target="_blank">Open</a>
+    {% endfor %}
+    <div class="room-card" style="border-style:dashed;cursor:pointer"
+         onclick="document.getElementById('modal-new').classList.add('open')">
+      <div style="padding:36px;text-align:center;color:var(--muted)">
+        <div style="font-size:28px;margin-bottom:6px">+</div>
+        <div style="font-weight:500;font-size:13px">Add Room</div>
       </div>
-    </div>
-    <div class="room-foot">
-      <button class="btn btn-ghost btn-sm" onclick="openEdit('{{ rid }}')">Edit</button>
-      <form method="POST" action="/admin/room/{{ rid }}/delete"
-            onsubmit="return confirm('Delete {{ room.title }}?')" style="margin-left:auto">
-        <button class="btn btn-danger btn-sm" type="submit">Delete</button>
-      </form>
-    </div>
-  </div>
-  {% endfor %}
-  <div class="room-card" style="border-style:dashed;cursor:pointer"
-       onclick="document.getElementById('modal-new').classList.add('open')">
-    <div style="padding:36px;text-align:center;color:var(--muted)">
-      <div style="font-size:28px;margin-bottom:6px">+</div>
-      <div style="font-weight:500;font-size:13px">Add Room</div>
     </div>
   </div>
 </div>
 
 <!-- Tag Colors -->
-<div class="sec">Tag Color &amp; Name Mapping</div>
-<div class="tag-section">
-  <p class="tag-hint">Tags are extracted from event titles like <code style="font-family:DM Mono,monospace;color:var(--accent)">Event Name [TagName]</code>. The full name appears in the legend on every screen.</p>
-  <div class="tag-col-headers"><span>COLOR</span><span>TAG KEY</span><span>FULL NAME (legend label)</span></div>
-  <div class="tag-grid" id="tag-grid">
-    {% for tag, info in tag_colors.items() %}
-    <div class="tag-row" data-tag="{{ tag }}">
-      <div class="swatch" style="background:{{ info.color if info is mapping else info }}"
-           data-color="{{ info.color if info is mapping else info }}"
-           onclick="openProparedPicker(this)"></div>
-      <div class="tag-inputs">
-        <input class="tag-input" type="text" value="{{ tag }}" placeholder="TagKey" oninput="tagNameChange(this)">
-        <input class="tag-input fullname" type="text"
-               value="{{ info.fullName if info is mapping else tag }}"
-               placeholder="e.g. Full Project Name">
+<hr class="divider">
+<div class="sec" id="hdr-tags" onclick="secToggle('bdy-tags')">
+  <span>Tag Color &amp; Name Mapping</span>
+  <span class="chevron">&#9660;</span>
+</div>
+<div class="section-body" id="bdy-tags">
+  <div class="tag-section">
+    <p class="tag-hint">Tags are extracted from event titles like <code style="font-family:DM Mono,monospace;color:var(--accent)">Event Name [TagName]</code>. The full name appears in the legend on every screen.</p>
+    <div class="tag-col-headers"><span>COLOR</span><span>TAG KEY</span><span>FULL NAME (legend label)</span></div>
+    <div class="tag-grid" id="tag-grid">
+      {% for tag, info in tag_colors.items() %}
+      <div class="tag-row" data-tag="{{ tag }}">
+        <div class="swatch" style="background:{{ info.color if info is mapping else info }}"
+             data-color="{{ info.color if info is mapping else info }}"
+             onclick="openProparedPicker(this)"></div>
+        <div class="tag-inputs">
+          <input class="tag-input" type="text" value="{{ tag }}" placeholder="TagKey" oninput="tagNameChange(this)">
+          <input class="tag-input fullname" type="text"
+                 value="{{ info.fullName if info is mapping else tag }}"
+                 placeholder="e.g. Full Project Name">
+        </div>
+        <button class="tag-remove" onclick="removeTag(this)">&#215;</button>
       </div>
-      <button class="tag-remove" onclick="removeTag(this)">&#215;</button>
+      {% endfor %}
     </div>
-    {% endfor %}
-  </div>
-  <div style="display:flex;gap:8px;margin-top:12px">
-    <button class="btn btn-ghost btn-sm" onclick="addTag()">+ Add Tag</button>
-    <button class="btn btn-primary btn-sm" onclick="saveTagColors()">Save Tag Colors</button>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-ghost btn-sm" onclick="addTag()">+ Add Tag</button>
+      <button class="btn btn-primary btn-sm" onclick="saveTagColors()">Save Tag Colors</button>
+    </div>
   </div>
 </div>
 
 <!-- Clients -->
 <hr class="divider">
-<div class="sec" style="margin-top:28px">Clients
-  <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">assign rooms and schedules to Pi displays</span>
+<div class="sec" id="hdr-clients" onclick="secToggle('bdy-clients')" style="margin-top:28px">
+  <span>Clients <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">assign rooms and schedules to Pi displays</span></span>
+  <span class="chevron">&#9660;</span>
 </div>
-<div class="card">
-  <div class="card-hint">Each Pi registers itself automatically on first boot. Assign a room and screen schedule here — no SSH required.</div>
-  <div id="client-list">
-    <div style="font-size:12px;color:var(--muted);font-style:italic">Loading clients…</div>
+<div class="section-body" id="bdy-clients">
+  <div class="card">
+    <div class="card-hint">Each Pi registers itself automatically on first boot. Assign a room and screen schedule here.</div>
+    <div id="client-list">
+      <div style="font-size:12px;color:var(--muted);font-style:italic">Loading clients…</div>
+    </div>
   </div>
 </div>
 
 <!-- Global Calendars -->
 <hr class="divider">
-<div class="sec" style="margin-top:28px">Global Calendars
-  <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">shown on all room displays, not dashboard</span>
+<div class="sec" id="hdr-global-cals" onclick="secToggle('bdy-global-cals')" style="margin-top:28px">
+  <span>Global Calendars <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">shown on all room displays, not dashboard</span></span>
+  <span class="chevron">&#9660;</span>
 </div>
-<div class="card">
-  <div class="card-hint">Add up to 3 iCal feeds that appear on every room display — e.g. university holidays, important dates. Each feed gets its own colour on the calendar grid and does not appear in the sidebar.</div>
-  <div id="global-cal-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px"></div>
-  <div style="display:flex;gap:8px">
-    <button class="btn btn-ghost btn-sm" onclick="addGlobalCal()" id="add-global-btn">+ Add Calendar</button>
-    <button class="btn btn-primary btn-sm" onclick="saveGlobalCals()">Save Global Calendars</button>
+<div class="section-body" id="bdy-global-cals">
+  <div class="card">
+    <div class="card-hint">Add up to 3 iCal feeds that appear on every room display — e.g. university holidays, important dates. Each feed gets its own colour on the calendar grid and does not appear in the sidebar.</div>
+    <div id="global-cal-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="addGlobalCal()" id="add-global-btn">+ Add Calendar</button>
+      <button class="btn btn-primary btn-sm" onclick="saveGlobalCals()">Save Global Calendars</button>
+    </div>
   </div>
 </div>
 
 <!-- Dashboard -->
 <hr class="divider">
-<div class="sec" style="margin-top:28px">Office Dashboard
-  <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">kiosk at /dashboard</span>
+<div class="sec" id="hdr-dashboard" onclick="secToggle('bdy-dashboard')" style="margin-top:28px">
+  <span>Office Dashboard <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">kiosk at /dashboard</span></span>
+  <span class="chevron">&#9660;</span>
 </div>
-<div class="card">
-  <form method="POST" action="/admin/dashboard" id="dash-form">
-    <div class="fg">
-      <label class="fl">Calendar Iframe URL</label>
-      <input class="fi" name="dashboardIframeUrl" placeholder="https://calendar.google.com/..."
-             value="{{ settings.dashboardIframeUrl or '' }}">
-      <div class="fh">Shown on the right of the dashboard. Must allow embedding.</div>
-    </div>
-    <div class="fg">
-      <label class="fl">Rooms to Show</label>
-      <div class="fh" style="margin-bottom:8px">Check rooms to include. Drag to reorder.</div>
-      <div id="dash-room-list" style="display:flex;flex-direction:column;gap:6px">
-        {% set ordered_rids = (settings.dashboardRooms or []) + (rooms.keys() | reject("in", settings.dashboardRooms or []) | list) %}
-        {% for rid in ordered_rids if rid in rooms %}
-        {% set room = rooms[rid] %}
-        <div class="dash-row" draggable="true" data-rid="{{ rid }}">
-          <span class="drag-handle">&#8942;&#8942;</span>
-          <input type="checkbox" name="dashboardRooms" value="{{ rid }}"
-                 {% if rid in (settings.dashboardRooms or []) %}checked{% endif %}
-                 style="width:15px;height:15px;flex-shrink:0;cursor:pointer">
-          <span style="font-size:13px;font-weight:500">{{ room.title }}</span>
-          <span class="room-id" style="margin-left:auto">{{ rid }}</span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
-        <label style="font-size:13px;color:var(--muted)">Show iframe for
-          <input type="number" name="dashboardCalDuration" min="10" max="600"
-            value="{{ settings.dashboardCalDuration or 60 }}"
-            style="width:60px;margin:0 4px;background:var(--surface2);border:1px solid var(--border);
-            color:var(--text);border-radius:4px;padding:3px 6px;font-size:13px">
-          seconds, then slideshow for
-          <input type="number" name="dashboardSlideDuration" min="3" max="120"
-            value="{{ settings.dashboardSlideDuration or 8 }}"
-            style="width:60px;margin:0 4px;background:var(--surface2);border:1px solid var(--border);
-            color:var(--text);border-radius:4px;padding:3px 6px;font-size:13px">
-          seconds
-        </label>
-      </div>
-      <button type="submit" class="btn btn-primary btn-sm">Save Dashboard Settings</button>
-      <a href="/dashboard" target="_blank" class="btn btn-ghost btn-sm">Preview &#8599;</a>
-      <a href="/notice" target="_blank" class="btn btn-ghost btn-sm">&#128226; Notice Board</a>
-    </div>
-  </form>
-</div>
-
-<!-- Slideshow & Dropbox -->
-<hr class="divider">
-<div class="sec" style="margin-top:28px">Slideshow &amp; Dropbox
-  <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">set once, rarely changed</span>
-</div>
-<div class="card">
-  <div class="dropbox-status {{ 'connected' if dropbox_connected else 'disconnected' }}">
-    <span class="status-dot"></span>
-    <span class="status-text">
-      {% if dropbox_connected %}Dropbox connected &mdash; photos shared across all rooms
-      {% else %}Dropbox not connected{% endif %}
-    </span>
-    {% if dropbox_connected %}
-    <a href="/api/slides?refresh=1" target="_blank" class="btn btn-ghost btn-sm">&#8635; Refresh photos</a>
-    {% endif %}
-  </div>
-
-  <form method="POST" action="/admin/settings">
-    <div class="timing-grid">
+<div class="section-body" id="bdy-dashboard">
+  <div class="card">
+    <form method="POST" action="/admin/dashboard" id="dash-form">
       <div class="fg">
-        <label class="fl">Photo Folder</label>
-        <input class="fi" name="dropboxFolder" placeholder="/slideshow" value="{{ settings.dropboxFolder or '/slideshow' }}">
-        <div class="fh">Path in your Dropbox</div>
+        <label class="fl">Calendar Iframe URL</label>
+        <input class="fi" name="dashboardIframeUrl" placeholder="https://calendar.google.com/..."
+               value="{{ settings.dashboardIframeUrl or '' }}">
+        <div class="fh">Shown on the right of the dashboard.</div>
       </div>
       <div class="fg">
-        <label class="fl">Show Calendar (sec)</label>
-        <input class="fi" name="calDuration" type="number" min="10" value="{{ settings.calDuration or 60 }}">
-      </div>
-      <div class="fg">
-        <label class="fl">Show Photo (sec)</label>
-        <input class="fi" name="slideDuration" type="number" min="3" value="{{ settings.slideDuration or 8 }}">
-      </div>
-    </div>
-    <!-- Preserve other settings when only saving timing -->
-    <input type="hidden" name="dropboxAppKey"      value="">
-    <input type="hidden" name="dropboxAppSecret"   value="">
-    <input type="hidden" name="dropboxRefreshToken" value="">
-    <input type="hidden" name="dropboxToken"       value="">
-    <button type="submit" class="btn btn-primary btn-sm">Save Timing</button>
-  </form>
-
-  <div style="margin-top:24px;padding-top:22px;border-top:1px solid var(--border)">
-    <div class="card-title">One-time Dropbox Setup</div>
-    <div class="card-hint">This works on restricted networks — the Pi only makes <strong style="color:var(--text)">outbound</strong> calls and never needs to be reachable from the internet.</div>
-    <div class="connect-steps">
-      <div class="connect-step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <strong>Create a Dropbox app</strong> at <a href="https://www.dropbox.com/developers/apps" target="_blank">dropbox.com/developers/apps</a> &rarr; <strong>Scoped access &rarr; Full Dropbox</strong>.<br>
-          Enable: <code>files.metadata.read</code> and <code>files.content.read</code>.<br>
-          Under <strong>Redirect URIs</strong> add: <code>http://localhost/dropbox-auth</code>
-        </div>
-      </div>
-      <div class="connect-step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <strong>Enter your App Key and Secret</strong> and save:
-          <form method="POST" action="/admin/settings" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-            <div><label class="fl">App Key</label>
-              <input class="fi" name="dropboxAppKey" placeholder="abc123xyz" value="{{ settings.dropboxAppKey or '' }}"></div>
-            <div><label class="fl">App Secret</label>
-              <input class="fi" name="dropboxAppSecret" type="password" value="{{ settings.dropboxAppSecret or '' }}"></div>
-            <input type="hidden" name="dropboxFolder"       value="{{ settings.dropboxFolder or '/slideshow' }}">
-            <input type="hidden" name="calDuration"         value="{{ settings.calDuration or 60 }}">
-            <input type="hidden" name="slideDuration"       value="{{ settings.slideDuration or 8 }}">
-            <input type="hidden" name="dropboxRefreshToken" value="">
-            <input type="hidden" name="dropboxToken"        value="">
-            <div style="grid-column:1/-1">
-              <button type="submit" class="btn btn-ghost btn-sm">Save App Key &amp; Secret</button>
-            </div>
-          </form>
-        </div>
-      </div>
-      <div class="connect-step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <strong>Open the authorization link</strong> in any browser on any device. Log in to Dropbox and click Allow.
-          <div style="margin-top:10px">
-            {% if settings.dropboxAppKey %}
-            <a class="btn btn-success btn-sm" target="_blank"
-               href="https://www.dropbox.com/oauth2/authorize?client_id={{ settings.dropboxAppKey }}&response_type=code&token_access_type=offline&redirect_uri=http%3A%2F%2Flocalhost%2Fdropbox-auth">
-              Open Dropbox Authorization &rarr;</a>
-            {% else %}
-            <span style="font-size:12px;color:var(--muted);font-style:italic">Complete step 2 first</span>
-            {% endif %}
+        <label class="fl">Rooms to Show</label>
+        <div class="fh" style="margin-bottom:8px">Check rooms to include. Drag to reorder.</div>
+        <div id="dash-room-list" style="display:flex;flex-direction:column;gap:6px">
+          {% set ordered_rids = (settings.dashboardRooms or []) + (rooms.keys() | reject("in", settings.dashboardRooms or []) | list) %}
+          {% for rid in ordered_rids if rid in rooms %}
+          {% set room = rooms[rid] %}
+          <div class="dash-row" draggable="true" data-rid="{{ rid }}">
+            <span class="drag-handle">&#8942;&#8942;</span>
+            <input type="checkbox" name="dashboardRooms" value="{{ rid }}"
+                   {% if rid in (settings.dashboardRooms or []) %}checked{% endif %}
+                   style="width:15px;height:15px;flex-shrink:0;cursor:pointer">
+            <span style="font-size:13px;font-weight:500">{{ room.title }}</span>
+            <span class="room-id" style="margin-left:auto">{{ rid }}</span>
           </div>
+          {% endfor %}
         </div>
       </div>
-      <div class="connect-step">
-        <div class="step-num">4</div>
-        <div class="step-body">
-          <strong>After clicking Allow</strong>, your browser goes to a page that won&rsquo;t load — that&rsquo;s expected. Copy the <strong>code</strong> value from the URL (<code>?code=XXXXX</code>), paste it below and click Exchange:
-          <form method="POST" action="/admin/dropbox/exchange">
-            <div class="code-paste-row">
-              <input type="text" name="code" placeholder="Paste the code from the URL bar…" autocomplete="off" spellcheck="false">
-              <button type="submit" class="btn btn-primary btn-sm">Exchange &amp; Connect</button>
-            </div>
-          </form>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+          <label style="font-size:13px;color:var(--muted)">Show iframe for
+            <input type="number" name="dashboardCalDuration" min="10" max="600"
+              value="{{ settings.dashboardCalDuration or 60 }}"
+              style="width:60px;margin:0 4px;background:var(--surface2);border:1px solid var(--border);
+              color:var(--text);border-radius:4px;padding:3px 6px;font-size:13px">
+            seconds, then slideshow for
+            <input type="number" name="dashboardSlideDuration" min="3" max="120"
+              value="{{ settings.dashboardSlideDuration or 8 }}"
+              style="width:60px;margin:0 4px;background:var(--surface2);border:1px solid var(--border);
+              color:var(--text);border-radius:4px;padding:3px 6px;font-size:13px">
+            seconds
+          </label>
         </div>
+        <button type="submit" class="btn btn-primary btn-sm">Save Dashboard Settings</button>
+        <a href="/dashboard" target="_blank" class="btn btn-ghost btn-sm">Preview &#8599;</a>
+        <a href="/notice" target="_blank" class="btn btn-ghost btn-sm">&#128226; Notice Board</a>
       </div>
-    </div>
+    </form>
   </div>
+</div>
+
+<!-- Slideshow -->
+<hr class="divider">
+<div class="sec" id="hdr-slideshow" onclick="secToggle('bdy-slideshow')" style="margin-top:28px">
+  <span>Slideshow <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">server media and timing</span></span>
+  <span class="chevron">&#9660;</span>
+</div>
+<div class="section-body" id="bdy-slideshow">
+  <div class="card">
+    <div class="card-hint" style="margin-bottom:14px">
+      Use the <a href="/media-admin">Media Library</a> to upload slideshow images directly to the server.
+      It uses the shared Notice password so you can give limited access without exposing full Admin controls.
+    </div>
+    <div class="dropbox-status connected">
+      <span class="status-dot"></span>
+      <span class="status-text">Server-managed slideshow library is active</span>
+      <a href="/media-admin" class="btn btn-ghost btn-sm">&#128247; Open Media Library</a>
+    </div>
+
+    <form method="POST" action="/admin/settings">
+      <div class="timing-grid">
+        <div class="fg">
+          <label class="fl">Show Calendar (sec)</label>
+          <input class="fi" name="calDuration" type="number" min="10" value="{{ settings.calDuration or 60 }}">
+        </div>
+        <div class="fg">
+          <label class="fl">Show Photo (sec)</label>
+          <input class="fi" name="slideDuration" type="number" min="3" value="{{ settings.slideDuration or 8 }}">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Save Timing</button>
+    </form>
+  </div>
+</div>
 
 <!-- Backup & Restore -->
 <hr class="divider">
-<div class="sec" id="backup" style="margin-top:28px">Backup &amp; Restore
-  <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">rooms, tags, settings &amp; logos</span>
+<div class="sec" id="hdr-backup" onclick="secToggle('bdy-backup')" style="margin-top:28px">
+  <span>Backup &amp; Restore <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">rooms, tags, settings &amp; logos</span></span>
+  <span class="chevron">&#9660;</span>
 </div>
-<div class="card">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-    <div>
-      <div class="card-title">Create Backup</div>
-      <div class="card-hint">Downloads a <code style="color:var(--accent)">.zip</code> with all rooms, tag colours, settings and logos. A copy is also saved on the Pi.</div>
-      <a href="/admin/backup" class="btn btn-primary btn-sm">&#11015; Download Backup</a>
+<div class="section-body" id="bdy-backup">
+  <div class="card">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div>
+        <div class="card-title">Create Backup</div>
+        <div class="card-hint">Downloads a <code style="color:var(--accent)">.zip</code> with all rooms, tag colours, settings and logos. A copy is also saved on the Pi.</div>
+        <a href="/admin/backup" class="btn btn-primary btn-sm">&#11015; Download Backup</a>
+      </div>
+      <div>
+        <div class="card-title">Restore from Backup</div>
+        <div class="card-hint">Upload a <code style="color:var(--accent)">.zip</code> to overwrite current rooms, tags, settings and logos.</div>
+        <form method="POST" action="/admin/restore" enctype="multipart/form-data"
+              onsubmit="return confirm('This will overwrite all current config. Continue?')">
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="file" name="backup" accept=".zip" required
+                   style="font-size:12px;color:var(--muted);flex:1;min-width:0;
+                     background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:6px 10px">
+            <button type="submit" class="btn btn-ghost btn-sm">&#11014; Restore</button>
+          </div>
+        </form>
+      </div>
     </div>
-    <div>
-      <div class="card-title">Restore from Backup</div>
-      <div class="card-hint">Upload a <code style="color:var(--accent)">.zip</code> to overwrite current rooms, tags, settings and logos.</div>
-      <form method="POST" action="/admin/restore" enctype="multipart/form-data"
-            onsubmit="return confirm('This will overwrite all current config. Continue?')">
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="file" name="backup" accept=".zip" required
-                 style="font-size:12px;color:var(--muted);flex:1;min-width:0;
-                   background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:6px 10px">
-          <button type="submit" class="btn btn-ghost btn-sm">&#11014; Restore</button>
-        </div>
-      </form>
+    <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;
+        display:flex;align-items:center;justify-content:space-between">
+        <span>Saved on Server</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadBackupList()">&#8635; Refresh</button>
+      </div>
+      <div id="backup-list" style="font-size:12px;color:var(--muted)">Loading&hellip;</div>
     </div>
-  </div>
-  <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--border)">
-    <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;
-      display:flex;align-items:center;justify-content:space-between">
-      <span>Saved on Pi</span>
-      <button class="btn btn-ghost btn-sm" onclick="loadBackupList()">&#8635; Refresh</button>
-    </div>
-    <div id="backup-list" style="font-size:12px;color:var(--muted)">Loading&hellip;</div>
   </div>
 </div>
 
@@ -326,9 +279,9 @@
         <div class="fg"><label class="fl">Display Title</label>
           <input class="fi" name="title" placeholder="Dance Studio Schedule" required></div>
         <div class="fsep">Calendar</div>
-        <div class="fg"><label class="fl">Google Calendar iCal URL</label>
-          <input class="fi" name="icalUrl" placeholder="https://calendar.google.com/calendar/ical/...">
-          <div class="fh">Calendar Settings &rarr; your calendar &rarr; "Secret address in iCal format"</div></div>
+        <div class="fg"><label class="fl">Propared iCal URL</label>
+          <input class="fi" name="icalUrl" placeholder="https://.../calendar.ics or webcal://...">
+          <div class="fh">Paste the Propared iCal/webcal feed URL for this room or calendar.</div></div>
         <div class="fg"><label class="fl">Refresh Interval (minutes)</label>
           <input class="fi" name="refresh" type="number" value="5" min="1" max="60"></div>
         <div class="fsep">Display Hours</div>
@@ -345,7 +298,7 @@
             <input type="checkbox" name="showSlideshow" value="1" style="width:15px;height:15px">
             <span style="font-size:13px">Rotate to photo slideshow on this screen</span>
           </label>
-          <div class="fh">Uses the global Dropbox folder configured below</div>
+          <div class="fh">Uses the shared server media library configured below</div>
         </div>
         <div class="fsep">Logo</div>
         <div class="fg"><label class="fl">Logo Image (shown top-right)</label>
@@ -372,8 +325,9 @@
         <div class="fg"><label class="fl">Display Title</label>
           <input class="fi" name="title" id="e-title" required></div>
         <div class="fsep">Calendar</div>
-        <div class="fg"><label class="fl">Google Calendar iCal URL</label>
-          <input class="fi" name="icalUrl" id="e-ical"></div>
+        <div class="fg"><label class="fl">Propared iCal URL</label>
+          <input class="fi" name="icalUrl" id="e-ical">
+          <div class="fh">Paste the Propared iCal/webcal feed URL for this room or calendar.</div></div>
         <div class="fg"><label class="fl">Refresh Interval (minutes)</label>
           <input class="fi" name="refresh" id="e-refresh" type="number" min="1" max="60"></div>
         <div class="fsep">Display Hours</div>
@@ -415,6 +369,35 @@ window.ADMIN_BOOTSTRAP = {
   rooms: {{ rooms|tojson }},
   globalCalendars: {{ settings.globalCalendars | tojson }}
 };
+
+// ── Collapsible sections ───────────────────────────────────────────────────
+var SEC_KEY = 'propared-sec-state';
+// Sections collapsed by default (set-once, rarely changed)
+var DEFAULT_CLOSED = ['bdy-global-cals', 'bdy-dashboard', 'bdy-slideshow', 'bdy-backup'];
+
+function secToggle(id) {
+  var body = document.getElementById(id);
+  var hdr  = document.getElementById(id.replace('bdy-', 'hdr-'));
+  var isHidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !isHidden);
+  hdr.classList.toggle('closed', !isHidden);
+  var state = JSON.parse(localStorage.getItem(SEC_KEY) || '{}');
+  state[id] = isHidden ? 'open' : 'closed';
+  localStorage.setItem(SEC_KEY, JSON.stringify(state));
+}
+
+(function () {
+  var state = JSON.parse(localStorage.getItem(SEC_KEY) || '{}');
+  DEFAULT_CLOSED.forEach(function (id) { if (!state[id]) state[id] = 'closed'; });
+  Object.keys(state).forEach(function (id) {
+    if (state[id] === 'closed') {
+      var body = document.getElementById(id);
+      var hdr  = document.getElementById(id.replace('bdy-', 'hdr-'));
+      if (body) body.classList.add('hidden');
+      if (hdr)  hdr.classList.add('closed');
+    }
+  });
+})();
 </script>
 <script src="/static/admin/admin.js"></script>
 </body>
