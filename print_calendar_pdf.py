@@ -249,6 +249,27 @@ def group_events_by_day(events: list[dict]) -> dict[str, list[dict]]:
     return by_day
 
 
+def dedupe_print_events(events: list[dict]) -> list[dict]:
+    """Remove exact duplicate print events while preserving order."""
+    seen: set[tuple] = set()
+    deduped: list[dict] = []
+    for ev in events:
+        start = ev["start"].isoformat() if isinstance(ev["start"], (datetime, date)) else str(ev["start"])
+        end = ev["end"].isoformat() if isinstance(ev["end"], (datetime, date)) else str(ev["end"])
+        key = (
+            ev["title"],
+            start,
+            end,
+            bool(ev.get("allday")),
+            ev.get("location", ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(ev)
+    return deduped
+
+
 def fmt_time(dt) -> str:
     if not isinstance(dt, datetime):
         return ""
@@ -318,36 +339,18 @@ def build_calendar_pdf(
     all_events: list[dict] = []
     for show_id in show_ids:
         show = shows.get(show_id, {})
-        short_tag = show.get("shortTag", "")
         for feed in show.get("feeds", []):
             url = feed.get("url", "")
             if not url:
                 continue
             try:
                 text = _fetch_ical(url)
-                evs = parse_ical_for_print(text)
-                # Stamp shortTag onto untagged events
-                if short_tag:
-                    for ev in evs:
-                        if not re.search(r'\[[^\]]+\]', ev["title"]):
-                            ev["title"] = ev["title"] + f" [{short_tag}]"
-                all_events.extend(evs)
+                all_events.extend(parse_ical_for_print(text))
             except Exception as exc:
                 pass  # silently skip failed feeds
 
-    by_day = group_events_by_day(all_events)
     custom_notes = custom_notes or {}
-
-    # Dedup all-day events — same title on same day only once
-    seen_allday: set[str] = set()
-    deduped: list[dict] = []
-    for ev in all_events:
-        if ev["allday"]:
-            k = f"{ev['title']}|{ev['start']}"
-            if k in seen_allday:
-                continue
-            seen_allday.add(k)
-        deduped.append(ev)
+    deduped = dedupe_print_events(all_events)
     by_day = group_events_by_day(deduped)
 
     # -- Header text ----------------------------------------------------------
@@ -666,23 +669,17 @@ def build_weekly_pdf(
     all_events: list[dict] = []
     for show_id in show_ids:
         show = shows.get(show_id, {})
-        short_tag = show.get("shortTag", "")
         for feed in show.get("feeds", []):
             url = feed.get("url", "")
             if not url:
                 continue
             try:
                 text = _fetch_ical(url)
-                evs = parse_ical_for_print(text)
-                if short_tag:
-                    for ev in evs:
-                        if not re.search(r'\[[^\]]+\]', ev["title"]):
-                            ev["title"] = ev["title"] + f" [{short_tag}]"
-                all_events.extend(evs)
+                all_events.extend(parse_ical_for_print(text))
             except Exception:
                 pass
 
-    by_day = group_events_by_day(all_events)
+    by_day = group_events_by_day(dedupe_print_events(all_events))
 
     # Header values
     titles    = [shows[sid].get("title",   "") for sid in show_ids if sid in shows]
@@ -1109,15 +1106,7 @@ def build_room_calendar_pdf(
         except Exception:
             pass
 
-    seen: set[str] = set()
-    deduped: list[dict] = []
-    for ev in all_events:
-        if ev["allday"]:
-            k = f"{ev['title']}|{ev['start']}"
-            if k in seen:
-                continue
-            seen.add(k)
-        deduped.append(ev)
+    deduped = dedupe_print_events(all_events)
     by_day = group_events_by_day(deduped)
 
     # -- Header text ---------------------------------------------------------
