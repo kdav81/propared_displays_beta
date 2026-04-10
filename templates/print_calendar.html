@@ -45,6 +45,15 @@
 .type-btn.active{background:var(--accent);color:#fff}
 
 .helper{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.6}
+.feed-select-list{display:flex;flex-direction:column;gap:10px}
+.feed-select-row{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.feed-select-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.feed-select-title{font-size:14px;font-weight:600;color:#fff}
+.feed-select-meta{font-size:12px;color:var(--muted)}
+.feed-select-row select{width:100%;background:var(--s1);border:1px solid var(--border);color:var(--text);
+  padding:10px 12px;border-radius:8px;font-size:14px;font-family:inherit}
+.feed-select-row select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,110,247,.15)}
+.feed-select-empty{font-size:14px;color:var(--muted);font-style:italic}
 
 .btn-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:22px}
 #status{font-size:14px;color:var(--success);font-weight:600}
@@ -82,6 +91,14 @@
     <div class="pick-list" id="pick-list">
       <div class="no-items">Loading items&#8230;</div>
     </div>
+  </div>
+
+  <div class="section" id="feedSelectionSection" style="display:none">
+    <div class="section-title">Production Feeds</div>
+    <div class="helper" id="feedSelectionHelp">
+      Choose one feed per selected production so the printed calendar uses the exact view you want.
+    </div>
+    <div class="feed-select-list" id="feedSelectionList"></div>
   </div>
 
   <div class="section">
@@ -202,6 +219,7 @@ var TAG_COLORS = {};
 var LOCATION_RULES = [];
 var _calType = 'monthly';
 var _calSource = 'productions';
+var _selectedFeedIdsByShow = {};
 var FEED_TYPES = {
   full: 'Full View',
   performer: 'Performer View',
@@ -233,6 +251,59 @@ function feedSummary(feeds){
     return feed.label ? base + ' (' + feed.label + ')' : base;
   }).join(', ');
 }
+function ensureFeedSelection(showId){
+  var feeds = normalizedFeeds(SHOWS[showId] || {});
+  if(!feeds.length){
+    delete _selectedFeedIdsByShow[showId];
+    return;
+  }
+  var current = _selectedFeedIdsByShow[showId];
+  if(feeds.some(function(feed){ return feed.id === current; })) return;
+  _selectedFeedIdsByShow[showId] = feeds[0].id;
+}
+function renderFeedSelectors(){
+  var section = document.getElementById('feedSelectionSection');
+  var list = document.getElementById('feedSelectionList');
+  if(_calSource !== 'productions'){
+    section.style.display = 'none';
+    return;
+  }
+  var showIds = selectedIds();
+  if(!showIds.length){
+    list.innerHTML = '<div class="feed-select-empty">Select one or more productions to choose a feed for each.</div>';
+    section.style.display = '';
+    return;
+  }
+  list.innerHTML = '';
+  showIds.forEach(function(showId){
+    var show = SHOWS[showId] || {};
+    var feeds = normalizedFeeds(show);
+    ensureFeedSelection(showId);
+    var row = document.createElement('div');
+    row.className = 'feed-select-row';
+    if(!feeds.length){
+      row.innerHTML = '<div class="feed-select-head"><div class="feed-select-title">'+esc(show.shortTitle || show.title || showId)+'</div></div>'
+        + '<div class="feed-select-empty">No enabled feeds are configured for this production.</div>';
+      list.appendChild(row);
+      return;
+    }
+    var options = feeds.map(function(feed){
+      var label = FEED_TYPES[feed.type] || 'Custom';
+      if(feed.label) label += ' (' + feed.label + ')';
+      return '<option value="' + esc(feed.id) + '"' + (feed.id === _selectedFeedIdsByShow[showId] ? ' selected' : '') + '>' + esc(label) + '</option>';
+    }).join('');
+    row.innerHTML = '<div class="feed-select-head"><div class="feed-select-title">'+esc(show.shortTitle || show.title || showId)+'</div>'
+      + '<div class="feed-select-meta">'+esc(feedSummary(feeds))+'</div></div>'
+      + '<select data-show-id="'+esc(showId)+'">'+options+'</select>';
+    list.appendChild(row);
+  });
+  list.querySelectorAll('select[data-show-id]').forEach(function(select){
+    select.addEventListener('change', function(){
+      _selectedFeedIdsByShow[this.dataset.showId] = this.value;
+    });
+  });
+  section.style.display = '';
+}
 
 async function fetchWithTimeout(url, ms){
   var controller = new AbortController();
@@ -261,6 +332,7 @@ async function loadData(){
   try{ LOCATION_RULES = results[3].status === 'fulfilled' && results[3].value.ok ? await results[3].value.json() : []; } catch(e){ LOCATION_RULES = []; }
 
   renderPickList();
+  renderFeedSelectors();
 }
 
 function currentItems(){
@@ -353,6 +425,7 @@ function initDrag(){
 
 function togglePick(cb){
   cb.closest('.pick-row').classList.toggle('selected', cb.checked);
+  renderFeedSelectors();
 }
 
 function setSource(source){
@@ -361,6 +434,7 @@ function setSource(source){
   document.getElementById('sourceRooms').classList.toggle('active', source === 'rooms');
   document.getElementById('preview-container').style.display = 'none';
   renderPickList();
+  renderFeedSelectors();
 
   var titleInput = document.getElementById('calSubtitle');
   if(!titleInput.value.trim()){
@@ -417,8 +491,20 @@ async function generate(){
 
   if(_calSource === 'rooms') payload.roomIds = ids;
   else {
+    var selectedFeedIds = [];
+    for(var i = 0; i < ids.length; i++){
+      var showId = ids[i];
+      ensureFeedSelection(showId);
+      if(!_selectedFeedIdsByShow[showId]){
+        statusEl.textContent = '';
+        errEl.textContent = '\u2715 Choose one feed for each selected production.';
+        return;
+      }
+      selectedFeedIds.push(showId + '::' + _selectedFeedIdsByShow[showId]);
+    }
     payload.showIds = ids;
     payload.multiShow = ids.length > 1;
+    payload.selectedFeedIds = selectedFeedIds;
   }
 
   if(_calType === 'monthly'){

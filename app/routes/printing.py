@@ -60,6 +60,21 @@ def _normalized_show_map(shows: dict) -> dict:
     return {show_id: _normalize_show(show) for show_id, show in shows.items()}
 
 
+def _filter_show_feeds(shows: dict, selected_feed_ids: list[str]) -> dict:
+    if not selected_feed_ids:
+        return shows
+    selected = set(selected_feed_ids)
+    filtered = {}
+    for show_id, show in shows.items():
+        next_show = dict(show)
+        next_show["feeds"] = [
+            feed for feed in show.get("feeds", [])
+            if f"{show_id}::{feed.get('id', '')}" in selected
+        ]
+        filtered[show_id] = next_show
+    return filtered
+
+
 def register_printing_routes(
     app,
     *,
@@ -192,6 +207,7 @@ def register_printing_routes(
                 show_ids = data.get("showIds", [])
                 multi_show = bool(data.get("multiShow", len(show_ids) > 1))
                 shows = _normalized_show_map(load_print_shows())
+                shows = _filter_show_feeds(shows, data.get("selectedFeedIds", []))
                 subtitle = cal_subtitle or "Rehearsal Performance Calendar"
 
                 if cal_type == "weekly":
