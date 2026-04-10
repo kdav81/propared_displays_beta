@@ -27,6 +27,10 @@
 .feed-row code{font-family:'DM Mono',monospace;font-size:12px;color:#a8c4ff;
   flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .feed-label-pill{font-size:13px;color:var(--muted);flex-shrink:0;white-space:nowrap;font-weight:600}
+.feed-type-pill{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  color:#dbe4ff;background:rgba(79,110,247,.16);border:1px solid rgba(79,110,247,.28);
+  border-radius:999px;padding:4px 8px;flex-shrink:0}
+.feed-summary{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.6}
 .show-foot{display:flex;gap:8px;padding:14px 22px;background:var(--s2);border-top:1px solid var(--border)}
 
 /* ── Add card ── */
@@ -67,15 +71,17 @@
 
 /* ── Feed list in modal ── */
 .feed-list{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
-.feed-entry{display:flex;gap:8px;align-items:center}
-.feed-entry .feed-label-in{width:150px;flex-shrink:0;background:var(--bg);border:1px solid var(--border);
-  color:var(--text);padding:10px 12px;border-radius:7px;font-size:13px;font-family:'DM Mono',monospace}
-.feed-entry .feed-url-in{flex:1;background:var(--bg);border:1px solid var(--border);
-  color:var(--text);padding:10px 12px;border-radius:7px;font-size:13px;font-family:'DM Mono',monospace}
+.feed-entry{display:grid;grid-template-columns:150px 150px 1fr 90px auto;gap:8px;align-items:center}
+.feed-entry .feed-type-in,.feed-entry .feed-label-in,.feed-entry .feed-url-in{background:var(--bg);border:1px solid var(--border);
+  color:var(--text);padding:10px 12px;border-radius:7px;font-size:13px}
+.feed-entry .feed-type-in{font-family:'DM Sans',sans-serif}
+.feed-entry .feed-label-in,.feed-entry .feed-url-in{font-family:'DM Mono',monospace}
 .feed-entry input:focus{outline:none;border-color:var(--accent)}
+.feed-entry select:focus{outline:none;border-color:var(--accent)}
 .feed-entry .feed-rm{background:none;border:1px solid var(--danger);color:#fc8181;
   padding:8px 11px;border-radius:6px;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0}
 .feed-entry .feed-rm:hover{background:rgba(229,62,62,.15)}
+.feed-enabled{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);white-space:nowrap}
 
 </style>
 </head>
@@ -154,7 +160,7 @@
 
       <div class="fsep">Propared iCal Feeds</div>
       <p style="font-size:14px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Add one or more Propared iCal/webcal URLs for this production.
+        Add structured feed variants for this production. Use feed types like Full View and Performer View so duplicate events can prefer the broadest source automatically.
       </p>
       <div class="feed-list" id="modal-feed-list"></div>
       <button class="btn btn-ghost btn-sm" onclick="addFeed()">+ Add Feed</button>
@@ -171,8 +177,42 @@
 <script>
 var SHOWS = {};
 var RULES = [];
+var FEED_TYPES = [
+  {value:'full', label:'Full View'},
+  {value:'performer', label:'Performer View'},
+  {value:'crew', label:'Crew View'},
+  {value:'public', label:'Public View'},
+  {value:'custom', label:'Custom'}
+];
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function feedTypeLabel(type){
+  var match = FEED_TYPES.find(function(item){ return item.value === type; });
+  return match ? match.label : 'Custom';
+}
+function normalizeFeed(feed, index){
+  feed = feed || {};
+  var type = String(feed.type || '').trim().toLowerCase() || 'custom';
+  if(!FEED_TYPES.some(function(item){ return item.value === type; })) type = 'custom';
+  var url = String(feed.url || '').trim();
+  return {
+    id: String(feed.id || (type + '-' + (index + 1))),
+    type: type,
+    label: String(feed.label || '').trim(),
+    url: url,
+    enabled: feed.enabled !== false
+  };
+}
+function normalizedFeeds(show){
+  return ((show && show.feeds) || []).map(normalizeFeed).filter(function(feed){ return feed.url; });
+}
+function feedSummary(feeds){
+  if(!feeds.length) return 'No feeds configured';
+  var labels = feeds.map(function(feed){
+    return feed.label ? feedTypeLabel(feed.type) + ' (' + feed.label + ')' : feedTypeLabel(feed.type);
+  });
+  return feeds.length + ' feed' + (feeds.length === 1 ? '' : 's') + ': ' + labels.join(', ');
+}
 function showToast(msg){
   var t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -193,9 +233,13 @@ function renderGrid(){
   var addBtn=grid.querySelector('.add-card');
   Object.keys(SHOWS).forEach(function(id){
     var s=SHOWS[id];
-    var feedsHtml=(s.feeds||[]).map(function(f){
+    var feeds = normalizedFeeds(s);
+    var activeFeeds = feeds.filter(function(feed){ return feed.enabled; });
+    var feedsHtml=feeds.map(function(f){
       return '<div class="feed-row">'
+        +'<span class="feed-type-pill">'+esc(feedTypeLabel(f.type))+'</span>'
         +(f.label?'<span class="feed-label-pill">'+esc(f.label)+'</span>':'')
+        +(!f.enabled?'<span class="feed-label-pill" style="color:#fc8181">Disabled</span>':'')
         +'<code>'+esc(f.url)+'</code></div>';
     }).join('');
     var card=document.createElement('div');
@@ -207,7 +251,8 @@ function renderGrid(){
       +(s.season?'<span class="show-season" style="margin-left:6px">'+esc(s.season)+'</span>':'')
       +(s.shortTag?'<span class="show-season" style="margin-left:6px;color:#7bcf8a">Tag: '+esc(s.shortTag)+'</span>':'')
       +'</div></div>'
-      +'<div class="show-body">'+(feedsHtml||'<div style="font-size:14px;color:var(--muted);font-style:italic">No feeds configured</div>')+'</div>'
+      +'<div class="show-body">'+(feedsHtml||'<div style="font-size:14px;color:var(--muted);font-style:italic">No feeds configured</div>')
+      +'<div class="feed-summary">'+esc(feedSummary(activeFeeds.length ? activeFeeds : feeds))+'</div></div>'
       +'<div class="show-foot">'
       +'<button class="btn btn-ghost btn-sm" onclick="openEdit(\''+id+'\')">Edit</button>'
       +'<button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="deleteShow(\''+id+'\')">Delete</button>'
@@ -224,7 +269,8 @@ function openNew(){
   document.getElementById('f-season').value='';
   document.getElementById('f-tag').value='';
   document.getElementById('modal-feed-list').innerHTML='';
-  addFeed();
+  addFeed({type:'full'});
+  addFeed({type:'performer'});
   document.getElementById('modal-show').classList.add('open');
 }
 function openEdit(id){
@@ -237,8 +283,8 @@ function openEdit(id){
   document.getElementById('f-tag').value=s.shortTag||'';
   var feedList=document.getElementById('modal-feed-list');
   feedList.innerHTML='';
-  (s.feeds||[]).forEach(function(f){ addFeed(f.label,f.url); });
-  if(!(s.feeds||[]).length) addFeed();
+  normalizedFeeds(s).forEach(function(f){ addFeed(f); });
+  if(!normalizedFeeds(s).length) addFeed({type:'full'});
   document.getElementById('modal-show').classList.add('open');
 }
 function closeModal(){
@@ -247,12 +293,20 @@ function closeModal(){
 document.getElementById('modal-show').addEventListener('click',function(e){
   if(e.target===this) closeModal();
 });
-function addFeed(label,url){
+function feedTypeOptions(selectedType){
+  return FEED_TYPES.map(function(item){
+    return '<option value="'+item.value+'"'+(item.value === selectedType ? ' selected' : '')+'>'+item.label+'</option>';
+  }).join('');
+}
+function addFeed(feed){
+  feed = normalizeFeed(feed || {}, document.querySelectorAll('.feed-entry').length);
   var list=document.getElementById('modal-feed-list');
   var row=document.createElement('div');
   row.className='feed-entry';
-  row.innerHTML='<input class="feed-label-in" type="text" placeholder="Label (opt.)" value="'+esc(label||'')+'">'
-    +'<input class="feed-url-in" type="text" placeholder="webcal:// or https:// iCal URL" value="'+esc(url||'')+'">'
+  row.innerHTML='<select class="feed-type-in">'+feedTypeOptions(feed.type)+'</select>'
+    +'<input class="feed-label-in" type="text" placeholder="Optional label" value="'+esc(feed.label||'')+'">'
+    +'<input class="feed-url-in" type="text" placeholder="webcal:// or https:// iCal URL" value="'+esc(feed.url||'')+'">'
+    +'<label class="feed-enabled"><input class="feed-enabled-in" type="checkbox"'+(feed.enabled ? ' checked' : '')+'> Enabled</label>'
     +'<button class="feed-rm" onclick="this.closest(\'.feed-entry\').remove()">&#215;</button>';
   list.appendChild(row);
 }
@@ -262,9 +316,11 @@ async function saveShow(){
   if(!title){ alert('Production title is required.'); return; }
   var feeds=[];
   document.querySelectorAll('.feed-entry').forEach(function(row){
+    var type=row.querySelector('.feed-type-in').value.trim();
     var lbl=row.querySelector('.feed-label-in').value.trim();
     var url=row.querySelector('.feed-url-in').value.trim();
-    if(url) feeds.push({label:lbl,url:url});
+    var enabled=row.querySelector('.feed-enabled-in').checked;
+    if(url) feeds.push({type:type,label:lbl,url:url,enabled:enabled});
   });
   var show={
     title:title,

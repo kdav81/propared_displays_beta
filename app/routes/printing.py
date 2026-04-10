@@ -14,6 +14,52 @@ from app.storage import (
 )
 
 
+FEED_TYPE_CHOICES = {"full", "performer", "crew", "public", "custom"}
+
+
+def _normalize_feed(feed: dict, index: int) -> dict | None:
+    if not isinstance(feed, dict):
+        return None
+    url = str(feed.get("url", "")).strip()
+    if not url:
+        return None
+    feed_type = str(feed.get("type", "")).strip().lower() or "custom"
+    if feed_type not in FEED_TYPE_CHOICES:
+        feed_type = "custom"
+    label = str(feed.get("label", "")).strip()
+    return {
+        "id": str(feed.get("id", "")).strip() or f"{feed_type}-{index + 1}",
+        "type": feed_type,
+        "label": label,
+        "url": url,
+        "enabled": bool(feed.get("enabled", True)),
+    }
+
+
+def _normalize_show(show: dict) -> dict:
+    if not isinstance(show, dict):
+        show = {}
+    raw_feeds = show.get("feeds", [])
+    if not isinstance(raw_feeds, list):
+        raw_feeds = []
+    feeds = []
+    for index, feed in enumerate(raw_feeds):
+        normalized = _normalize_feed(feed, index)
+        if normalized:
+            feeds.append(normalized)
+    return {
+        "title": str(show.get("title", "")).strip(),
+        "shortTitle": str(show.get("shortTitle", "")).strip(),
+        "season": str(show.get("season", "")).strip(),
+        "shortTag": str(show.get("shortTag", "")).strip(),
+        "feeds": feeds,
+    }
+
+
+def _normalized_show_map(shows: dict) -> dict:
+    return {show_id: _normalize_show(show) for show_id, show in shows.items()}
+
+
 def register_printing_routes(
     app,
     *,
@@ -34,14 +80,14 @@ def register_printing_routes(
 
     @app.route("/api/print-shows", methods=["GET"])
     def api_print_shows_get():
-        return jsonify(load_print_shows())
+        return jsonify(_normalized_show_map(load_print_shows()))
 
     @app.route("/api/print-shows", methods=["POST"])
     def api_print_shows_post():
         data = request.get_json(force=True, silent=True) or {}
         shows = load_print_shows()
         new_id = str(uuid.uuid4())[:8]
-        shows[new_id] = data
+        shows[new_id] = _normalize_show(data)
         save_print_shows(shows)
         return jsonify({"id": new_id})
 
@@ -51,7 +97,7 @@ def register_printing_routes(
         shows = load_print_shows()
         if show_id not in shows:
             return Response("Not found", status=404)
-        shows[show_id] = data
+        shows[show_id] = _normalize_show(data)
         save_print_shows(shows)
         return jsonify({"id": show_id})
 
@@ -145,7 +191,7 @@ def register_printing_routes(
             else:
                 show_ids = data.get("showIds", [])
                 multi_show = bool(data.get("multiShow", len(show_ids) > 1))
-                shows = load_print_shows()
+                shows = _normalized_show_map(load_print_shows())
                 subtitle = cal_subtitle or "Rehearsal Performance Calendar"
 
                 if cal_type == "weekly":

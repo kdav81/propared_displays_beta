@@ -202,8 +202,37 @@ var TAG_COLORS = {};
 var LOCATION_RULES = [];
 var _calType = 'monthly';
 var _calSource = 'productions';
+var FEED_TYPES = {
+  full: 'Full View',
+  performer: 'Performer View',
+  crew: 'Crew View',
+  public: 'Public View',
+  custom: 'Custom'
+};
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function normalizeFeed(feed, index){
+  feed = feed || {};
+  var type = String(feed.type || '').trim().toLowerCase() || 'custom';
+  if(!FEED_TYPES[type]) type = 'custom';
+  return {
+    id: String(feed.id || (type + '-' + (index + 1))),
+    type: type,
+    label: String(feed.label || '').trim(),
+    url: String(feed.url || '').trim(),
+    enabled: feed.enabled !== false
+  };
+}
+function normalizedFeeds(show){
+  return ((show && show.feeds) || []).map(normalizeFeed).filter(function(feed){ return feed.url && feed.enabled; });
+}
+function feedSummary(feeds){
+  if(!feeds.length) return 'No enabled feeds configured';
+  return feeds.map(function(feed){
+    var base = FEED_TYPES[feed.type] || 'Custom';
+    return feed.label ? base + ' (' + feed.label + ')' : base;
+  }).join(', ');
+}
 
 async function fetchWithTimeout(url, ms){
   var controller = new AbortController();
@@ -247,10 +276,11 @@ function currentItems(){
 
   return Object.keys(SHOWS).map(function(id){
     var show = SHOWS[id];
+    var feeds = normalizedFeeds(show);
     return {
       id: id,
       title: show.shortTitle || show.title || id,
-      meta: show.season || ((show.feeds || []).length ? ((show.feeds || []).length + ' feed' + ((show.feeds || []).length === 1 ? '' : 's')) : 'No feeds configured')
+      meta: (show.season ? show.season + ' · ' : '') + (feeds.length ? feedSummary(feeds) : 'No enabled feeds configured')
     };
   });
 }
@@ -264,7 +294,7 @@ function renderPickList(){
   title.textContent = _calSource === 'rooms' ? 'Select Room(s)' : 'Select Production(s)';
   help.textContent = _calSource === 'rooms'
     ? 'Rooms come from the display admin setup. Room calendars keep their [TAG] labels and use the same tag colors configured there.'
-    : 'Choose productions from the print admin setup. Room schedules use the same rooms and tag colors already configured in the display admin page.';
+    : 'Choose productions from the print admin setup. Duplicate events shared between Full View, Performer View, and other feed types are collapsed automatically with higher-priority feeds winning.';
 
   if(!items.length){
     if(_calSource === 'rooms'){

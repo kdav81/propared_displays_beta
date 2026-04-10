@@ -57,6 +57,14 @@ FONT_BOLD    = "Helvetica-Bold"
 FONT_ITALIC  = "Helvetica-Oblique"
 FONT_BOLDITALIC = "Helvetica-BoldOblique"
 
+FEED_TYPE_PRIORITY = {
+    "full": 50,
+    "performer": 40,
+    "crew": 30,
+    "public": 20,
+    "custom": 10,
+}
+
 # ---------------------------------------------------------------------------
 # iCal fetching
 # ---------------------------------------------------------------------------
@@ -138,6 +146,32 @@ def parse_ical_for_print(text: str) -> list[dict]:
             "location": location,
         })
     return events
+
+
+def normalize_show_feeds(show: dict) -> list[dict]:
+    feeds = show.get("feeds", []) if isinstance(show, dict) else []
+    if not isinstance(feeds, list):
+        return []
+    normalized = []
+    for index, feed in enumerate(feeds):
+        if not isinstance(feed, dict):
+            continue
+        url = str(feed.get("url", "")).strip()
+        if not url:
+            continue
+        feed_type = str(feed.get("type", "")).strip().lower() or "custom"
+        if feed_type not in FEED_TYPE_PRIORITY:
+            feed_type = "custom"
+        normalized.append(
+            {
+                "id": str(feed.get("id", "")).strip() or f"{feed_type}-{index + 1}",
+                "type": feed_type,
+                "label": str(feed.get("label", "")).strip(),
+                "url": url,
+                "enabled": bool(feed.get("enabled", True)),
+            }
+        )
+    return normalized
 
 
 # ---------------------------------------------------------------------------
@@ -250,9 +284,8 @@ def group_events_by_day(events: list[dict]) -> dict[str, list[dict]]:
 
 
 def dedupe_print_events(events: list[dict]) -> list[dict]:
-    """Remove exact duplicate print events while preserving order."""
-    seen: set[tuple] = set()
-    deduped: list[dict] = []
+    """Remove exact duplicate print events, preferring higher-priority feed types."""
+    by_key: dict[tuple, tuple[int, int, dict]] = {}
     for ev in events:
         start = ev["start"].isoformat() if isinstance(ev["start"], (datetime, date)) else str(ev["start"])
         end = ev["end"].isoformat() if isinstance(ev["end"], (datetime, date)) else str(ev["end"])
@@ -263,10 +296,12 @@ def dedupe_print_events(events: list[dict]) -> list[dict]:
             bool(ev.get("allday")),
             ev.get("location", ""),
         )
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(ev)
+        priority = int(ev.get("_feed_priority", 0))
+        sequence = int(ev.get("_sequence", 0))
+        current = by_key.get(key)
+        if current is None or priority > current[0] or (priority == current[0] and sequence < current[1]):
+            by_key[key] = (priority, sequence, ev)
+    deduped = [item[2] for item in sorted(by_key.values(), key=lambda item: item[1])]
     return deduped
 
 
@@ -337,15 +372,26 @@ def build_calendar_pdf(
 
     # -- Fetch and merge all events ------------------------------------------
     all_events: list[dict] = []
+    sequence = 0
     for show_id in show_ids:
         show = shows.get(show_id, {})
-        for feed in show.get("feeds", []):
+        for feed in normalize_show_feeds(show):
+            if not feed.get("enabled", True):
+                continue
             url = feed.get("url", "")
             if not url:
                 continue
             try:
                 text = _fetch_ical(url)
-                all_events.extend(parse_ical_for_print(text))
+                events = parse_ical_for_print(text)
+                priority = FEED_TYPE_PRIORITY.get(feed.get("type", "custom"), FEED_TYPE_PRIORITY["custom"])
+                for ev in events:
+                    ev["_feed_type"] = feed.get("type", "custom")
+                    ev["_feed_label"] = feed.get("label", "")
+                    ev["_feed_priority"] = priority
+                    ev["_sequence"] = sequence
+                    sequence += 1
+                all_events.extend(events)
             except Exception as exc:
                 pass  # silently skip failed feeds
 
@@ -667,15 +713,26 @@ def build_weekly_pdf(
 
     # Fetch events
     all_events: list[dict] = []
+    sequence = 0
     for show_id in show_ids:
         show = shows.get(show_id, {})
-        for feed in show.get("feeds", []):
+        for feed in normalize_show_feeds(show):
+            if not feed.get("enabled", True):
+                continue
             url = feed.get("url", "")
             if not url:
                 continue
             try:
                 text = _fetch_ical(url)
-                all_events.extend(parse_ical_for_print(text))
+                events = parse_ical_for_print(text)
+                priority = FEED_TYPE_PRIORITY.get(feed.get("type", "custom"), FEED_TYPE_PRIORITY["custom"])
+                for ev in events:
+                    ev["_feed_type"] = feed.get("type", "custom")
+                    ev["_feed_label"] = feed.get("label", "")
+                    ev["_feed_priority"] = priority
+                    ev["_sequence"] = sequence
+                    sequence += 1
+                all_events.extend(events)
             except Exception:
                 pass
 
