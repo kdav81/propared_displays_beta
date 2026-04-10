@@ -86,6 +86,15 @@ Oracle Cloud has its own firewall (called a Security List) on top of the Linux f
 
 > If you ever add HTTPS, repeat with port `443`.
 
+You should also make sure SSH is open so you can manage the VM:
+
+| Field | Value |
+|---|---|
+| Source Type | CIDR |
+| Source CIDR | `0.0.0.0/0` |
+| IP Protocol | TCP |
+| Destination Port Range | `22` |
+
 ### 2e. Connect to your VM
 
 Open a terminal and connect:
@@ -174,7 +183,7 @@ Run this on whichever machine will be your server (Oracle Cloud VM or local Pi),
 | `install-server-testing.sh` | Sandbox/testing installs and updates from the `testing` branch |
 | `install-client.sh` | Raspberry Pi room display clients |
 
-The repo now keeps only these current installers, so older one-file legacy installers are no longer part of the normal setup path.
+The repo now keeps only these current installers, so older one-file and feature-branch-specific installers are no longer part of the normal setup path.
 
 ### Fresh install — production branch
 
@@ -204,6 +213,8 @@ The script runs through these steps automatically:
 8. **Shell aliases** — adds convenience commands to your terminal (see Section 9)
 
 When it finishes you'll see your server's IP and the Admin panel URL. Visit `http://YOUR_SERVER_IP/admin` — you should see the Admin panel.
+
+You can also visit `http://YOUR_SERVER_IP/` for the landing page, which links to the main tools without needing to remember each route.
 
 > **If the page doesn't load on Oracle Cloud:** double-check that you added the Security List ingress rule for port 80 (Section 2d). The Linux firewall is handled by the installer but the Oracle cloud firewall is separate.
 
@@ -239,8 +250,23 @@ If you want room displays to show rotating photos between calendar views:
 2. Set the shared Notice/Media password if prompted
 3. Upload images directly to the server
 4. Optionally set start and end dates for scheduled display
+5. Optionally upload a landing-page site logo from the collapsible **Site Logo** section near the bottom of the Media Library page
 
 See [ADMIN.md](ADMIN.md#7-slideshow) for details.
+
+### What survives updates
+
+Normal server updates preserve your runtime data. That includes:
+- room definitions
+- registered clients
+- tag colors
+- settings
+- media library metadata
+- uploaded slideshow images
+- passwords and secret key files
+- backups
+
+Updates replace application code, not your day-to-day configuration.
 
 ---
 
@@ -296,6 +322,18 @@ ssh pi@192.168.1.x
 
 Once SSH'd into the Pi:
 
+#### Before you run it
+
+Do a quick connectivity check first:
+
+```bash
+curl http://YOUR_SERVER_IP/api/health
+```
+
+If that does not return a small JSON response, fix networking before continuing.
+
+For Pi Zero W2 units on managed Wi-Fi, make sure the device is registered on the network first or the installer will not be able to reach the server.
+
 #### Pull the client installer from GitHub
 
 For production clients:
@@ -349,11 +387,36 @@ The Pi Zero W2 is the smallest and cheapest Pi that can run a kiosk display. It 
 - **Wi-Fi only** — no ethernet port. Make sure Wi-Fi credentials are set in the imager before flashing
 - **Power** — use a quality 5V/2.5A power supply. Underpowered Pis randomly freeze or corrupt the SD card
 
+If the Wi-Fi radio is soft-blocked on a fresh Raspberry Pi OS Lite install, set the country code and clear rfkill state:
+
+```bash
+sudo raspi-config nonint do_wifi_country US
+sudo systemctl mask systemd-rfkill.service systemd-rfkill.socket
+sudo rm -f /var/lib/systemd/rfkill/*
+sudo reboot
+```
+
+After reboot, verify Wi-Fi and internet access again before running the client installer.
+
 ### 6f. Pi 5 — additional notes
 
 - Needs the **mini HDMI** adapter (not micro HDMI like the Zero W2 / Pi 4)
 - Uses a **USB-C power supply, 5V/3A minimum**
 - The installer automatically applies a Chromium flag fix specific to Pi 5's 16K page size — this is normal
+
+### 6g. Managed Wi-Fi note for Pi Zero W2
+
+If your network uses device registration for Wi-Fi access, you may need the Pi's wireless MAC address before it can join the network reliably.
+
+To get it:
+
+```bash
+ip link show wlan0
+```
+
+Look for the value after `link/ether`.
+
+If your IT environment uses registration expiration, set yourself a reminder to renew those device registrations before they lapse.
 
 ---
 
@@ -388,6 +451,22 @@ This will:
 - Update Python packages if needed
 - Restart the server service
 - Leave all rooms, settings, and data files untouched
+
+### One-time promotion: testing server to production
+
+If a server was installed from `testing` and you want to convert that same machine to `main`, do a one-time run of the production installer:
+
+```bash
+cd ~
+curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/main/install-server.sh
+bash install-server.sh
+```
+
+This is the cleanest promotion path because it:
+- switches the checkout to `main`
+- preserves your data files
+- rewrites the service/install wiring for production
+- makes future `display-update` calls use the production update path
 
 ---
 
@@ -463,7 +542,7 @@ The testing server works identically to production but is clearly labeled with a
 5. After merging, update the production server:
 
 ```bash
-# On the production server
+# On the production server that is already on main
 display-update
 ```
 
@@ -476,5 +555,11 @@ git merge testing
 git push origin main
 
 # Then on the production server
+# If it is already a production/main server:
 display-update
+#
+# If it is still a testing-installed server being promoted:
+cd ~
+curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/main/install-server.sh
+bash install-server.sh
 ```

@@ -33,7 +33,7 @@ A web-based room display system for the University of Delaware's Department of T
    └─────────────┘       └─────────────┘        └─────────────┘
 ```
 
-- **Server** — single Python file (`server.py`) running as a systemd service, pulling iCal data in the background
+- **Server** — Flask app launched from `server.py`, with routes and services split into the `app/` package
 - **Clients** — Raspberry Pis running Chromium in kiosk mode via LightDM, auto-starting on boot
 - **Data** — stored as JSON files on the server; no database required
 
@@ -77,7 +77,10 @@ The script will prompt for the server address and can be safely re-run on an exi
 
 | Path | What it is actually for |
 |---|---|
-| `server.py` | Main Flask application: admin routes, room display APIs, print-calendar routes, notice system, client check-ins, backups |
+| `server.py` | Thin Flask entrypoint that wires together routes, services, and startup |
+| `app/routes/` | Route modules for admin, display, media, notice, and print tools |
+| `app/services/` | Shared logic for iCal caching, display state, media handling, and backups |
+| `app/storage.py` / `app/config.py` / `app/auth.py` | Persistence helpers, path/default settings, and auth decorators |
 | `print_calendar_pdf.py` | ReportLab PDF renderer for production and room calendars, both monthly and weekly |
 | `templates/` | Jinja templates for admin, room displays, dashboard, notice page, and print-calendar tools |
 | `static/admin/` | Shared admin CSS and JavaScript used by the admin and print pages |
@@ -91,7 +94,7 @@ The script will prompt for the server address and can be safely re-run on an exi
 | `.gitignore` | Ignores generated data, secrets, caches, and local-only files |
 | `.gitattributes` | Normalizes line endings for cross-platform editing and deployment |
 
-Only the current branch-based installers are kept in the repo now: `install-server.sh`, `install-server-testing.sh`, and `install-client.sh`.
+The repo keeps only the current branch-based installers: `install-server.sh`, `install-server-testing.sh`, and `install-client.sh`.
 
 ### Runtime data files
 
@@ -116,6 +119,7 @@ These are created or maintained on the server and are not the main source code:
 | URL | Who uses it |
 |---|---|
 | `/admin` | Admin — manage rooms, clients, settings |
+| `/` | Landing page — front door with links to the main tools |
 | `/media-admin` | Limited-access media library for slideshow uploads and scheduling |
 | `/print-calendar` | Users — generate PDF production calendars or room schedules |
 | `/print-admin` | Users — manage productions and location rules |
