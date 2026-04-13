@@ -16,6 +16,7 @@ from datetime import date, datetime, timedelta, timezone
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import ParagraphStyle
+from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import (
     BaseDocTemplate, Frame, PageTemplate,
     Table, TableStyle, Paragraph, Spacer, KeepTogether, Flowable,
@@ -319,6 +320,26 @@ class MonthContextMarker(Flowable):
         self.canv._current_month_label = self.month_label
 
 
+class NumberedCanvas(rl_canvas.Canvas):
+    """Canvas that knows the final page count for Page X of Y footers."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        total_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self._page_count_total = total_pages
+            super().showPage()
+        super().save()
+
+
 def fmt_time(dt) -> str:
     if not isinstance(dt, datetime):
         return ""
@@ -486,6 +507,22 @@ def build_calendar_pdf(
     frame_cont  = Frame(MARGIN_LR, MARGIN_TB, CONTENT_W, CONTENT_H - CONT_HDR_H,
                         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
 
+    def _draw_footer(canvas):
+        total_pages = getattr(canvas, "_page_count_total", 0)
+        page_label = f"Page {canvas.getPageNumber()}" + (f" of {total_pages}" if total_pages else "")
+        footer_y = MARGIN_TB - 2
+        canvas.saveState()
+        canvas.setStrokeColor(C_GRID)
+        canvas.setLineWidth(0.5)
+        canvas.line(MARGIN_LR, footer_y + 9, MARGIN_LR + CONTENT_W, footer_y + 9)
+        canvas.setFont(FONT_REGULAR, 6)
+        canvas.setFillColor(C_FOOTER)
+        canvas.drawCentredString(MARGIN_LR + CONTENT_W / 2, footer_y, page_label)
+        canvas.restoreState()
+
+    def _draw_first_page(canvas, doc):
+        _draw_footer(canvas)
+
     def _draw_cont_header(canvas, doc):
         """Draw compact (cont) header at top of continuation pages."""
         canvas.saveState()
@@ -507,9 +544,10 @@ def build_calendar_pdf(
         canvas.setLineWidth(1.5)
         canvas.line(x, y - 4, x + w, y - 4)
         canvas.restoreState()
+        _draw_footer(canvas)
 
     doc.addPageTemplates([
-        PageTemplate(id="first", frames=[frame_first]),
+        PageTemplate(id="first", frames=[frame_first], onPage=_draw_first_page),
         PageTemplate(id="cont",  frames=[frame_cont], onPage=_draw_cont_header),
     ])
 
@@ -629,7 +667,9 @@ def build_calendar_pdf(
 
         header_h = header_table.wrap(CONTENT_W, CONTENT_H)[1]
         month_h = month_para.wrap(CONTENT_W, CONTENT_H)[1]
-        grid_target_height = CONTENT_H - header_h - month_h - 8 - 12
+        # Leave a little extra slack so a near-exact fit doesn't spill into
+        # a blank continuation page because of table split rounding.
+        grid_target_height = CONTENT_H - header_h - month_h - 8 - 20
 
         grid_table = Table(grid_data, colWidths=[col_w]*7, repeatRows=1, splitByRow=1)
         grid_table.setStyle(TableStyle(grid_styles))
@@ -645,11 +685,7 @@ def build_calendar_pdf(
             grid_table.setStyle(TableStyle(grid_styles))
         story.append(grid_table)
 
-        # ---- Footer -------------------------------------------------------
-        story.append(HRFlowable(width=CONTENT_W, thickness=0.5, color=C_GRID, spaceAfter=1, spaceBefore=2))
-        story.append(Paragraph(f"Page {page_idx+1} of {len(month_range)}", sty_footer))
-
-    doc.build(story)
+    doc.build(story, canvasmaker=NumberedCanvas)
     buf.seek(0)
     return buf.read()
 
@@ -1210,6 +1246,22 @@ def build_room_calendar_pdf(
                         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     frame_cont  = Frame(MARGIN_LR, MARGIN_TB, CONTENT_W, CONTENT_H - CONT_HDR_H,
                         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+    def _draw_footer(canvas):
+        total_pages = getattr(canvas, "_page_count_total", 0)
+        page_label = f"Page {canvas.getPageNumber()}" + (f" of {total_pages}" if total_pages else "")
+        footer_y = MARGIN_TB - 2
+        canvas.saveState()
+        canvas.setStrokeColor(C_GRID)
+        canvas.setLineWidth(0.5)
+        canvas.line(MARGIN_LR, footer_y + 9, MARGIN_LR + CONTENT_W, footer_y + 9)
+        canvas.setFont(FONT_REGULAR, 6)
+        canvas.setFillColor(C_FOOTER)
+        canvas.drawCentredString(MARGIN_LR + CONTENT_W / 2, footer_y, page_label)
+        canvas.restoreState()
+
+    def _draw_first_hdr(canvas, doc):
+        _draw_footer(canvas)
+
     def _draw_cont_hdr(canvas, doc):
         canvas.saveState()
         x, y, w = MARGIN_LR, PAGE_H - MARGIN_TB - 10, CONTENT_W
@@ -1220,9 +1272,10 @@ def build_room_calendar_pdf(
         canvas.setStrokeColor(C_HEADER_SEP); canvas.setLineWidth(1.5)
         canvas.line(x, y - 4, x + w, y - 4)
         canvas.restoreState()
+        _draw_footer(canvas)
 
     doc.addPageTemplates([
-        PageTemplate(id="first", frames=[frame_first]),
+        PageTemplate(id="first", frames=[frame_first], onPage=_draw_first_hdr),
         PageTemplate(id="cont",  frames=[frame_cont], onPage=_draw_cont_hdr),
     ])
 
@@ -1338,7 +1391,9 @@ def build_room_calendar_pdf(
 
         header_h = hdr_tbl.wrap(CONTENT_W, CONTENT_H)[1]
         month_h = month_para.wrap(CONTENT_W, CONTENT_H)[1]
-        grid_target_height = CONTENT_H - header_h - month_h - 8 - 12
+        # Leave a little extra slack so a near-exact fit doesn't spill into
+        # a blank continuation page because of table split rounding.
+        grid_target_height = CONTENT_H - header_h - month_h - 8 - 20
 
         grid_table = Table(grid_data, colWidths=[col_w]*7, repeatRows=1, splitByRow=1)
         grid_table.setStyle(TableStyle(grid_styles))
@@ -1354,10 +1409,6 @@ def build_room_calendar_pdf(
             grid_table.setStyle(TableStyle(grid_styles))
         story.append(grid_table)
 
-        story.append(HRFlowable(width=CONTENT_W, thickness=0.5,
-                                color=C_GRID, spaceAfter=1, spaceBefore=2))
-        story.append(Paragraph(f"Page {page_idx+1} of {len(month_range)}", sty_footer))
-
-    doc.build(story)
+    doc.build(story, canvasmaker=NumberedCanvas)
     buf.seek(0)
     return buf.read()
