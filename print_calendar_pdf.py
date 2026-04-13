@@ -331,11 +331,25 @@ class NumberedCanvas(rl_canvas.Canvas):
         self._saved_page_states.append(dict(self.__dict__))
         self._startPage()
 
+    def draw_page_footer(self):
+        total_pages = getattr(self, "_page_count_total", 0)
+        page_label = f"Page {self.getPageNumber()}" + (f" of {total_pages}" if total_pages else "")
+        footer_y = MARGIN_TB - 2
+        self.saveState()
+        self.setStrokeColor(C_GRID)
+        self.setLineWidth(0.5)
+        self.line(MARGIN_LR, footer_y + 9, MARGIN_LR + CONTENT_W, footer_y + 9)
+        self.setFont(FONT_REGULAR, 6)
+        self.setFillColor(C_FOOTER)
+        self.drawCentredString(MARGIN_LR + CONTENT_W / 2, footer_y, page_label)
+        self.restoreState()
+
     def save(self):
         total_pages = len(self._saved_page_states)
         for state in self._saved_page_states:
             self.__dict__.update(state)
             self._page_count_total = total_pages
+            self.draw_page_footer()
             super().showPage()
         super().save()
 
@@ -507,21 +521,8 @@ def build_calendar_pdf(
     frame_cont  = Frame(MARGIN_LR, MARGIN_TB, CONTENT_W, CONTENT_H - CONT_HDR_H,
                         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
 
-    def _draw_footer(canvas):
-        total_pages = getattr(canvas, "_page_count_total", 0)
-        page_label = f"Page {canvas.getPageNumber()}" + (f" of {total_pages}" if total_pages else "")
-        footer_y = MARGIN_TB - 2
-        canvas.saveState()
-        canvas.setStrokeColor(C_GRID)
-        canvas.setLineWidth(0.5)
-        canvas.line(MARGIN_LR, footer_y + 9, MARGIN_LR + CONTENT_W, footer_y + 9)
-        canvas.setFont(FONT_REGULAR, 6)
-        canvas.setFillColor(C_FOOTER)
-        canvas.drawCentredString(MARGIN_LR + CONTENT_W / 2, footer_y, page_label)
-        canvas.restoreState()
-
     def _draw_first_page(canvas, doc):
-        _draw_footer(canvas)
+        return None
 
     def _draw_cont_header(canvas, doc):
         """Draw compact (cont) header at top of continuation pages."""
@@ -544,7 +545,6 @@ def build_calendar_pdf(
         canvas.setLineWidth(1.5)
         canvas.line(x, y - 4, x + w, y - 4)
         canvas.restoreState()
-        _draw_footer(canvas)
 
     doc.addPageTemplates([
         PageTemplate(id="first", frames=[frame_first], onPage=_draw_first_page),
@@ -1246,21 +1246,8 @@ def build_room_calendar_pdf(
                         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     frame_cont  = Frame(MARGIN_LR, MARGIN_TB, CONTENT_W, CONTENT_H - CONT_HDR_H,
                         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
-    def _draw_footer(canvas):
-        total_pages = getattr(canvas, "_page_count_total", 0)
-        page_label = f"Page {canvas.getPageNumber()}" + (f" of {total_pages}" if total_pages else "")
-        footer_y = MARGIN_TB - 2
-        canvas.saveState()
-        canvas.setStrokeColor(C_GRID)
-        canvas.setLineWidth(0.5)
-        canvas.line(MARGIN_LR, footer_y + 9, MARGIN_LR + CONTENT_W, footer_y + 9)
-        canvas.setFont(FONT_REGULAR, 6)
-        canvas.setFillColor(C_FOOTER)
-        canvas.drawCentredString(MARGIN_LR + CONTENT_W / 2, footer_y, page_label)
-        canvas.restoreState()
-
     def _draw_first_hdr(canvas, doc):
-        _draw_footer(canvas)
+        return None
 
     def _draw_cont_hdr(canvas, doc):
         canvas.saveState()
@@ -1272,7 +1259,6 @@ def build_room_calendar_pdf(
         canvas.setStrokeColor(C_HEADER_SEP); canvas.setLineWidth(1.5)
         canvas.line(x, y - 4, x + w, y - 4)
         canvas.restoreState()
-        _draw_footer(canvas)
 
     doc.addPageTemplates([
         PageTemplate(id="first", frames=[frame_first], onPage=_draw_first_hdr),
