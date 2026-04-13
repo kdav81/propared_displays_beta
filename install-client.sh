@@ -460,6 +460,15 @@ HOSTNAME_VAL="$(hostname)"
 IP_VAL="$(hostname -I | awk '{print $1}')"
 LOG_TAG="propared-watchdog"
 
+ack_command() {
+    local COMMAND_ID="$1"
+    curl -sf --max-time 5 \
+        -X POST "${SERVER_URL}/api/client-command/${CLIENT_ID}/ack" \
+        -H "Content-Type: application/json" \
+        -d "{\"command_id\":\"${COMMAND_ID}\"}" \
+        > /dev/null 2>&1
+}
+
 # Send heartbeat checkin
 curl -sf --max-time 4 \
     -X POST "${SERVER_URL}/api/checkin" \
@@ -471,6 +480,21 @@ curl -sf --max-time 4 \
 if ! curl -sf --max-time 5 "${SERVER_URL}/api/health" > /dev/null 2>&1; then
     logger -t "${LOG_TAG}" "Server unreachable -- Chromium kept on last page"
     exit 0
+fi
+
+CFG=$(curl -sf --max-time 8 "${SERVER_URL}/api/client-config/${CLIENT_ID}?hostname=${HOSTNAME_VAL}" 2>/dev/null || true)
+if [[ -n "${CFG}" ]]; then
+    PENDING_COMMAND=$(echo "${CFG}" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('pending_command') or {}; print(p.get('command',''))" 2>/dev/null)
+    PENDING_ID=$(echo "${CFG}" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('pending_command') or {}; print(p.get('id',''))" 2>/dev/null)
+    if [[ "${PENDING_COMMAND}" == "restart_kiosk" && -n "${PENDING_ID}" ]]; then
+        if ack_command "${PENDING_ID}"; then
+            logger -t "${LOG_TAG}" "Received restart_kiosk command -- restarting LightDM"
+            sudo systemctl restart lightdm
+        else
+            logger -t "${LOG_TAG}" "Received restart_kiosk command but ack failed -- skipping restart this cycle"
+        fi
+        exit 0
+    fi
 fi
 
 # Restart LightDM if Chromium has crashed
