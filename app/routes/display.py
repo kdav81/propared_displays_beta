@@ -21,6 +21,16 @@ from app.storage import (
 SUPPORTED_CLIENT_COMMANDS = {"restart_kiosk"}
 
 
+def _coerce_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on", "enabled"}
+    return False
+
+
 def _normalized_pending_command(value):
     if not isinstance(value, dict):
         return None
@@ -41,10 +51,27 @@ def _ensure_client_defaults(existing: dict, *, hostname: str, ip: str, role: str
     client["ip"] = ip
     client["role"] = role
     client["last_seen"] = time.time()
-    client["assigned_room"] = client.get("assigned_room", "")
-    client["screenOn"] = client.get("screenOn", "08:00")
-    client["screenOff"] = client.get("screenOff", "22:00")
-    client["scheduleEnabled"] = client.get("scheduleEnabled", False)
+    client["assigned_room"] = (
+        client.get("assigned_room")
+        or client.get("assignedRoom")
+        or client.get("room")
+        or ""
+    )
+    client["screenOn"] = str(
+        client.get("screenOn")
+        or client.get("screen_on")
+        or client.get("screen_on_time")
+        or "08:00"
+    )
+    client["screenOff"] = str(
+        client.get("screenOff")
+        or client.get("screen_off")
+        or client.get("screen_off_time")
+        or "22:00"
+    )
+    client["scheduleEnabled"] = _coerce_bool(
+        client.get("scheduleEnabled", client.get("schedule_enabled", client.get("SCREEN_SCHEDULE_ENABLED", False)))
+    )
     client["pending_command"] = _normalized_pending_command(client.get("pending_command"))
     client["last_command_completed_at"] = float(client.get("last_command_completed_at", 0) or 0)
     client["last_command_id"] = str(client.get("last_command_id", "")).strip()
@@ -257,6 +284,12 @@ def register_display_routes(
         now = time.time()
         out = []
         for client_id, client in sorted(clients.items(), key=lambda item: item[1].get("hostname", "")):
+            client = clients[client_id] = _ensure_client_defaults(
+                client,
+                hostname=client.get("hostname", client_id[:8]),
+                ip=client.get("ip", ""),
+                role=client.get("role", "display"),
+            )
             rid = client.get("assigned_room", "")
             out.append(
                 {
