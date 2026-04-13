@@ -45,6 +45,15 @@ def _normalized_pending_command(value):
     }
 
 
+def _client_hostname_matches(client: dict | None, hostname: str) -> bool:
+    if not hostname:
+        return True
+    existing_hostname = str((client or {}).get("hostname", "")).strip()
+    if not existing_hostname:
+        return True
+    return existing_hostname == hostname
+
+
 def _ensure_client_defaults(existing: dict, *, hostname: str, ip: str, role: str = "display") -> dict:
     client = dict(existing or {})
     client["hostname"] = hostname
@@ -236,6 +245,26 @@ def register_display_routes(
         )
         save_clients(clients)
         return jsonify({"ok": True})
+
+    @app.route("/api/client-unregister", methods=["POST"])
+    def api_client_unregister():
+        data = request.get_json(silent=True) or {}
+        client_id = str(data.get("client_id", "")).strip()
+        hostname = str(data.get("hostname", "")).strip()
+
+        if not client_id:
+            return jsonify({"ok": False, "error": "missing client_id"}), 400
+
+        existing = clients.get(client_id)
+        if not existing:
+            return jsonify({"ok": True, "removed": False})
+
+        if not _client_hostname_matches(existing, hostname):
+            return jsonify({"ok": False, "error": "hostname mismatch"}), 409
+
+        clients.pop(client_id, None)
+        save_clients(clients)
+        return jsonify({"ok": True, "removed": True})
 
     @app.route("/api/client-config/<client_id>")
     def api_client_config(client_id):
