@@ -18,7 +18,7 @@ from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import (
     BaseDocTemplate, Frame, PageTemplate,
-    Table, TableStyle, Paragraph, Spacer, KeepTogether,
+    Table, TableStyle, Paragraph, Spacer, KeepTogether, Flowable,
 )
 from reportlab.platypus.flowables import HRFlowable
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -305,6 +305,20 @@ def dedupe_print_events(events: list[dict]) -> list[dict]:
     return deduped
 
 
+class MonthContextMarker(Flowable):
+    """Stamp the active month label onto the canvas for continuation headers."""
+
+    def __init__(self, month_label: str):
+        super().__init__()
+        self.month_label = month_label
+
+    def wrap(self, availWidth, availHeight):
+        return 0, 0
+
+    def draw(self):
+        self.canv._current_month_label = self.month_label
+
+
 def fmt_time(dt) -> str:
     if not isinstance(dt, datetime):
         return ""
@@ -473,21 +487,19 @@ def build_calendar_pdf(
     frame_cont  = Frame(MARGIN_LR, MARGIN_TB, CONTENT_W, CONTENT_H - CONT_HDR_H,
                         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
 
-    # State shared with the canvas callback
-    _state = {"month_label": "???"}
-
     def _draw_cont_header(canvas, doc):
         """Draw compact (cont) header at top of continuation pages."""
         canvas.saveState()
         x  = MARGIN_LR
         y  = PAGE_H - MARGIN_TB - 10  # baseline for text
         w  = CONTENT_W
+        month_label = getattr(canvas, "_current_month_label", "Month")
 
         canvas.setFont(FONT_BOLD, 10)
         canvas.drawString(x, y, header_title)
 
         canvas.setFont(FONT_BOLDITALIC, 10)
-        canvas.drawCentredString(x + w / 2, y, f"{_state['month_label']} (cont)")
+        canvas.drawCentredString(x + w / 2, y, f"{month_label} (cont)")
 
         canvas.setFont(FONT_REGULAR, 9)
         canvas.drawRightString(x + w, y, updated)
@@ -514,12 +526,12 @@ def build_calendar_pdf(
             story.append(NextPageTemplate("first"))
             story.append(PageBreak())
 
-        # Update cont header state for this month
-        _state["month_label"] = f"{MONTH_NAMES[month]} {year}"
+        month_label = f"{MONTH_NAMES[month]} {year}"
 
         # After this page, continuation pages use "cont" template
         from reportlab.platypus import NextPageTemplate
         story.append(NextPageTemplate("cont"))
+        story.append(MonthContextMarker(month_label))
 
         # ---- Header -------------------------------------------------------
         header_data = [[
@@ -545,7 +557,7 @@ def build_calendar_pdf(
         story.append(Spacer(1, 2))
 
         # ---- Month label --------------------------------------------------
-        month_para = Paragraph(f"{MONTH_NAMES[month]} {year}", sty_month)
+        month_para = Paragraph(month_label, sty_month)
         story.append(month_para)
         story.append(Spacer(1, 2))
 
@@ -1225,13 +1237,12 @@ def build_room_calendar_pdf(
                         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
     frame_cont  = Frame(MARGIN_LR, MARGIN_TB, CONTENT_W, CONTENT_H - CONT_HDR_H,
                         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
-    _state = {"month_label": "???"}
-
     def _draw_cont_hdr(canvas, doc):
         canvas.saveState()
         x, y, w = MARGIN_LR, PAGE_H - MARGIN_TB - 10, CONTENT_W
+        month_label = getattr(canvas, "_current_month_label", "Month")
         canvas.setFont(FONT_BOLD, 10);       canvas.drawString(x, y, header_title)
-        canvas.setFont(FONT_BOLDITALIC, 10); canvas.drawCentredString(x + w/2, y, f"{_state['month_label']} (cont)")
+        canvas.setFont(FONT_BOLDITALIC, 10); canvas.drawCentredString(x + w/2, y, f"{month_label} (cont)")
         canvas.setFont(FONT_REGULAR, 9);     canvas.drawRightString(x + w, y, updated)
         canvas.setStrokeColor(C_HEADER_SEP); canvas.setLineWidth(1.5)
         canvas.line(x, y - 4, x + w, y - 4)
@@ -1253,9 +1264,10 @@ def build_room_calendar_pdf(
             story.append(NextPageTemplate("first"))
             story.append(PageBreak())
 
-        _state["month_label"] = f"{MONTH_NAMES[month]} {year}"
+        month_label = f"{MONTH_NAMES[month]} {year}"
         from reportlab.platypus import NextPageTemplate
         story.append(NextPageTemplate("cont"))
+        story.append(MonthContextMarker(month_label))
 
         # Header row
         hdr_data = [[
@@ -1273,7 +1285,7 @@ def build_room_calendar_pdf(
         ]))
         story.append(hdr_tbl)
         story.append(Spacer(1, 2))
-        month_para = Paragraph(f"{MONTH_NAMES[month]} {year}", sty_month)
+        month_para = Paragraph(month_label, sty_month)
         story.append(month_para)
         story.append(Spacer(1, 2))
 
