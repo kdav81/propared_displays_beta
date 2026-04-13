@@ -122,8 +122,8 @@ global_cal_cache = ICalCache(log=log)
 
 def _boot_clients() -> None:
     """Load persisted client registry into memory."""
-    global _clients
-    _clients = load_clients()
+    _clients.clear()
+    _clients.update(load_clients())
 
 
 def _boot_ical_cache() -> None:

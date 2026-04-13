@@ -206,21 +206,21 @@ function loadClients(){
     }
     el.innerHTML = '';
     var header = document.createElement('div');
-    header.style.cssText = 'display:grid;grid-template-columns:150px 110px 70px 1fr 110px 110px 110px 160px;gap:8px;padding:0 10px 6px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dim)';
+    header.className = 'client-row client-row-header';
     header.innerHTML = '<span>Hostname</span><span>IP</span><span>Status</span><span>Assigned Room</span><span>Screen On</span><span>Screen Off</span><span>Schedule</span><span>Actions</span>';
     el.appendChild(header);
 
     data.forEach(function(c){
       var row = document.createElement('div');
-      row.style.cssText = 'display:grid;grid-template-columns:150px 110px 70px 1fr 110px 110px 110px 160px;gap:8px;align-items:center;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:6px';
+      row.className = 'client-row client-row-body';
       var hn = document.createElement('div');
-      hn.style.cssText = 'font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      hn.className = 'client-hostname';
       hn.textContent = c.hostname;
       row.appendChild(hn);
 
       var ip = document.createElement('a');
       ip.href = 'ssh://screenadmin@' + c.ip;
-      ip.style.cssText = 'font-family:DM Mono,monospace;font-size:11px;color:var(--accent);text-decoration:none;cursor:pointer';
+      ip.className = 'client-ip';
       ip.title = 'Open SSH session to ' + c.ip;
       ip.textContent = c.ip;
       row.appendChild(ip);
@@ -233,7 +233,7 @@ function loadClients(){
 
       var sel = document.createElement('select');
       sel.className = 'fi';
-      sel.style.cssText = 'font-size:12px;padding:4px 8px';
+      sel.classList.add('client-control');
       var opt0 = document.createElement('option');
       opt0.value = '';
       opt0.textContent = '— Unassigned —';
@@ -254,33 +254,33 @@ function loadClients(){
 
       var onInput = document.createElement('input');
       onInput.className = 'fi';
+      onInput.classList.add('client-control');
       onInput.type = 'time';
       onInput.value = c.screenOn || '08:00';
-      onInput.style.cssText = 'font-size:12px;padding:4px 8px';
       row.appendChild(onInput);
 
       var offInput = document.createElement('input');
       offInput.className = 'fi';
+      offInput.classList.add('client-control');
       offInput.type = 'time';
       offInput.value = c.screenOff || '22:00';
-      offInput.style.cssText = 'font-size:12px;padding:4px 8px';
       row.appendChild(offInput);
 
       var schedWrap = document.createElement('div');
-      schedWrap.style.cssText = 'display:flex;align-items:center;gap:6px';
+      schedWrap.className = 'client-schedule';
       var schedCb = document.createElement('input');
       schedCb.type = 'checkbox';
       schedCb.checked = !!c.scheduleEnabled;
-      schedCb.style.cssText = 'width:15px;height:15px;cursor:pointer';
+      schedCb.className = 'client-schedule-checkbox';
       var schedLbl = document.createElement('span');
-      schedLbl.style.cssText = 'font-size:11px;color:var(--muted)';
+      schedLbl.className = 'client-schedule-label';
       schedLbl.textContent = 'Enabled';
       schedWrap.appendChild(schedCb);
       schedWrap.appendChild(schedLbl);
       row.appendChild(schedWrap);
 
       var btns = document.createElement('div');
-      btns.style.cssText = 'display:flex;gap:4px;align-items:center;flex-wrap:wrap';
+      btns.className = 'client-actions';
       var saveBtn = document.createElement('button');
       saveBtn.className = 'btn btn-primary btn-sm';
       saveBtn.textContent = 'Save';
@@ -306,7 +306,8 @@ function loadClients(){
       });
       var restartBtn = document.createElement('button');
       restartBtn.className = 'btn btn-ghost btn-sm';
-      restartBtn.textContent = 'Restart kiosk';
+      restartBtn.textContent = 'Restart';
+      restartBtn.title = 'Queue kiosk restart';
       if(c.pending_command && c.pending_command.command === 'restart_kiosk'){
         restartBtn.disabled = true;
         restartBtn.textContent = 'Restart queued';
