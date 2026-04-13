@@ -297,20 +297,22 @@ function loadClients(){
         }).then(function(r){ if(r.ok) showToast('Client updated!'); });
       });
       var delBtn = document.createElement('button');
-      delBtn.className = 'btn btn-danger btn-sm';
-      delBtn.textContent = '✕';
+      delBtn.className = 'btn btn-danger btn-sm btn-icon';
+      delBtn.innerHTML = '&#215;';
+      delBtn.title = 'Remove client';
       delBtn.addEventListener('click', function(){
         if(!confirm('Remove this client record?')) return;
         _fetch('/admin/client/' + c.client_id + '/delete', {method:'POST'})
           .then(function(r){ if(r.ok){ loadClients(); showToast('Client removed.'); } });
       });
       var restartBtn = document.createElement('button');
-      restartBtn.className = 'btn btn-ghost btn-sm';
-      restartBtn.textContent = 'Restart';
+      restartBtn.className = 'btn btn-ghost btn-sm btn-icon';
+      restartBtn.innerHTML = '&#8635;';
       restartBtn.title = 'Queue kiosk restart';
       if(c.pending_command && c.pending_command.command === 'restart_kiosk'){
         restartBtn.disabled = true;
-        restartBtn.textContent = 'Restart queued';
+        restartBtn.innerHTML = '&#8987;';
+        restartBtn.title = 'Kiosk restart queued';
       }
       restartBtn.addEventListener('click', function(){
         if(!confirm('Queue a kiosk restart for ' + c.hostname + '?')) return;
