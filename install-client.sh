@@ -78,9 +78,11 @@ fi
 
 SERVER_URL=""
 CLIENT_ID=""
+PREVIOUS_SERVER_URL=""
 
 if [[ -f "${CONF_FILE}" ]]; then
     source "${CONF_FILE}"
+    PREVIOUS_SERVER_URL="${SERVER_URL}"
     echo
     echo "  Existing config found:"
     echo "    Server    : ${SERVER_URL}"
@@ -101,6 +103,26 @@ if [[ -z "${CLIENT_ID}" ]]; then
     CLIENT_ID=$(cat /proc/sys/kernel/random/uuid)
     info "Generated new Client ID: ${CLIENT_ID}"
 fi
+
+unregister_previous_server() {
+    local PREVIOUS_URL="$1"
+    [[ -z "${PREVIOUS_URL}" ]] && return 0
+    [[ "${PREVIOUS_URL}" == "${SERVER_URL}" ]] && return 0
+
+    local HOSTNAME_VAL
+    HOSTNAME_VAL=$(hostname)
+
+    info "Removing this client from previous server: ${PREVIOUS_URL}"
+    if curl -sf --max-time 8 \
+        -X POST "${PREVIOUS_URL}/api/client-unregister" \
+        -H "Content-Type: application/json" \
+        -d "{\"client_id\":\"${CLIENT_ID}\",\"hostname\":\"${HOSTNAME_VAL}\"}" \
+        > /dev/null 2>&1; then
+        info "Previous server client entry removed"
+    else
+        warn "Could not remove client from previous server; you may need to delete the old entry manually"
+    fi
+}
 
 # =============================================================================
 # Step 2 — Server URL
@@ -134,12 +156,16 @@ fi
 header "Step 2 of 2 - Register with server"
 info "Registering client ID with server..."
 HOSTNAME_VAL=$(hostname)
-curl -sf --max-time 8 \
+if curl -sf --max-time 8 \
     -X POST "${SERVER_URL}/api/checkin" \
     -H "Content-Type: application/json" \
     -d "{\"client_id\":\"${CLIENT_ID}\",\"hostname\":\"${HOSTNAME_VAL}\",\"ip\":\"\",\"role\":\"display\"}" \
-    > /dev/null 2>&1 || warn "Could not register — will retry at runtime"
-info "Client registered. Assign a room in the Admin panel at ${SERVER_URL}/admin"
+    > /dev/null 2>&1; then
+    info "Client registered. Assign a room in the Admin panel at ${SERVER_URL}/admin"
+    unregister_previous_server "${PREVIOUS_SERVER_URL}"
+else
+    warn "Could not register — will retry at runtime"
+fi
 echo
 echo "  ┌─────────────────────────────────────────────────────────────┐"
 echo "  │  Client ID: ${CLIENT_ID}"
