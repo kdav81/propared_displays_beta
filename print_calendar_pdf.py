@@ -473,7 +473,6 @@ def build_calendar_pdf(
     sty_evt_title= ps("evttitle",FONT_REGULAR,     6, color=C_BLACK)
     sty_evt_loc  = ps("evtloc",  FONT_ITALIC,      5.5, color=C_EVT_LOC)
     sty_note     = ps("note",    FONT_ITALIC,       5.5, color=C_NOTE)
-    sty_legend   = ps("legend",  FONT_BOLD,         6.5, color=C_LEGEND)
     sty_footer   = ps("footer",  FONT_REGULAR,      6, color=C_FOOTER, align=TA_CENTER)
     sty_prefix   = ps("prefix",  FONT_BOLD,         6, color=C_BLACK)
 
@@ -571,15 +570,6 @@ def build_calendar_pdf(
         weeks = build_month_weeks(year, month_num)
         num_weeks = len(weeks)
 
-        # Collect tags for legend
-        month_tags: set[str] = set()
-        for week in weeks:
-            for day in week:
-                for ev in by_day.get(day.strftime("%Y-%m-%d"), []):
-                    t = get_tag(ev["title"])
-                    if t:
-                        month_tags.add(t)
-
         # Row 0 = DOW header, rows 1..N = weeks
         grid_data = [[Paragraph(f'<b>{d}</b>', sty_dow) for d in DAY_NAMES]]
         grid_styles = [
@@ -637,10 +627,9 @@ def build_calendar_pdf(
                 row_cells.append(cell_content)
             grid_data.append(row_cells)
 
-        legend_present = multi_show and bool(month_tags)
         header_h = header_table.wrap(CONTENT_W, CONTENT_H)[1]
         month_h = month_para.wrap(CONTENT_W, CONTENT_H)[1]
-        grid_target_height = CONTENT_H - header_h - month_h - 8 - (20 if legend_present else 0) - 12
+        grid_target_height = CONTENT_H - header_h - month_h - 8 - 12
 
         grid_table = Table(grid_data, colWidths=[col_w]*7, repeatRows=1, splitByRow=1)
         grid_table.setStyle(TableStyle(grid_styles))
@@ -655,21 +644,6 @@ def build_calendar_pdf(
             )
             grid_table.setStyle(TableStyle(grid_styles))
         story.append(grid_table)
-
-        # ---- Legend -------------------------------------------------------
-        if multi_show and month_tags:
-            def _full_name(tag: str) -> str:
-                info = tag_colors.get(tag)
-                if not info:
-                    for k, v in tag_colors.items():
-                        if k.lower() == tag.lower():
-                            info = v; break
-                if isinstance(info, dict) and info.get("fullName") and info["fullName"] != tag:
-                    return info["fullName"]
-                return ""
-            parts = [f"{t} \u2014 {_full_name(t)}" if _full_name(t) else t for t in sorted(month_tags)]
-            story.append(HRFlowable(width=CONTENT_W, thickness=0.5, color=C_GRID, spaceAfter=2, spaceBefore=3))
-            story.append(Paragraph("   ".join(parts), sty_legend))
 
         # ---- Footer -------------------------------------------------------
         story.append(HRFlowable(width=CONTENT_W, thickness=0.5, color=C_GRID, spaceAfter=1, spaceBefore=2))
@@ -1230,7 +1204,6 @@ def build_room_calendar_pdf(
     sty_month   = ps("rm_month",   FONT_BOLD,     22, color=C_BLACK,   align=TA_CENTER, leading=26)
     sty_dow     = ps("rm_dow",     FONT_BOLD,      9, color=C_DOW_FG,  align=TA_CENTER)
     sty_footer  = ps("rm_footer",  FONT_REGULAR,   6, color=C_FOOTER,  align=TA_CENTER)
-    sty_legend  = ps("rm_legend",  FONT_BOLD,    6.5, color=C_LEGEND)
 
     CONT_HDR_H = 22
     frame_first = Frame(MARGIN_LR, MARGIN_TB, CONTENT_W, CONTENT_H,
@@ -1298,15 +1271,6 @@ def build_room_calendar_pdf(
 
         weeks = build_month_weeks(year, month_num)
 
-        # Collect tags on this month for legend
-        month_tags: set[str] = set()
-        for week in weeks:
-            for day in week:
-                for ev in by_day.get(day.strftime("%Y-%m-%d"), []):
-                    t = get_tag(ev["title"])
-                    if t:
-                        month_tags.add(t)
-
         grid_data   = [[Paragraph(f'<b>{d}</b>', sty_dow) for d in DAY_NAMES]]
         grid_styles = [
             ("GRID",          (0,0), (-1,-1), 0.5, C_GRID),
@@ -1372,10 +1336,9 @@ def build_room_calendar_pdf(
                 row_cells.append(cell_content)
             grid_data.append(row_cells)
 
-        legend_present = bool(month_tags)
         header_h = hdr_tbl.wrap(CONTENT_W, CONTENT_H)[1]
         month_h = month_para.wrap(CONTENT_W, CONTENT_H)[1]
-        grid_target_height = CONTENT_H - header_h - month_h - 8 - (20 if legend_present else 0) - 12
+        grid_target_height = CONTENT_H - header_h - month_h - 8 - 12
 
         grid_table = Table(grid_data, colWidths=[col_w]*7, repeatRows=1, splitByRow=1)
         grid_table.setStyle(TableStyle(grid_styles))
@@ -1390,17 +1353,6 @@ def build_room_calendar_pdf(
             )
             grid_table.setStyle(TableStyle(grid_styles))
         story.append(grid_table)
-
-        # Legend with colored squares
-        if month_tags:
-            parts = []
-            for t in sorted(month_tags):
-                fn  = _tag_full(t)
-                label = f"{t} \u2014 {fn}" if fn else t
-                parts.append(label)
-            story.append(HRFlowable(width=CONTENT_W, thickness=0.5,
-                                    color=C_GRID, spaceAfter=2, spaceBefore=3))
-            story.append(Paragraph("   ".join(parts), sty_legend))
 
         story.append(HRFlowable(width=CONTENT_W, thickness=0.5,
                                 color=C_GRID, spaceAfter=1, spaceBefore=2))
