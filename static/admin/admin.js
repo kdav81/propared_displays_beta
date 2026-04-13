@@ -206,13 +206,13 @@ function loadClients(){
     }
     el.innerHTML = '';
     var header = document.createElement('div');
-    header.style.cssText = 'display:grid;grid-template-columns:150px 110px 70px 1fr 110px 110px 80px 76px;gap:8px;padding:0 10px 6px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dim)';
-    header.innerHTML = '<span>Hostname</span><span>IP</span><span>Status</span><span>Assigned Room</span><span>Screen On</span><span>Screen Off</span><span>Schedule</span><span></span>';
+    header.style.cssText = 'display:grid;grid-template-columns:150px 110px 70px 1fr 110px 110px 110px 160px;gap:8px;padding:0 10px 6px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dim)';
+    header.innerHTML = '<span>Hostname</span><span>IP</span><span>Status</span><span>Assigned Room</span><span>Screen On</span><span>Screen Off</span><span>Schedule</span><span>Actions</span>';
     el.appendChild(header);
 
     data.forEach(function(c){
       var row = document.createElement('div');
-      row.style.cssText = 'display:grid;grid-template-columns:150px 110px 70px 1fr 110px 110px 80px 76px;gap:8px;align-items:center;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:6px';
+      row.style.cssText = 'display:grid;grid-template-columns:150px 110px 70px 1fr 110px 110px 110px 160px;gap:8px;align-items:center;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:6px';
       var hn = document.createElement('div');
       hn.style.cssText = 'font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
       hn.textContent = c.hostname;
@@ -280,7 +280,7 @@ function loadClients(){
       row.appendChild(schedWrap);
 
       var btns = document.createElement('div');
-      btns.style.cssText = 'display:flex;gap:4px';
+      btns.style.cssText = 'display:flex;gap:4px;align-items:center;flex-wrap:wrap';
       var saveBtn = document.createElement('button');
       saveBtn.className = 'btn btn-primary btn-sm';
       saveBtn.textContent = 'Save';
@@ -304,7 +304,28 @@ function loadClients(){
         _fetch('/admin/client/' + c.client_id + '/delete', {method:'POST'})
           .then(function(r){ if(r.ok){ loadClients(); showToast('Client removed.'); } });
       });
+      var restartBtn = document.createElement('button');
+      restartBtn.className = 'btn btn-ghost btn-sm';
+      restartBtn.textContent = 'Restart kiosk';
+      if(c.pending_command && c.pending_command.command === 'restart_kiosk'){
+        restartBtn.disabled = true;
+        restartBtn.textContent = 'Restart queued';
+      }
+      restartBtn.addEventListener('click', function(){
+        if(!confirm('Queue a kiosk restart for ' + c.hostname + '?')) return;
+        _fetch('/admin/client/' + c.client_id + '/command', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({command: 'restart_kiosk'})
+        }).then(function(r){
+          if(r.ok){
+            showToast('Kiosk restart queued.');
+            loadClients();
+          }
+        });
+      });
       btns.appendChild(saveBtn);
+      btns.appendChild(restartBtn);
       btns.appendChild(delBtn);
       row.appendChild(btns);
       el.appendChild(row);

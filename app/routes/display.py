@@ -18,6 +18,38 @@ from app.storage import (
     save_tags,
 )
 
+SUPPORTED_CLIENT_COMMANDS = {"restart_kiosk"}
+
+
+def _normalized_pending_command(value):
+    if not isinstance(value, dict):
+        return None
+    command = str(value.get("command", "")).strip()
+    if command not in SUPPORTED_CLIENT_COMMANDS:
+        return None
+    return {
+        "id": str(value.get("id", "")).strip(),
+        "command": command,
+        "created_at": float(value.get("created_at", 0) or 0),
+        "status": str(value.get("status", "pending")).strip() or "pending",
+    }
+
+
+def _ensure_client_defaults(existing: dict, *, hostname: str, ip: str, role: str = "display") -> dict:
+    client = dict(existing or {})
+    client["hostname"] = hostname
+    client["ip"] = ip
+    client["role"] = role
+    client["last_seen"] = time.time()
+    client["assigned_room"] = client.get("assigned_room", "")
+    client["screenOn"] = client.get("screenOn", "08:00")
+    client["screenOff"] = client.get("screenOff", "22:00")
+    client["scheduleEnabled"] = client.get("scheduleEnabled", False)
+    client["pending_command"] = _normalized_pending_command(client.get("pending_command"))
+    client["last_command_completed_at"] = float(client.get("last_command_completed_at", 0) or 0)
+    client["last_command_id"] = str(client.get("last_command_id", "")).strip()
+    return client
+
 
 def register_display_routes(
     app,
@@ -169,16 +201,12 @@ def register_display_routes(
             return jsonify({"ok": False, "error": "missing client_id"}), 400
 
         existing = clients.get(client_id, {})
-        clients[client_id] = {
-            "hostname": hostname,
-            "ip": data.get("ip", request.remote_addr),
-            "role": role,
-            "last_seen": time.time(),
-            "assigned_room": existing.get("assigned_room", ""),
-            "screenOn": existing.get("screenOn", "08:00"),
-            "screenOff": existing.get("screenOff", "22:00"),
-            "scheduleEnabled": existing.get("scheduleEnabled", False),
-        }
+        clients[client_id] = _ensure_client_defaults(
+            existing,
+            hostname=hostname,
+            ip=data.get("ip", request.remote_addr),
+            role=role,
+        )
         save_clients(clients)
         return jsonify({"ok": True})
 
@@ -188,21 +216,10 @@ def register_display_routes(
         ip = request.remote_addr
 
         if client_id not in clients:
-            clients[client_id] = {
-                "hostname": hostname,
-                "ip": ip,
-                "role": "display",
-                "last_seen": time.time(),
-                "assigned_room": "",
-                "screenOn": "08:00",
-                "screenOff": "22:00",
-                "scheduleEnabled": False,
-            }
+            clients[client_id] = _ensure_client_defaults({}, hostname=hostname, ip=ip)
             save_clients(clients)
         else:
-            clients[client_id]["last_seen"] = time.time()
-            clients[client_id]["hostname"] = hostname
-            clients[client_id]["ip"] = ip
+            clients[client_id] = _ensure_client_defaults(clients[client_id], hostname=hostname, ip=ip)
             save_clients(clients)
 
         config = clients[client_id]
@@ -230,6 +247,7 @@ def register_display_routes(
                 "screenOff": config.get("screenOff", "22:00"),
                 "scheduleEnabled": config.get("scheduleEnabled", False),
                 "server_url": settings.get("serverUrl", ""),
+                "pending_command": config.get("pending_command"),
             }
         )
 
@@ -250,6 +268,7 @@ def register_display_routes(
                     "screenOn": client.get("screenOn", "08:00"),
                     "screenOff": client.get("screenOff", "22:00"),
                     "scheduleEnabled": client.get("scheduleEnabled", False),
+                    "pending_command": client.get("pending_command"),
                 }
             )
         return jsonify(out)
@@ -271,6 +290,41 @@ def register_display_routes(
     @require_admin
     def admin_client_delete(client_id):
         clients.pop(client_id, None)
+        save_clients(clients)
+        return jsonify({"ok": True})
+
+    @app.route("/admin/client/<client_id>/command", methods=["POST"])
+    @require_admin
+    def admin_client_command(client_id):
+        data = request.get_json(force=True, silent=True) or {}
+        if client_id not in clients:
+            return jsonify({"error": "Unknown client"}), 404
+        command = str(data.get("command", "")).strip()
+        if command not in SUPPORTED_CLIENT_COMMANDS:
+            return jsonify({"error": "Unsupported command"}), 400
+        clients[client_id]["pending_command"] = {
+            "id": str(uuid.uuid4()),
+            "command": command,
+            "created_at": time.time(),
+            "status": "pending",
+        }
+        save_clients(clients)
+        return jsonify({"ok": True, "pending_command": clients[client_id]["pending_command"]})
+
+    @app.route("/api/client-command/<client_id>/ack", methods=["POST"])
+    def api_client_command_ack(client_id):
+        data = request.get_json(silent=True) or {}
+        client = clients.get(client_id)
+        if not client:
+            return jsonify({"ok": False, "error": "Unknown client"}), 404
+        pending = _normalized_pending_command(client.get("pending_command"))
+        if not pending:
+            return jsonify({"ok": False, "error": "No pending command"}), 404
+        if str(data.get("command_id", "")).strip() != pending.get("id", ""):
+            return jsonify({"ok": False, "error": "Command mismatch"}), 409
+        client["pending_command"] = None
+        client["last_command_id"] = pending["id"]
+        client["last_command_completed_at"] = time.time()
         save_clients(clients)
         return jsonify({"ok": True})
 
