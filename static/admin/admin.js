@@ -149,7 +149,7 @@ function addTag(){
   row.dataset.tag = '';
   row.innerHTML = '<div class="swatch" style="background:#2563c7" data-color="#2563c7" onclick="openProparedPicker(this)"></div>'
     + '<div class="tag-inputs"><input class="tag-input" type="text" value="" placeholder="TagKey" oninput="tagNameChange(this)">'
-    + '<input class="tag-input fullname" type="text" value="" placeholder="e.g. Spring Dance Concert"></div>'
+    + '<input class="tag-input fullname" type="text" value="" placeholder="e.g. Full Project Name"></div>'
     + '<button class="tag-remove" onclick="removeTag(this)">&#215;</button>';
   document.getElementById('tag-grid').appendChild(row);
 }
