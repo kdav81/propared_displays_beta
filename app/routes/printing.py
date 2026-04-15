@@ -2,15 +2,20 @@ from __future__ import annotations
 
 import uuid
 
-from flask import Response, jsonify, render_template, request
+from flask import Response, jsonify, redirect, render_template, request
 
+from app.auth import require_print_admin_auth
+from app.config import PRINT_ADMIN_PASSWORD_FILE
 from app.storage import (
+    check_password,
     load_location_rules,
     load_print_shows,
     load_rooms,
     load_tags,
+    read_password_hash,
     save_location_rules,
     save_print_shows,
+    write_password,
 )
 
 
@@ -91,13 +96,40 @@ def register_printing_routes(
 
     @app.route("/print-admin")
     def print_admin():
+        if not read_password_hash(PRINT_ADMIN_PASSWORD_FILE):
+            return redirect("/print-admin/setup")
+        auth = request.authorization
+        if not auth or not check_password(auth.password, PRINT_ADMIN_PASSWORD_FILE):
+            return Response(
+                "Print Admin access required.",
+                401,
+                {"WWW-Authenticate": 'Basic realm="Print Admin"'},
+            )
         return render_template("print_admin.html")
+
+    @app.route("/print-admin/setup", methods=["GET", "POST"])
+    def print_admin_setup():
+        if read_password_hash(PRINT_ADMIN_PASSWORD_FILE):
+            return redirect("/print-admin")
+        error = None
+        if request.method == "POST":
+            pw = request.form.get("password", "").strip()
+            pw2 = request.form.get("password2", "").strip()
+            if len(pw) < 6:
+                error = "Password must be at least 6 characters."
+            elif pw != pw2:
+                error = "Passwords do not match."
+            else:
+                write_password(PRINT_ADMIN_PASSWORD_FILE, pw)
+                return redirect("/print-admin")
+        return render_template("print_admin_setup.html", error=error)
 
     @app.route("/api/print-shows", methods=["GET"])
     def api_print_shows_get():
         return jsonify(_normalized_show_map(load_print_shows()))
 
     @app.route("/api/print-shows", methods=["POST"])
+    @require_print_admin_auth
     def api_print_shows_post():
         data = request.get_json(force=True, silent=True) or {}
         shows = load_print_shows()
@@ -107,6 +139,7 @@ def register_printing_routes(
         return jsonify({"id": new_id})
 
     @app.route("/api/print-shows/<show_id>", methods=["PUT"])
+    @require_print_admin_auth
     def api_print_shows_put(show_id):
         data = request.get_json(force=True, silent=True) or {}
         shows = load_print_shows()
@@ -117,6 +150,7 @@ def register_printing_routes(
         return jsonify({"id": show_id})
 
     @app.route("/api/print-shows/<show_id>", methods=["DELETE"])
+    @require_print_admin_auth
     def api_print_shows_delete(show_id):
         shows = load_print_shows()
         shows.pop(show_id, None)
@@ -128,6 +162,7 @@ def register_printing_routes(
         return jsonify(load_location_rules())
 
     @app.route("/api/location-rules", methods=["POST"])
+    @require_print_admin_auth
     def api_location_rules_post():
         data = request.get_json(force=True, silent=True)
         if not isinstance(data, list):
