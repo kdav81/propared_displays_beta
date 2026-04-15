@@ -220,6 +220,7 @@ var LOCATION_RULES = [];
 var _calType = 'monthly';
 var _calSource = 'productions';
 var _selectedFeedIdsByShow = {};
+var PICK_ORDER_KEY = 'propared-print-calendar-order';
 var FEED_TYPES = {
   full: 'Full View',
   performer: 'Performer View',
@@ -250,6 +251,35 @@ function feedSummary(feeds){
     var base = FEED_TYPES[feed.type] || 'Custom';
     return feed.label ? base + ' (' + feed.label + ')' : base;
   }).join(', ');
+}
+function loadSavedPickOrder(){
+  try{
+    return JSON.parse(localStorage.getItem(PICK_ORDER_KEY) || '{}');
+  } catch(e){
+    return {};
+  }
+}
+function savePickOrder(source, ids){
+  var state = loadSavedPickOrder();
+  state[source] = ids;
+  localStorage.setItem(PICK_ORDER_KEY, JSON.stringify(state));
+}
+function orderedItems(source, items){
+  var saved = loadSavedPickOrder()[source];
+  if(!Array.isArray(saved) || !saved.length) return items;
+  var rank = {};
+  saved.forEach(function(id, index){ rank[id] = index; });
+  return items.slice().sort(function(a, b){
+    var aRank = Object.prototype.hasOwnProperty.call(rank, a.id) ? rank[a.id] : Number.MAX_SAFE_INTEGER;
+    var bRank = Object.prototype.hasOwnProperty.call(rank, b.id) ? rank[b.id] : Number.MAX_SAFE_INTEGER;
+    if(aRank !== bRank) return aRank - bRank;
+    return a.title.localeCompare(b.title);
+  });
+}
+function currentPickOrder(){
+  return Array.from(document.querySelectorAll('#pick-list .pick-row')).map(function(row){
+    return row.dataset.id;
+  });
 }
 function ensureFeedSelection(showId){
   var feeds = normalizedFeeds(SHOWS[showId] || {});
@@ -337,16 +367,16 @@ async function loadData(){
 
 function currentItems(){
   if(_calSource === 'rooms'){
-    return ROOMS.map(function(room){
+    return orderedItems('rooms', ROOMS.map(function(room){
       return {
         id: room.id,
         title: room.title || room.id,
         meta: room.icalUrl ? 'Linked to room display calendar' : 'No iCal feed configured'
       };
-    });
+    }));
   }
 
-  return Object.keys(SHOWS).map(function(id){
+  return orderedItems('productions', Object.keys(SHOWS).map(function(id){
     var show = SHOWS[id];
     var feeds = normalizedFeeds(show);
     return {
@@ -354,7 +384,7 @@ function currentItems(){
       title: show.shortTitle || show.title || id,
       meta: (show.season ? show.season + ' · ' : '') + (feeds.length ? feedSummary(feeds) : 'No enabled feeds configured')
     };
-  });
+  }));
 }
 
 function renderPickList(){
@@ -396,6 +426,8 @@ function renderPickList(){
 
 function initDrag(){
   var container = document.getElementById('pick-list');
+  if(container.dataset.dragInit === '1') return;
+  container.dataset.dragInit = '1';
   var dragging = null;
   container.addEventListener('dragstart', function(e){
     dragging = e.target.closest('.pick-row');
@@ -421,6 +453,10 @@ function initDrag(){
     if(target) target.classList.remove('drag-over');
   });
   container.addEventListener('drop', function(e){ e.preventDefault(); });
+  container.addEventListener('drop', function(){
+    savePickOrder(_calSource, currentPickOrder());
+    renderFeedSelectors();
+  });
 }
 
 function togglePick(cb){
