@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from flask import Response, redirect, request
 
-from .config import NOTICE_PASSWORD_FILE, PASSWORD_FILE
+from .config import NOTICE_PASSWORD_FILE, PASSWORD_FILE, PRINT_ADMIN_PASSWORD_FILE
 from .storage import check_password, read_password_hash
 
 
@@ -60,3 +60,21 @@ def require_shared_media_auth(f):
 
     return decorated
 
+
+def require_print_admin_auth(f):
+    import functools
+
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not read_password_hash(PRINT_ADMIN_PASSWORD_FILE):
+            return Response("Print Admin password not set. Visit /print-admin/setup first.", 403)
+        auth = request.authorization
+        if not auth or not check_password(auth.password, PRINT_ADMIN_PASSWORD_FILE):
+            return Response(
+                "Print Admin access required.",
+                401,
+                {"WWW-Authenticate": 'Basic realm="Print Admin"'},
+            )
+        return f(*args, **kwargs)
+
+    return decorated
