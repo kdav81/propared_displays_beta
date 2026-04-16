@@ -19,7 +19,7 @@ from app.storage import (
 )
 
 
-FEED_TYPE_CHOICES = {"full", "performer", "crew", "public", "custom"}
+FEED_TYPE_CHOICES = {"full", "performer", "crew", "designer", "public", "custom"}
 
 
 def _normalize_feed(feed: dict, index: int) -> dict | None:
@@ -29,6 +29,8 @@ def _normalize_feed(feed: dict, index: int) -> dict | None:
     if not url:
         return None
     feed_type = str(feed.get("type", "")).strip().lower() or "custom"
+    if feed_type == "public":
+        feed_type = "designer"
     if feed_type not in FEED_TYPE_CHOICES:
         feed_type = "custom"
     label = str(feed.get("label", "")).strip()

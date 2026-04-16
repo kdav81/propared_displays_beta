@@ -224,10 +224,10 @@ var _calSource = 'productions';
 var _selectedFeedIdsByShow = {};
 var PICK_ORDER_KEY = 'propared-print-calendar-order';
 var FEED_TYPES = {
-  full: 'Full View',
   performer: 'Performer View',
+  full: 'Full View',
   crew: 'Crew View',
-  public: 'Public View',
+  designer: 'Designer View',
   custom: 'Custom'
 };
 
@@ -235,6 +235,7 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function normalizeFeed(feed, index){
   feed = feed || {};
   var type = String(feed.type || '').trim().toLowerCase() || 'custom';
+  if(type === 'public') type = 'designer';
   if(!FEED_TYPES[type]) type = 'custom';
   return {
     id: String(feed.id || (type + '-' + (index + 1))),
