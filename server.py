@@ -216,7 +216,19 @@ if __name__ == "__main__":
     try:
         from waitress import serve
         log.info("Starting with waitress on %s:%d", host, port)
-        serve(app, host=host, port=port, threads=4)
+        serve(
+            app,
+            host=host,
+            port=port,
+            threads=4,
+            trusted_proxy="127.0.0.1",
+            trusted_proxy_headers={
+                "x-forwarded-for",
+                "x-forwarded-host",
+                "x-forwarded-proto",
+                "x-forwarded-port",
+            },
+        )
     except ImportError:
         log.warning("waitress not installed — falling back to Flask dev server")
         app.run(host=host, port=port, debug=False, threaded=True)
