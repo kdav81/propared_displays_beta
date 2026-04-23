@@ -33,7 +33,7 @@ A web-based room display system for the University of Delaware's Department of T
    └─────────────┘       └─────────────┘        └─────────────┘
 ```
 
-- **Server** — Flask app launched from `server.py`, with routes and services split into the `app/` package
+- **Server** — Flask app launched from `server.py`, with routes and services split into the `app/` package; Oracle HTTPS installs typically place Nginx in front as a reverse proxy
 - **Clients** — Raspberry Pis running Chromium in kiosk mode via LightDM, auto-starting on boot
 - **Data** — stored as JSON files on the server; no database required
 
@@ -69,7 +69,7 @@ curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/testing/
 bash install-client.sh
 ```
 
-The script will prompt for the server address or full URL (`http://` or `https://`) and can be safely re-run on an existing Pi to update or repoint that client.
+The script will prompt for the server address or full URL (`http://` or `https://`) and can be safely re-run on an existing Pi to update it, switch it to HTTPS, or repoint it at a different server while keeping the same Client ID.
 
 ---
 
@@ -110,7 +110,11 @@ These are created or maintained on the server and are not the main source code:
 | `print_shows.json` | Production definitions and iCal feeds for print calendars |
 | `location_rules.json` | Location cleanup rules used by print calendar generation |
 | `notice.json` | Current notice-board message state |
-| `admin_password.txt` / `notice_password.txt` / `secret_key.txt` | Local secrets and auth data (`notice_password.txt` is shared by Notice and Media Library) |
+| `admin_password.txt` | Admin panel password hash |
+| `notice_password.txt` | Shared password hash used by Notice and Media Library |
+| `print_admin_password.txt` | Separate password hash used by Print Admin |
+| `secret_key.txt` | Persistent Flask secret key so sessions survive restarts |
+| `static/site_logo.*` | Optional landing-page logo uploaded from the Media Library |
 
 ---
 
@@ -119,10 +123,12 @@ These are created or maintained on the server and are not the main source code:
 | URL | Who uses it |
 |---|---|
 | `/admin` | Admin — manage rooms, clients, settings |
+| `/admin/setup` | First-run admin password setup |
 | `/` | Landing page — front door with links to the main tools |
-| `/media-admin` | Limited-access media library for slideshow uploads and scheduling |
+| `/media-admin` | Shared-password media library for slideshow uploads, scheduling, and landing-page logo updates |
 | `/print-calendar` | Users — generate PDF production calendars or room schedules |
-| `/print-admin` | Users — manage productions and location rules |
-| `/notice` | Users/Admin — post a notice banner to all displays |
+| `/print-admin` | Protected page for managing productions and location rules |
+| `/print-admin/setup` | First-run Print Admin password setup |
+| `/notice` | Shared-password notice board for posting a banner to all room displays |
 | `/dashboard` | Lobby/office screen |
 | `/display?room=ROOM_ID` | Pi kiosks (set automatically) |

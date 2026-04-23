@@ -211,11 +211,13 @@ The script runs through these steps automatically:
 5. **Firewall** — opens ports 80 and 443 in the Linux firewall (iptables). Note: on Oracle Cloud you also need the Security List rule from Section 2d
 6. **Systemd service** — creates `propared-display.service` so the server starts automatically on boot and restarts if it crashes
 7. **Nightly restart** — schedules an automatic restart at 3 AM to keep things fresh
-8. **Shell aliases** — adds convenience commands to your terminal (see Section 9)
+8. **Shell aliases** — adds convenience commands to your terminal (see Section 10)
 
 When it finishes you'll see your server's IP and the Admin panel URL. Visit `http://YOUR_SERVER_IP/admin` — you should see the Admin panel.
 
 You can also visit `http://YOUR_SERVER_IP/` for the landing page, which links to the main tools without needing to remember each route.
+
+There is no separate browser `/status` page in the current app. For a quick health check use `http://YOUR_SERVER_IP/api/health` (or `https://.../api/health` after Section 5), and for service status over SSH use the `display-status` alias from Section 10.
 
 > **If the page doesn't load on Oracle Cloud:** double-check that you added the Security List ingress rule for port 80 (Section 2d). The Linux firewall is handled by the installer but the Oracle cloud firewall is separate.
 
@@ -445,6 +447,17 @@ The current client installer accepts either a full URL or a bare IP/hostname and
 
 Do these steps in the Admin panel before setting up any display clients.
 
+### Set the initial passwords
+
+1. Open `http://YOUR_SERVER_IP/admin` or `https://YOUR_SERVER_IP/admin` if you completed Section 5
+2. On a brand-new server you will be redirected to `/admin/setup`
+3. Create the main Admin password
+
+You will also likely want to set the other two passwords during initial setup:
+
+- Open `/notice` or `/media-admin` once to create the shared Notice/Media password
+- Open `/print-admin` once to create the separate Print Admin password at `/print-admin/setup`
+
 ### Add rooms
 
 1. Open `http://YOUR_SERVER_IP/admin` or `https://YOUR_SERVER_IP/admin` if you completed Section 5
@@ -495,7 +508,7 @@ Updates replace application code, not your day-to-day configuration.
 
 Do this for each Pi that will be a display. Each Pi becomes one room's kiosk.
 
-### 6a. What you'll need per Pi
+### 7a. What you'll need per Pi
 
 - Raspberry Pi Zero W2, Pi 4, or Pi 5
 - MicroSD card (16 GB+, Class 10 or faster)
@@ -503,7 +516,7 @@ Do this for each Pi that will be a display. Each Pi becomes one room's kiosk.
 - HDMI display and cable
 - Keyboard for initial setup (or SSH access if you configure Wi-Fi in the imager)
 
-### 6b. Flash Raspberry Pi OS
+### 7b. Flash Raspberry Pi OS
 
 1. Open **Raspberry Pi Imager** on your computer
 2. Click **Choose Device** and select your Pi model
@@ -522,7 +535,7 @@ Do this for each Pi that will be a display. Each Pi becomes one room's kiosk.
 
 Writing takes 2–5 minutes depending on your SD card speed.
 
-### 6c. First boot
+### 7c. First boot
 
 1. Insert the SD card into the Pi
 2. Connect the HDMI display and power supply (connect display **before** power)
@@ -539,7 +552,7 @@ If `.local` doesn't resolve, check your router's device list for the Pi's IP and
 ssh pi@192.168.1.x
 ```
 
-### 6d. Run the client installer
+### 7d. Run the client installer
 
 Once SSH'd into the Pi:
 
@@ -577,18 +590,11 @@ curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/testing/
 bash install-client.sh
 ```
 
-#### Alternative: pull the installer from your server
-
-```bash
-curl -O http://YOUR_SERVER_IP/install-client.sh
-bash install-client.sh
-```
-
 The installer will ask for your server URL or address, test the connection, and then run through setup automatically.
 
 > Safe to re-run: use the same commands later on any Pi when you want to update the client from GitHub or point it at a different server. The installer will detect the existing config and let you keep or replace it.
 
-Re-running the latest installer is also the easiest way to refresh Pi-specific Chromium flags and kiosk config after a client-side fix.
+Re-running the latest installer is also the easiest way to refresh Pi-specific Chromium flags and kiosk config after a client-side fix. If you repoint a Pi to a different server, the installer also tries to unregister it from the previous server automatically.
 
 **What the installer does:**
 
@@ -607,7 +613,7 @@ When the installer finishes, Chromium should appear fullscreen on the connected 
 
 > **Safe to re-run:** if you need to reinstall or change the server address, just run the installer again. It reads your existing config and offers to keep or replace it.
 
-### 6e. Pi Zero W2 — additional notes
+### 7e. Pi Zero W2 — additional notes
 
 The Pi Zero W2 is the smallest and cheapest Pi that can run a kiosk display. It works well but has some limitations:
 
@@ -628,13 +634,13 @@ sudo reboot
 
 After reboot, verify Wi-Fi and internet access again before running the client installer.
 
-### 6f. Pi 5 — additional notes
+### 7f. Pi 5 — additional notes
 
 - Needs the **mini HDMI** adapter (not micro HDMI like the Zero W2 / Pi 4)
 - Uses a **USB-C power supply, 5V/3A minimum**
 - The installer automatically applies a Chromium flag fix specific to Pi 5's 16K page size — this is normal
 
-### 6g. Managed Wi-Fi note for Pi Zero W2
+### 7g. Managed Wi-Fi note for Pi Zero W2
 
 If your network uses device registration for Wi-Fi access, you may need the Pi's wireless MAC address before it can join the network reliably.
 
@@ -682,6 +688,8 @@ This will:
 - Restart the server service
 - Leave all rooms, settings, and data files untouched
 
+If you are updating a sandbox server installed from `testing`, that alias already points at `install-server-testing.sh --update` instead.
+
 ### One-time promotion: testing server to production
 
 If a server was installed from `testing` and you want to convert that same machine to `main`, do a one-time run of the production installer:
@@ -711,6 +719,18 @@ This is the cleanest promotion path because it:
 | `display-stop` | Stop the server |
 | `display-status` | Show whether the service is running |
 | `display-logs` | Stream live server logs (Ctrl+C to stop) |
+
+For an HTTP-level health check from any machine, use:
+
+```bash
+curl http://YOUR_SERVER_IP/api/health
+```
+
+Or after HTTPS is enabled:
+
+```bash
+curl https://YOUR_SERVER_IP/api/health
+```
 
 ### Display client (Pi) commands
 
