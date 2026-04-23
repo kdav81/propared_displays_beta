@@ -90,8 +90,10 @@
   <div class="topbar-title"><span class="dot"></span>Print Calendar &#8212; Productions</div>
   <div class="topbar-links">
     <a class="btn btn-ghost btn-sm" href="/admin">&#9881; Admin</a>
-    <a class="btn btn-ghost btn-sm" href="/print-calendar">&#128438; Print Calendar</a>
+    <a class="btn btn-ghost btn-sm" href="/media-admin">&#128247; Media Library</a>
     <a class="btn btn-ghost btn-sm" href="/notice">&#128226; Notice</a>
+    <a class="btn btn-ghost btn-sm" href="/print-calendar">&#128438; Print Calendar</a>
+    <a class="btn btn-ghost btn-sm" href="/print-admin">&#128444; Print Admin</a>
   </div>
 </div>
 <div class="page">
@@ -160,7 +162,7 @@
 
       <div class="fsep">Propared iCal Feeds</div>
       <p style="font-size:14px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Add structured feed variants for this production. Use feed types like Full View and Performer View so duplicate events can prefer the broadest source automatically.
+        Add structured feed variants for this production. Standard feed types are Performer View, Full View, Crew View, and Designer View, with Custom available for anything extra.
       </p>
       <div class="feed-list" id="modal-feed-list"></div>
       <button class="btn btn-ghost btn-sm" onclick="addFeed()">+ Add Feed</button>
@@ -178,10 +180,10 @@
 var SHOWS = {};
 var RULES = [];
 var FEED_TYPES = [
-  {value:'full', label:'Full View'},
   {value:'performer', label:'Performer View'},
+  {value:'full', label:'Full View'},
   {value:'crew', label:'Crew View'},
-  {value:'public', label:'Public View'},
+  {value:'designer', label:'Designer View'},
   {value:'custom', label:'Custom'}
 ];
 
@@ -193,6 +195,7 @@ function feedTypeLabel(type){
 function normalizeFeed(feed, index){
   feed = feed || {};
   var type = String(feed.type || '').trim().toLowerCase() || 'custom';
+  if(type === 'public') type = 'designer';
   if(!FEED_TYPES.some(function(item){ return item.value === type; })) type = 'custom';
   var url = String(feed.url || '').trim();
   return {
@@ -269,7 +272,6 @@ function openNew(){
   document.getElementById('f-season').value='';
   document.getElementById('f-tag').value='';
   document.getElementById('modal-feed-list').innerHTML='';
-  addFeed({type:'full'});
   addFeed({type:'performer'});
   document.getElementById('modal-show').classList.add('open');
 }
@@ -284,7 +286,7 @@ function openEdit(id){
   var feedList=document.getElementById('modal-feed-list');
   feedList.innerHTML='';
   normalizedFeeds(s).forEach(function(f){ addFeed(f); });
-  if(!normalizedFeeds(s).length) addFeed({type:'full'});
+  if(!normalizedFeeds(s).length) addFeed({type:'performer'});
   document.getElementById('modal-show').classList.add('open');
 }
 function closeModal(){

@@ -68,8 +68,10 @@
   <div class="topbar-title">&#128438; Propared Calendar Print Tool</div>
   <div class="topbar-links">
     <a class="btn btn-ghost btn-sm" href="/admin">&#9881; Admin</a>
-    <a class="btn btn-ghost btn-sm" href="/print-admin">&#128444; Print Admin</a>
+    <a class="btn btn-ghost btn-sm" href="/media-admin">&#128247; Media Library</a>
     <a class="btn btn-ghost btn-sm" href="/notice">&#128226; Notice</a>
+    <a class="btn btn-ghost btn-sm" href="/print-calendar">&#128438; Print Calendar</a>
+    <a class="btn btn-ghost btn-sm" href="/print-admin">&#128444; Print Admin</a>
   </div>
 </div>
 
@@ -222,10 +224,10 @@ var _calSource = 'productions';
 var _selectedFeedIdsByShow = {};
 var PICK_ORDER_KEY = 'propared-print-calendar-order';
 var FEED_TYPES = {
-  full: 'Full View',
   performer: 'Performer View',
+  full: 'Full View',
   crew: 'Crew View',
-  public: 'Public View',
+  designer: 'Designer View',
   custom: 'Custom'
 };
 
@@ -233,6 +235,7 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function normalizeFeed(feed, index){
   feed = feed || {};
   var type = String(feed.type || '').trim().toLowerCase() || 'custom';
+  if(type === 'public') type = 'designer';
   if(!FEED_TYPES[type]) type = 'custom';
   return {
     id: String(feed.id || (type + '-' + (index + 1))),

@@ -4,7 +4,6 @@ from datetime import datetime
 
 from flask import Response, jsonify, redirect, render_template, request
 
-from app.auth import require_notice_auth
 from app.config import NOTICE_PASSWORD_FILE
 from app.storage import (
     check_password,
@@ -33,14 +32,6 @@ def register_notice_routes(app) -> None:
                 }
             )
         return jsonify({"active": False})
-
-    @app.route("/api/notice/push", methods=["POST"])
-    @require_notice_auth
-    def api_notice_push():
-        notice = load_notice()
-        notice["version"] = notice.get("version", 0) + 1
-        save_notice(notice)
-        return jsonify({"ok": True})
 
     @app.route("/notice", methods=["GET", "POST"])
     def notice_page():
@@ -85,4 +76,3 @@ def register_notice_routes(app) -> None:
                 )
 
         return render_template("notice.html", n=notice, msg=msg, setup_needed=setup_needed)
-

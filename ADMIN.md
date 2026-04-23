@@ -23,17 +23,20 @@ Day-to-day reference for managing Propared Calendar Displays. For initial instal
 
 ## 1. Admin Panel Overview
 
-Open `http://YOUR_SERVER_IP/admin` in any browser.
+Open `http://YOUR_SERVER_IP/admin` in any browser, or `https://YOUR_SERVER_IP/admin` if you've enabled HTTPS on the server.
+
+On a brand-new server, the first visit to `/admin` redirects to `/admin/setup` so you can create the admin password.
 
 ### Common URLs
 
 | URL | Purpose |
 |---|---|
 | `/` | Landing page with links to the main tools |
+| `/admin/setup` | First-time admin password setup |
 | `/admin` | Full admin panel |
 | `/media-admin` | Shared-password slideshow and site-logo management |
 | `/print-calendar` | Print calendar generation |
-| `/print-admin` | Production and location-rule setup for print calendars |
+| `/print-admin` | Production and location-rule setup for print calendars (separate password from Admin) |
 | `/notice` | Shared-password notice board |
 | `/dashboard` | Office/lobby dashboard view |
 
@@ -116,7 +119,7 @@ Each Raspberry Pi registers itself with the server when the client installer run
 | Field | Description |
 |---|---|
 | **Hostname** | The Pi's network name (set during OS install) |
-| **IP** | The Pi's local IP address |
+| **IP** | The Pi's last reported IP address. This is the value used by the quick SSH link in Admin |
 | **Room** | Which room this Pi is currently displaying |
 | **Last seen** | How long ago the Pi last checked in (green = online, red = offline) |
 
@@ -125,11 +128,19 @@ Each Raspberry Pi registers itself with the server when the client installer run
 ### Assigning a room
 
 1. Click **Edit** next to the Pi
-2. Select a room from the **Room** dropdown
+2. Select a room from the **Room** dropdown, or choose **Dashboard** if this Pi should run the office/lobby dashboard
 3. Optionally enable a **Screen Schedule** — the display will turn itself on and off at the specified times
 4. Click **Save**
 
 The Pi picks up the new assignment within 60 seconds.
+
+### Restarting a kiosk from Admin
+
+Each client row also has a restart button:
+
+- Click the circular-arrow button to queue a kiosk restart for that Pi
+- The Pi will acknowledge it on the next watchdog check-in and restart its LightDM kiosk session
+- While a restart is pending, the button changes to an hourglass state in the Admin list
 
 ### Screen schedule
 
@@ -215,12 +226,30 @@ After that:
 
 - `/notice` and `/media-admin` use the same password
 - `/admin` still uses its own separate admin password
+- `/print-admin` uses a third, separate password of its own
+
+You can create the shared Notice/Media password from either `/notice` or `/media-admin`, whichever you reach first.
 
 ---
 
 ## 8. Backup & Restore
 
-Backups capture everything: rooms, tag colors, settings, logos, slideshow media, productions, location rules, and the shared Notice/Media password.
+Backups capture the day-to-day display and print configuration:
+
+- rooms and room logos
+- tag colors
+- display and dashboard settings
+- notice content
+- productions and location rules for Print Admin
+- slideshow media metadata and uploaded slideshow files
+- the shared Notice/Media password
+
+Backups do **not** include:
+
+- the admin password
+- the separate Print Admin password
+- the client registry (`clients.json`)
+- the Flask secret key
 
 ### Creating a backup
 
@@ -240,6 +269,8 @@ Backups capture everything: rooms, tag colors, settings, logos, slideshow media,
 
 The **Saved on Server** section lists recent backups stored on the server itself. These are useful if you need to roll back without a local copy. Click **Refresh** to update the list.
 
+If you restore onto a different server, existing Pi clients will still need to check in again there because client records are not part of the backup archive.
+
 ---
 
 ## 9. Print Calendar
@@ -255,13 +286,14 @@ The page only works with one source type at a time, so you choose either product
 
 1. **Calendar Source** — choose **Productions** or **Rooms**
 2. **Select item(s)** — check one or more productions or rooms. Drag to reorder if you want a specific order in a combined calendar title
-3. **Calendar Type** — choose Monthly (one page per month) or Weekly (one page per week)
-4. **Date Range** — set the start and end month/year (monthly) or specific dates (weekly)
-5. **Calendar Options**:
+3. If you chose **Productions**, use the **Production Feeds** section to choose one enabled feed per selected production (for example Performer View, Full View, Crew View, or Designer View)
+4. **Calendar Type** — choose Monthly (one page per month) or Weekly (one page per week)
+5. **Date Range** — set the start and end month/year (monthly) or specific dates (weekly)
+6. **Calendar Options**:
    - **Calendar Subtitle** — shown in the header of every page (e.g. "Rehearsal Performance Calendar")
    - **Updated By** — your initials, shown in the header
    - **Apply location rules** — when checked, location names are substituted using the rules defined in Print Admin. Uncheck to show the raw original location from Propared
-6. Click **Generate PDF** — the file downloads automatically and a preview appears below
+7. Click **Generate PDF** — the file opens in a new browser tab and can then be saved or printed normally
 
 ### Production vs room behavior
 
@@ -290,6 +322,8 @@ For production calendars, the monthly and weekly PDF generators also no longer a
 
 Open `/print-admin` to manage the data that feeds the Print Calendar.
 
+On first use, `/print-admin` redirects to `/print-admin/setup` so you can create its separate password.
+
 ### Productions
 
 Each production is a named show with one or more Propared iCal feeds attached to it.
@@ -301,7 +335,10 @@ Each production is a named show with one or more Propared iCal feeds attached to
    - **Short Title** — shown in the selector on the Print Calendar page
    - **Season** — optional (e.g. "REP 25-26 Season")
    - **Short Tag** — if your events don't have `[TAG]` brackets, this prefix is added automatically
-   - **Propared iCal Feeds** — add one or more webcal/iCal URLs from Propared. Give each feed a label (e.g. "Main", "Crew")
+   - **Propared iCal Feeds** — add one or more feeds for that production. Each feed has:
+     - a **Feed Type** such as Performer View, Full View, Crew View, Designer View, or Custom
+     - an optional **Label**
+     - an **Enabled** toggle so you can keep a feed on file without offering it in Print Calendar
 3. Click **Save Production**
 
 **Editing / deleting** a production: use the **Edit** or **Delete** buttons on the production card.
@@ -341,7 +378,6 @@ The notice board at `/notice` posts an emergency or informational banner across 
 3. Optionally set a **Start** and **End** time — the notice will only display during this window
 4. Check **Active — show on all displays now**
 5. Click **Save & Post**
-6. Click **Push to Displays** to force an immediate update without waiting for the next refresh
 
 The notice banner appears in red at the top of every room display. Displays pick it up within 30 seconds automatically even without pushing.
 

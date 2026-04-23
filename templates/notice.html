@@ -47,7 +47,6 @@ input[type=checkbox]{width:18px;height:18px;accent-color:#c0392b;cursor:pointer}
   text-align:center;display:none}
 .preview.show{display:block}
 .divider{border:none;border-top:1px solid var(--border);margin:24px 0}
-.push-msg{font-size:13px;color:#4ade80;margin-top:10px;display:none}
 /* Flatpickr dark theme */
 .flatpickr-calendar{background:var(--s2) !important;border:1px solid var(--border);
   color:var(--text);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
@@ -71,6 +70,8 @@ span.flatpickr-weekday{color:var(--muted) !important}
   <div class="topbar-title">&#128226; Notice Board</div>
   <div class="topbar-links">
     <a class="btn btn-ghost btn-sm" href="/admin">&#9881; Admin</a>
+    <a class="btn btn-ghost btn-sm" href="/media-admin">&#128247; Media Library</a>
+    <a class="btn btn-ghost btn-sm" href="/notice">&#128226; Notice</a>
     <a class="btn btn-ghost btn-sm" href="/print-calendar">&#128438; Print Calendar</a>
     <a class="btn btn-ghost btn-sm" href="/print-admin">&#128444; Print Admin</a>
   </div>
@@ -137,10 +138,7 @@ span.flatpickr-weekday{color:var(--muted) !important}
                  document.getElementById('noticeForm').submit()">
         Clear Notice
       </button>
-      <button class="btn btn-blue" type="button" id="pushBtn"
-        onclick="pushToDisplays()">&#9654; Push to Displays</button>
     </div>
-    <div id="pushMsg" class="push-msg"></div>
   </form>
 
   <div class="preview" id="preview"></div>
@@ -180,27 +178,6 @@ function updatePreview(){
   else { p.className='preview'; }
 }
 updatePreview();
-
-function pushToDisplays(){
-  var btn = document.getElementById('pushBtn');
-  var msg = document.getElementById('pushMsg');
-  btn.disabled = true; btn.textContent = 'Pushing...';
-  fetch('/api/notice/push', {
-    method: 'POST'
-  }).then(function(r){
-    if(!r.ok) throw new Error(r.status === 401 ? 'Authentication required' : 'Request failed');
-    return r.json();
-  })
-  .then(function(d){
-    msg.textContent = d.ok ? '✓ Pushed — displays will update within 15 seconds' : '✗ Request failed';
-    msg.style.display = '';
-    btn.disabled = false; btn.textContent = '▶ Push to Displays';
-  }).catch(function(e){
-    msg.textContent = '✗ Error: ' + e;
-    msg.style.display = '';
-    btn.disabled = false; btn.textContent = '▶ Push to Displays';
-  });
-}
 </script>
 {% endif %}
 </div>
