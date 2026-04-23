@@ -37,6 +37,8 @@ import os
 import time
 from pathlib import Path
 
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 try:
     from print_calendar_pdf import build_calendar_pdf as _build_calendar_pdf
     from print_calendar_pdf import build_weekly_pdf as _build_weekly_pdf
@@ -90,6 +92,8 @@ ensure_runtime_dirs()
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
 app.secret_key = load_secret_key()
+# Trust a single reverse proxy for scheme/host so generated URLs stay HTTPS-safe.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 
 
@@ -206,12 +210,25 @@ if __name__ == "__main__":
     _boot_clients()         # load persisted client registry
     _boot_ical_cache()      # kick off background iCal refresh threads
 
+    host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", 80))
 
     try:
         from waitress import serve
-        log.info("Starting with waitress on port %d", port)
-        serve(app, host="0.0.0.0", port=port, threads=4)
+        log.info("Starting with waitress on %s:%d", host, port)
+        serve(
+            app,
+            host=host,
+            port=port,
+            threads=4,
+            trusted_proxy="127.0.0.1",
+            trusted_proxy_headers={
+                "x-forwarded-for",
+                "x-forwarded-host",
+                "x-forwarded-proto",
+                "x-forwarded-port",
+            },
+        )
     except ImportError:
         log.warning("waitress not installed — falling back to Flask dev server")
-        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+        app.run(host=host, port=port, debug=False, threaded=True)

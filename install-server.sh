@@ -30,6 +30,7 @@ APP_USER="${USER}"
 APP_DIR="${HOME}/propared-display"
 VENV_DIR="${APP_DIR}/venv"
 SERVICE_NAME="propared-display"
+HOST="0.0.0.0"
 PORT=80
 TZ_TARGET="America/New_York"
 
@@ -39,6 +40,7 @@ header "Propared Calendar Displays — Server Installer (branch: ${BRANCH})"
 echo "  User      : ${APP_USER}"
 echo "  App dir   : ${APP_DIR}"
 echo "  Branch    : ${BRANCH}"
+echo "  Host      : ${HOST}"
 echo "  Port      : ${PORT}"
 echo "  Timezone  : ${TZ_TARGET}"
 [[ "${UPDATE_ONLY}" == "true" ]] && \
@@ -186,6 +188,7 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=${SERVICE_NAME}
 Environment=PORT=${PORT}
+Environment=HOST=${HOST}
 TimeoutStopSec=10
 
 [Install]
