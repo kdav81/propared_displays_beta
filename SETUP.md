@@ -588,6 +588,8 @@ The installer will ask for your server URL or address, test the connection, and 
 
 > Safe to re-run: use the same commands later on any Pi when you want to update the client from GitHub or point it at a different server. The installer will detect the existing config and let you keep or replace it.
 
+Re-running the latest installer is also the easiest way to refresh Pi-specific Chromium flags and kiosk config after a client-side fix.
+
 **What the installer does:**
 
 1. **Detects your Pi model** — Pi 4/5 (with existing display manager) vs Pi Zero W2 (bare OS, installs minimal graphics stack)
@@ -611,6 +613,7 @@ The Pi Zero W2 is the smallest and cheapest Pi that can run a kiosk display. It 
 
 - **First boot is slow** — allow 2–3 minutes before expecting SSH to respond
 - **`--disable-gpu` flag** — the installer detects this automatically and sets it in Chromium. Do not remove it or Chromium will crash on the Zero W2
+- The current installer now saves that GPU flag into the persistent client config too, so future kiosk restarts keep using it
 - **Wi-Fi only** — no ethernet port. Make sure Wi-Fi credentials are set in the imager before flashing
 - **Power** — use a quality 5V/2.5A power supply. Underpowered Pis randomly freeze or corrupt the SD card
 
