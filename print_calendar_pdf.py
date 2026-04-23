@@ -201,7 +201,7 @@ def clean_location(loc: str, rules: list[dict]) -> str:
         keywords = [k.strip().lower() for k in rule.get("keywords", "").split(",") if k.strip()]
         if not keywords:
             continue
-        if any(kw in cleaned.lower() for kw in keywords):
+        if all(kw in cleaned.lower() for kw in keywords):
             return rule.get("replacement", cleaned)
     return cleaned
 

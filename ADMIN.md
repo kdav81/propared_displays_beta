@@ -351,7 +351,7 @@ Rules are checked in order — the first matching rule wins.
 
 **Adding a rule:**
 1. Click **+ Add Rule**
-2. Enter one or more **trigger keywords** (comma-separated, case-insensitive) — the rule fires if the event's location contains any of these words
+2. Enter one or more **trigger keywords** (comma-separated, case-insensitive) — the rule fires only if the event's location contains all of these terms
 3. Enter the **replacement text** — what the location will be changed to
 4. Click **Save Rules**
 
