@@ -186,10 +186,11 @@ fi
 header "Step 2 of 2 - Register with server"
 info "Registering client ID with server..."
 HOSTNAME_VAL=$(hostname)
+IP_VAL="$(hostname -I | awk '{print $1}')"
 if curl -sf --max-time 8 \
     -X POST "${SERVER_URL}/api/checkin" \
     -H "Content-Type: application/json" \
-    -d "{\"client_id\":\"${CLIENT_ID}\",\"hostname\":\"${HOSTNAME_VAL}\",\"ip\":\"\",\"role\":\"display\"}" \
+    -d "{\"client_id\":\"${CLIENT_ID}\",\"hostname\":\"${HOSTNAME_VAL}\",\"ip\":\"${IP_VAL}\",\"role\":\"display\"}" \
     > /dev/null 2>&1; then
     info "Client registered. Assign a room in the Admin panel at ${SERVER_URL}/admin"
     unregister_previous_server "${PREVIOUS_SERVER_URL}"

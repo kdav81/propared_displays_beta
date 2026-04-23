@@ -54,6 +54,24 @@ def _client_hostname_matches(client: dict | None, hostname: str) -> bool:
     return existing_hostname == hostname
 
 
+def _preferred_client_ip(request, reported_ip: str = "", existing_ip: str = "") -> str:
+    reported_ip = str(reported_ip or "").strip()
+    if reported_ip:
+        return reported_ip
+
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    if forwarded_for:
+        first_ip = forwarded_for.split(",", 1)[0].strip()
+        if first_ip:
+            return first_ip
+
+    remote_ip = str(request.remote_addr or "").strip()
+    if remote_ip and remote_ip not in {"127.0.0.1", "::1"}:
+        return remote_ip
+
+    return str(existing_ip or "").strip()
+
+
 def _ensure_client_defaults(existing: dict, *, hostname: str, ip: str, role: str = "display") -> dict:
     client = dict(existing or {})
     client["hostname"] = hostname
@@ -240,7 +258,7 @@ def register_display_routes(
         clients[client_id] = _ensure_client_defaults(
             existing,
             hostname=hostname,
-            ip=data.get("ip", request.remote_addr),
+            ip=_preferred_client_ip(request, data.get("ip", ""), existing.get("ip", "")),
             role=role,
         )
         save_clients(clients)
@@ -269,7 +287,8 @@ def register_display_routes(
     @app.route("/api/client-config/<client_id>")
     def api_client_config(client_id):
         hostname = request.args.get("hostname", "unknown")
-        ip = request.remote_addr
+        existing = clients.get(client_id, {})
+        ip = _preferred_client_ip(request, existing_ip=existing.get("ip", ""))
 
         if client_id not in clients:
             clients[client_id] = _ensure_client_defaults({}, hostname=hostname, ip=ip)
