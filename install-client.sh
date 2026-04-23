@@ -124,29 +124,59 @@ unregister_previous_server() {
     fi
 }
 
+normalize_server_input() {
+    local raw="$1"
+    raw="${raw// /}"
+    raw="${raw%/}"
+    printf '%s' "${raw}"
+}
+
+test_server_url() {
+    local candidate="$1"
+    info "Testing connection to ${candidate}/api/health ..."
+    if curl -sf --max-time 5 "${candidate}/api/health" > /dev/null 2>&1; then
+        SERVER_URL="${candidate}"
+        return 0
+    fi
+    return 1
+}
+
 # =============================================================================
 # Step 2 — Server URL
 # =============================================================================
 if [[ -z "${SERVER_URL}" ]]; then
     header "Step 1 of 2 - Server"
-    echo "  Enter the IP or hostname of your Propared Calendar Displays server."
-    echo "  Example: 129.80.14.172"
+    echo "  Enter the URL, IP, or hostname of your Propared Calendar Displays server."
+    echo "  Examples: https://129.80.14.172   129.80.14.172   hallway-server.local"
     echo
     while true; do
         read -rp "  Server address: " RAW
-        RAW="${RAW// /}"
+        RAW=$(normalize_server_input "${RAW}")
         [[ -z "${RAW}" ]] && { warn "Cannot be empty."; continue; }
-        RAW="${RAW#http://}"; RAW="${RAW#https://}"; RAW="${RAW%/}"
-        SERVER_URL="http://${RAW}"
-        info "Testing connection to ${SERVER_URL}/api/health ..."
-        if curl -sf --max-time 5 "${SERVER_URL}/api/health" > /dev/null 2>&1; then
-            info "Server reachable"
-            break
+
+        if [[ "${RAW}" == http://* || "${RAW}" == https://* ]]; then
+            if test_server_url "${RAW}"; then
+                info "Server reachable"
+                break
+            fi
         else
-            warn "Could not reach ${SERVER_URL}/api/health"
-            read -rp "  Try again? [Y/n]: " RETRY
-            [[ "${RETRY,,}" == "n" ]] && break
+            if test_server_url "https://${RAW}"; then
+                info "Server reachable over HTTPS"
+                break
+            fi
+            warn "HTTPS did not respond for ${RAW}; trying HTTP."
+            if test_server_url "http://${RAW}"; then
+                info "Server reachable over HTTP"
+                break
+            fi
         fi
+
+        if [[ -n "${SERVER_URL}" ]]; then
+            info "Server reachable"
+        fi
+        warn "Could not reach ${RAW}"
+        read -rp "  Try again? [Y/n]: " RETRY
+        [[ "${RETRY,,}" == "n" ]] && break
     done
 fi
 
