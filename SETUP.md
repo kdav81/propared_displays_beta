@@ -10,12 +10,13 @@ This guide covers everything from creating your server to installing Raspberry P
 2. [Option A — Oracle Cloud Server (Recommended)](#2-option-a--oracle-cloud-server-recommended)
 3. [Option B — Raspberry Pi as the Server (Local Network)](#3-option-b--raspberry-pi-as-the-server-local-network)
 4. [Installing the Server Software](#4-installing-the-server-software)
-5. [First-Time Configuration](#5-first-time-configuration)
-6. [Setting Up Raspberry Pi Display Clients](#6-setting-up-raspberry-pi-display-clients)
-7. [Assigning Rooms to Displays](#7-assigning-rooms-to-displays)
-8. [Updating the Server](#8-updating-the-server)
-9. [Useful Commands](#9-useful-commands)
-10. [Testing Branch Workflow](#10-testing-branch-workflow)
+5. [Optional — HTTPS on Oracle Cloud Public IP](#5-optional--https-on-oracle-cloud-public-ip)
+6. [First-Time Configuration](#6-first-time-configuration)
+7. [Setting Up Raspberry Pi Display Clients](#7-setting-up-raspberry-pi-display-clients)
+8. [Assigning Rooms to Displays](#8-assigning-rooms-to-displays)
+9. [Updating the Server](#9-updating-the-server)
+10. [Useful Commands](#10-useful-commands)
+11. [Testing Branch Workflow](#11-testing-branch-workflow)
 
 ---
 
@@ -84,7 +85,7 @@ Oracle Cloud has its own firewall (called a Security List) on top of the Linux f
 
 4. Click **Add Ingress Rules** to save
 
-> If you ever add HTTPS, repeat with port `443`.
+> If you plan to follow the HTTPS setup in Section 5, add a matching ingress rule for port `443` now.
 
 You should also make sure SSH is open so you can manage the VM:
 
@@ -220,13 +221,233 @@ You can also visit `http://YOUR_SERVER_IP/` for the landing page, which links to
 
 ---
 
-## 5. First-Time Configuration
+## 5. Optional — HTTPS on Oracle Cloud Public IP
+
+Use this section if you want the Oracle Cloud VM reachable as `https://YOUR_PUBLIC_IP/...` with a Let’s Encrypt IP-address certificate. This is optional, but it is the cleanest path if you do not want to buy a domain name.
+
+### What this setup does
+
+- Keeps the Flask/Waitress app running as a backend service
+- Moves the app to `127.0.0.1:8000`
+- Puts **Nginx** in front on ports `80` and `443`
+- Uses **Certbot** to request a Let’s Encrypt **IP address certificate**
+- Lets Certbot renew the short-lived IP cert automatically
+
+### Before you start
+
+1. In Oracle Cloud, change the VM to use a **reserved public IP** instead of an ephemeral one if you have not already. The certificate is tied to that IP, so the address needs to stay stable.
+2. Make sure Oracle Cloud ingress rules allow:
+   - `22` for SSH
+   - `80` for HTTP validation
+   - `443` for HTTPS
+3. Run the normal server installer from Section 4 first so the app is already working over plain HTTP.
+
+### 5a. Install Nginx and current Certbot
+
+Certbot's own docs recommend the **Snap** package so you get current releases. This matters here because IP-address certificates need recent Certbot support.
+
+```bash
+sudo apt-get update
+sudo apt-get install -y nginx snapd
+sudo snap install core
+sudo snap refresh core
+sudo snap install --classic certbot
+sudo ln -sf /snap/bin/certbot /usr/bin/certbot
+sudo mkdir -p /var/www/certbot
+```
+
+### 5b. Move the app behind the reverse proxy
+
+Edit the systemd service:
+
+```bash
+sudo nano /etc/systemd/system/propared-display.service
+```
+
+Change these two lines:
+
+```ini
+Environment=PORT=80
+Environment=HOST=0.0.0.0
+```
+
+to:
+
+```ini
+Environment=PORT=8000
+Environment=HOST=127.0.0.1
+```
+
+Then reload and restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart propared-display
+sudo systemctl status propared-display
+```
+
+The app is now private to the VM and ready for Nginx to proxy it.
+
+### 5c. Configure Nginx for HTTP and ACME validation
+
+Replace `YOUR_PUBLIC_IP` with the Oracle public IP you are actually using.
+
+```bash
+sudo tee /etc/nginx/sites-available/propared-display > /dev/null <<'EOF'
+server {
+    listen 80;
+    server_name YOUR_PUBLIC_IP;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+    }
+}
+EOF
+
+sudo ln -sf /etc/nginx/sites-available/propared-display /etc/nginx/sites-enabled/propared-display
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Quick check:
+
+```bash
+curl http://YOUR_PUBLIC_IP/api/health
+```
+
+If that returns JSON, Nginx is proxying correctly.
+
+### 5d. Request the Let’s Encrypt IP certificate
+
+Start with the staging environment once so you can catch mistakes without hitting production limits:
+
+```bash
+sudo certbot certonly \
+  --staging \
+  --preferred-profile shortlived \
+  --webroot \
+  --webroot-path /var/www/certbot \
+  --ip-address YOUR_PUBLIC_IP
+```
+
+If that succeeds, request the real certificate:
+
+```bash
+sudo certbot certonly \
+  --preferred-profile shortlived \
+  --webroot \
+  --webroot-path /var/www/certbot \
+  --ip-address YOUR_PUBLIC_IP
+```
+
+### 5e. Turn on HTTPS in Nginx
+
+After the certificate is issued, replace the Nginx site with this version:
+
+```bash
+sudo tee /etc/nginx/sites-available/propared-display > /dev/null <<'EOF'
+server {
+    listen 80;
+    server_name YOUR_PUBLIC_IP;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name YOUR_PUBLIC_IP;
+
+    ssl_certificate /etc/letsencrypt/live/YOUR_PUBLIC_IP/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/YOUR_PUBLIC_IP/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+    }
+}
+EOF
+
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Now test:
+
+```bash
+curl https://YOUR_PUBLIC_IP/api/health
+```
+
+You should also be able to open:
+
+```text
+https://YOUR_PUBLIC_IP/admin
+```
+
+### 5f. Automatic renewal
+
+Let’s Encrypt IP certificates are short-lived, so **manual weekly renewal is not the goal**. Certbot is meant to renew them for you automatically.
+
+Create a deploy hook so Nginx reloads after renewal:
+
+```bash
+sudo tee /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh > /dev/null <<'EOF'
+#!/usr/bin/env bash
+systemctl reload nginx
+EOF
+sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+```
+
+Confirm the Certbot timer exists:
+
+```bash
+systemctl list-timers | grep certbot
+```
+
+Run one renewal test:
+
+```bash
+sudo certbot renew --dry-run
+```
+
+If the dry run succeeds, renewal is automated. You do **not** need to log in weekly and renew by hand.
+
+### 5g. Existing Pi clients after HTTPS is enabled
+
+Re-run the client installer on each Pi and enter the **full HTTPS URL**, for example:
+
+```text
+https://YOUR_PUBLIC_IP
+```
+
+The current client installer accepts either a full URL or a bare IP/hostname and will test HTTPS first.
+
+---
+
+## 6. First-Time Configuration
 
 Do these steps in the Admin panel before setting up any display clients.
 
 ### Add rooms
 
-1. Open `http://YOUR_SERVER_IP/admin`
+1. Open `http://YOUR_SERVER_IP/admin` or `https://YOUR_SERVER_IP/admin` if you completed Section 5
 2. In the **Rooms** section, click the **+** card
 3. Fill in:
    - **Display Title** — what appears as the room name on screen (e.g. "Rehearsal Hall A")
@@ -270,7 +491,7 @@ Updates replace application code, not your day-to-day configuration.
 
 ---
 
-## 6. Setting Up Raspberry Pi Display Clients
+## 7. Setting Up Raspberry Pi Display Clients
 
 Do this for each Pi that will be a display. Each Pi becomes one room's kiosk.
 
@@ -332,6 +553,12 @@ curl http://YOUR_SERVER_IP/api/health
 
 If that does not return a small JSON response, fix networking before continuing.
 
+If you've already enabled HTTPS from Section 5, use:
+
+```bash
+curl https://YOUR_SERVER_IP/api/health
+```
+
 For Pi Zero W2 units on managed Wi-Fi, make sure the device is registered on the network first or the installer will not be able to reach the server.
 
 #### Pull the client installer from GitHub
@@ -357,14 +584,14 @@ curl -O http://YOUR_SERVER_IP/install-client.sh
 bash install-client.sh
 ```
 
-The installer will ask for your server's IP address, test the connection, and then run through setup automatically.
+The installer will ask for your server URL or address, test the connection, and then run through setup automatically.
 
 > Safe to re-run: use the same commands later on any Pi when you want to update the client from GitHub or point it at a different server. The installer will detect the existing config and let you keep or replace it.
 
 **What the installer does:**
 
 1. **Detects your Pi model** — Pi 4/5 (with existing display manager) vs Pi Zero W2 (bare OS, installs minimal graphics stack)
-2. **Prompts for server address** — enter your server's IP or hostname. The script verifies it can reach the server before continuing
+2. **Prompts for server address** — enter your server's IP, hostname, or full URL such as `https://YOUR_SERVER_IP`. The script verifies it can reach the server before continuing
 3. **Registers the Pi** — assigns this Pi a permanent Client ID that appears in the Admin panel
 4. **Installs packages** — Chromium browser, unclutter (hides the mouse cursor), and any missing graphics drivers
 5. **Creates the kiosk launcher** — a script that starts Chromium in fullscreen mode pointing at the server
@@ -420,11 +647,11 @@ If your IT environment uses registration expiration, set yourself a reminder to 
 
 ---
 
-## 7. Assigning Rooms to Displays
+## 8. Assigning Rooms to Displays
 
 Once a Pi has run the installer, it appears in the Admin panel.
 
-1. Open `http://YOUR_SERVER_IP/admin`
+1. Open `http://YOUR_SERVER_IP/admin` or `https://YOUR_SERVER_IP/admin` if HTTPS is enabled
 2. Scroll to the **Clients** section
 3. Find the Pi by hostname
 4. Click **Edit**:
@@ -436,7 +663,7 @@ The Pi picks up its new room assignment within 60 seconds and switches from the 
 
 ---
 
-## 8. Updating the Server
+## 9. Updating the Server
 
 When code changes are pushed to GitHub, update without reinstalling using:
 
@@ -470,7 +697,7 @@ This is the cleanest promotion path because it:
 
 ---
 
-## 9. Useful Commands
+## 10. Useful Commands
 
 ### Server commands
 
@@ -519,7 +746,7 @@ This is the recommended replacement for the old thumbdrive workflow.
 
 ---
 
-## 10. Testing Branch Workflow
+## 11. Testing Branch Workflow
 
 The `testing` branch is used to safely test changes before pushing to production displays.
 

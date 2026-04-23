@@ -23,7 +23,7 @@ Day-to-day reference for managing Propared Calendar Displays. For initial instal
 
 ## 1. Admin Panel Overview
 
-Open `http://YOUR_SERVER_IP/admin` in any browser.
+Open `http://YOUR_SERVER_IP/admin` in any browser, or `https://YOUR_SERVER_IP/admin` if you've enabled HTTPS on the server.
 
 ### Common URLs
 

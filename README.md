@@ -21,10 +21,10 @@ A web-based room display system for the University of Delaware's Department of T
 ```
                   ┌─────────────────────────────────┐
                   │   Oracle Cloud VM (Ubuntu 22.04) │
-                  │   Flask/Waitress on port 80      │
+                  │   Flask/Waitress backend         │
                   │   ~/propared-display/            │
                   └──────────────┬──────────────────┘
-                                 │ HTTP
+                                 │ HTTP / HTTPS
           ┌──────────────────────┼──────────────────────┐
           │                      │                      │
    ┌──────▼──────┐       ┌───────▼──────┐      ┌───────▼──────┐
@@ -69,7 +69,7 @@ curl -O https://raw.githubusercontent.com/kdav81/propared_displays_beta/testing/
 bash install-client.sh
 ```
 
-The script will prompt for the server address and can be safely re-run on an existing Pi to update or repoint that client.
+The script will prompt for the server address or full URL (`http://` or `https://`) and can be safely re-run on an existing Pi to update or repoint that client.
 
 ---
 
