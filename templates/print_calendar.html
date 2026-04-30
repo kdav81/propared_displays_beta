@@ -52,6 +52,10 @@
 
 .helper{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.6}
 .feed-select-list{display:flex;flex-direction:column;gap:10px}
+.feed-bulk-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.feed-bulk-toolbar select{background:var(--bg);border:1px solid var(--border);color:var(--text);
+  padding:8px 10px;border-radius:8px;font-size:13px;font-family:inherit;min-width:160px}
+.feed-bulk-toolbar select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,110,247,.15)}
 .feed-select-row{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
 .feed-select-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
 .feed-select-title{font-size:14px;font-weight:600;color:#fff}
@@ -107,6 +111,7 @@
     <div class="helper" id="feedSelectionHelp">
       Choose one feed per selected production so the printed calendar uses the exact view you want.
     </div>
+    <div id="seasonFeedToolbar" style="display:none"></div>
     <div class="feed-select-list" id="feedSelectionList"></div>
   </div>
 
@@ -333,6 +338,28 @@ function clearProductionSelection(){
   setProductionSelection([]);
   renderFeedSelectors();
 }
+function renderSeasonFeedToolbar(showIds){
+  var el = document.getElementById('seasonFeedToolbar');
+  if(_calSource !== 'productions' || !showIds.length){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  var options = availableSeasonFeedTypes().map(function(item){
+    return '<option value="' + esc(item.value) + '">' + esc(item.label) + '</option>';
+  }).join('');
+  el.innerHTML = ''
+    + '<div class="feed-bulk-toolbar">'
+    + '<span class="season-toolbar-label">Selected Production View</span>'
+    + '<select id="seasonFeedType">' + options + '</select>'
+    + '<span class="pick-meta">Use this to align the selected productions to one shared view.</span>'
+    + '</div>';
+  el.style.display = '';
+  var seasonFeedType = document.getElementById('seasonFeedType');
+  if(seasonFeedType){
+    seasonFeedType.addEventListener('change', applySeasonFeedTypeToSelected);
+  }
+}
 function renderSeasonQuickSelect(items){
   var el = document.getElementById('seasonQuickSelect');
   if(_calSource !== 'productions'){
@@ -346,17 +373,13 @@ function renderSeasonQuickSelect(items){
     el.innerHTML = '';
     return;
   }
-  var options = availableSeasonFeedTypes().map(function(item){
-    return '<option value="' + esc(item.value) + '">' + esc(item.label) + '</option>';
-  }).join('');
   var buttons = groups.map(function(group, index){
     return '<button class="btn btn-ghost btn-sm" type="button" data-season-index="' + index + '">' + esc(group.season) + '</button>';
   }).join('');
   el.innerHTML = ''
     + '<div class="season-toolbar">'
     + '<span class="season-toolbar-label">Season Quick Select</span>'
-    + '<select id="seasonFeedType">' + options + '</select>'
-    + '<span class="pick-meta">Choose one view, then apply it to every production in a season.</span>'
+    + '<span class="pick-meta">Pick a season to select all productions in that group.</span>'
     + '<button class="btn btn-ghost btn-sm" type="button" id="seasonClearBtn">Clear Selection</button>'
     + '</div>'
     + '<div class="season-chip-row">' + buttons + '</div>';
@@ -369,10 +392,6 @@ function renderSeasonQuickSelect(items){
       });
     }
   });
-  var seasonFeedType = document.getElementById('seasonFeedType');
-  if(seasonFeedType){
-    seasonFeedType.addEventListener('change', applySeasonFeedTypeToSelected);
-  }
   var clearBtn = document.getElementById('seasonClearBtn');
   if(clearBtn){
     clearBtn.addEventListener('click', clearProductionSelection);
@@ -408,6 +427,7 @@ function renderFeedSelectors(){
     return;
   }
   var showIds = selectedIds();
+  renderSeasonFeedToolbar(showIds);
   if(!showIds.length){
     list.innerHTML = '<div class="feed-select-empty">Select one or more productions to choose a feed for each.</div>';
     section.style.display = '';
