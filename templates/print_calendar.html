@@ -38,6 +38,12 @@
 .pick-title{font-size:14px;font-weight:600;color:#fff;flex:1}
 .pick-meta{font-size:12px;color:var(--muted)}
 .no-items{font-size:14px;color:var(--muted);font-style:italic;padding:4px 0}
+.season-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.season-toolbar-label{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.season-toolbar select{background:var(--bg);border:1px solid var(--border);color:var(--text);
+  padding:8px 10px;border-radius:8px;font-size:13px;font-family:inherit;min-width:160px}
+.season-toolbar select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,110,247,.15)}
+.season-chip-row{display:flex;gap:8px;flex-wrap:wrap}
 
 .type-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content}
 .type-btn{padding:9px 22px;font-size:14px;font-weight:600;cursor:pointer;border:none;
@@ -90,6 +96,7 @@
 
   <div class="section">
     <div class="section-title" id="pickSectionTitle">Select Production(s)</div>
+    <div id="seasonQuickSelect" style="display:none"></div>
     <div class="pick-list" id="pick-list">
       <div class="no-items">Loading items&#8230;</div>
     </div>
@@ -223,10 +230,11 @@ var _calType = 'monthly';
 var _calSource = 'productions';
 var _selectedFeedIdsByShow = {};
 var FEED_TYPES = {
-  performer: 'Performer View',
   full: 'Full View',
+  performer: 'Performer',
   crew: 'Crew View',
-  designer: 'Designer View',
+  designer: 'Designer',
+  techdress: 'Tech/Dress',
   custom: 'Custom'
 };
 
@@ -258,6 +266,117 @@ function currentPickOrder(){
   return Array.from(document.querySelectorAll('#pick-list .pick-row')).map(function(row){
     return row.dataset.id;
   });
+}
+function availableSeasonFeedTypes(){
+  return [
+    {value:'full', label:'Full View'},
+    {value:'performer', label:'Performer'},
+    {value:'crew', label:'Crew View'},
+    {value:'designer', label:'Designer'},
+    {value:'techdress', label:'Tech/Dress'}
+  ];
+}
+function preferredSeasonFeedType(){
+  var select = document.getElementById('seasonFeedType');
+  return select ? select.value : 'full';
+}
+function setPreferredFeedForShow(showId, preferredType){
+  var feeds = normalizedFeeds(SHOWS[showId] || {});
+  if(!feeds.length){
+    delete _selectedFeedIdsByShow[showId];
+    return;
+  }
+  var preferred = feeds.find(function(feed){ return feed.type === preferredType; });
+  _selectedFeedIdsByShow[showId] = (preferred || feeds[0]).id;
+}
+function productionSeasonGroups(items){
+  var groups = [];
+  var seen = {};
+  (items || []).forEach(function(item){
+    var showId = item.id;
+    var show = SHOWS[showId] || {};
+    var season = String(show.season || '').trim();
+    if(!season) return;
+    if(!seen[season]){
+      seen[season] = [];
+      groups.push({season: season, ids: seen[season]});
+    }
+    seen[season].push(showId);
+  });
+  return groups;
+}
+function setProductionSelection(showIds){
+  var selected = {};
+  showIds.forEach(function(showId){ selected[showId] = true; });
+  document.querySelectorAll('#pick-list .pick-row').forEach(function(row){
+    var checked = !!selected[row.dataset.id];
+    var cb = row.querySelector('input[type=checkbox]');
+    if(cb) cb.checked = checked;
+    row.classList.toggle('selected', checked);
+  });
+}
+function applySeasonSelection(showIds){
+  var preferredType = preferredSeasonFeedType();
+  showIds.forEach(function(showId){
+    setPreferredFeedForShow(showId, preferredType);
+  });
+  setProductionSelection(showIds);
+  renderFeedSelectors();
+}
+function applySeasonFeedTypeToSelected(){
+  selectedIds().forEach(function(showId){
+    setPreferredFeedForShow(showId, preferredSeasonFeedType());
+  });
+  renderFeedSelectors();
+}
+function clearProductionSelection(){
+  setProductionSelection([]);
+  renderFeedSelectors();
+}
+function renderSeasonQuickSelect(items){
+  var el = document.getElementById('seasonQuickSelect');
+  if(_calSource !== 'productions'){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  var groups = productionSeasonGroups(items);
+  if(!groups.length){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  var options = availableSeasonFeedTypes().map(function(item){
+    return '<option value="' + esc(item.value) + '">' + esc(item.label) + '</option>';
+  }).join('');
+  var buttons = groups.map(function(group, index){
+    return '<button class="btn btn-ghost btn-sm" type="button" data-season-index="' + index + '">' + esc(group.season) + '</button>';
+  }).join('');
+  el.innerHTML = ''
+    + '<div class="season-toolbar">'
+    + '<span class="season-toolbar-label">Season Quick Select</span>'
+    + '<select id="seasonFeedType">' + options + '</select>'
+    + '<span class="pick-meta">Choose one view, then apply it to every production in a season.</span>'
+    + '<button class="btn btn-ghost btn-sm" type="button" id="seasonClearBtn">Clear Selection</button>'
+    + '</div>'
+    + '<div class="season-chip-row">' + buttons + '</div>';
+  el.style.display = '';
+  groups.forEach(function(group, index){
+    var btn = el.querySelector('[data-season-index="' + index + '"]');
+    if(btn){
+      btn.addEventListener('click', function(){
+        applySeasonSelection(group.ids);
+      });
+    }
+  });
+  var seasonFeedType = document.getElementById('seasonFeedType');
+  if(seasonFeedType){
+    seasonFeedType.addEventListener('change', applySeasonFeedTypeToSelected);
+  }
+  var clearBtn = document.getElementById('seasonClearBtn');
+  if(clearBtn){
+    clearBtn.addEventListener('click', clearProductionSelection);
+  }
 }
 function saveProductionOrder(ids){
   return fetch(SERVER + '/api/print-shows/order', {
@@ -389,6 +508,7 @@ function renderPickList(){
     : 'Choose productions from the print admin setup. Duplicate events shared between Full View, Performer View, and other feed types are collapsed automatically with higher-priority feeds winning.';
 
   if(!items.length){
+    renderSeasonQuickSelect(items);
     if(_calSource === 'rooms'){
       container.innerHTML = '<div class="no-items">No rooms are configured yet. <a href="/admin" style="color:var(--accent)">Set them up in Admin &#8594;</a></div>';
     } else {
@@ -411,6 +531,7 @@ function renderPickList(){
       + '</div>';
     container.appendChild(row);
   });
+  renderSeasonQuickSelect(items);
   initDrag();
 }
 

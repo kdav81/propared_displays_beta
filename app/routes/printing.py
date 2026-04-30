@@ -21,7 +21,7 @@ from app.storage import (
 )
 
 
-FEED_TYPE_CHOICES = {"full", "performer", "crew", "designer", "public", "custom"}
+FEED_TYPE_CHOICES = {"full", "performer", "crew", "designer", "techdress", "public", "custom"}
 
 
 def _normalize_feed(feed: dict, index: int) -> dict | None:
