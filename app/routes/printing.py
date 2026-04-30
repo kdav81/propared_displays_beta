@@ -11,10 +11,12 @@ from app.storage import (
     load_location_rules,
     load_print_shows,
     load_rooms,
+    load_settings,
     load_tags,
     read_password_hash,
     save_location_rules,
     save_print_shows,
+    save_settings,
     write_password,
 )
 
@@ -65,6 +67,18 @@ def _normalize_show(show: dict) -> dict:
 
 def _normalized_show_map(shows: dict) -> dict:
     return {show_id: _normalize_show(show) for show_id, show in shows.items()}
+
+
+def _ordered_show_map(shows: dict, order: list[str]) -> dict:
+    normalized = _normalized_show_map(shows)
+    ordered: dict = {}
+    for show_id in order:
+        if show_id in normalized:
+            ordered[show_id] = normalized[show_id]
+    for show_id, show in normalized.items():
+        if show_id not in ordered:
+            ordered[show_id] = show
+    return ordered
 
 
 def _filter_show_feeds(shows: dict, selected_feed_ids: list[str]) -> dict:
@@ -128,7 +142,8 @@ def register_printing_routes(
 
     @app.route("/api/print-shows", methods=["GET"])
     def api_print_shows_get():
-        return jsonify(_normalized_show_map(load_print_shows()))
+        settings = load_settings()
+        return jsonify(_ordered_show_map(load_print_shows(), settings.get("printProductionOrder", [])))
 
     @app.route("/api/print-shows", methods=["POST"])
     @require_print_admin_auth
@@ -138,6 +153,11 @@ def register_printing_routes(
         new_id = str(uuid.uuid4())[:8]
         shows[new_id] = _normalize_show(data)
         save_print_shows(shows)
+        settings = load_settings()
+        order = [show_id for show_id in settings.get("printProductionOrder", []) if show_id in shows and show_id != new_id]
+        order.append(new_id)
+        settings["printProductionOrder"] = order
+        save_settings(settings)
         return jsonify({"id": new_id})
 
     @app.route("/api/print-shows/<show_id>", methods=["PUT"])
@@ -157,7 +177,33 @@ def register_printing_routes(
         shows = load_print_shows()
         shows.pop(show_id, None)
         save_print_shows(shows)
+        settings = load_settings()
+        settings["printProductionOrder"] = [item for item in settings.get("printProductionOrder", []) if item != show_id]
+        save_settings(settings)
         return jsonify({"ok": True})
+
+    @app.route("/api/print-shows/order", methods=["POST"])
+    def api_print_shows_order():
+        data = request.get_json(force=True, silent=True) or {}
+        order = data.get("order", [])
+        if not isinstance(order, list):
+            return Response("Expected order list", status=400)
+        shows = load_print_shows()
+        clean = []
+        seen = set()
+        for show_id in order:
+            show_id = str(show_id).strip()
+            if not show_id or show_id in seen or show_id not in shows:
+                continue
+            seen.add(show_id)
+            clean.append(show_id)
+        for show_id in shows:
+            if show_id not in seen:
+                clean.append(show_id)
+        settings = load_settings()
+        settings["printProductionOrder"] = clean
+        save_settings(settings)
+        return jsonify({"ok": True, "order": clean})
 
     @app.route("/api/location-rules", methods=["GET"])
     def api_location_rules_get():
