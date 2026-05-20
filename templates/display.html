@@ -249,6 +249,7 @@ function tagColor(tag){ var i=tagInfo(tag); return typeof i==='string'?i:(i.colo
 function fmt(d){ var h=d.getHours(),m=d.getMinutes(),ap=h>=12?'PM':'AM'; h=h%12||12;
   return h+':'+String(m).padStart(2,'0')+' '+ap; }
 function fmtShortDate(d){ return DAYS_S[d.getDay()]+' '+MONS_S[d.getMonth()]+' '+d.getDate(); }
+function fmtSidebarGroupDate(d){ return DAYS_S[d.getDay()].toUpperCase()+' '+MONS_S[d.getMonth()].toUpperCase()+' '+d.getDate(); }
 function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
 function isNow(ev,n){ return ev.start<=n&&ev.end>n; }
 function daysFromToday(d,now){
@@ -457,17 +458,23 @@ function renderSidebar(evs,now){
 
   var list=document.getElementById('today-list');
   list.innerHTML='';
-  // All today events that haven't ended yet (including feat shown in card)
+  // All upcoming sidebar events, with full dates once the list moves past the near-term window.
   var pool=[], todayRem=todayEvs.filter(function(ev){return ev.end>now;});
   if(todayRem.length) pool.push({label:'TODAY',evs:todayRem});
-  for(var d=1;d<=SIDEBAR_LOOKAHEAD_DAYS;d++){
-    var day=new Date(now.getFullYear(),now.getMonth(),now.getDate()+d);
-    var dayEvs=sidebarEvs.filter(function(ev){return sameDay(ev.start,day);})
-      .sort(function(a,b){return a.start-b.start;});
-    if(dayEvs.length) pool.push({label:DAYS[day.getDay()].toUpperCase(),evs:dayEvs});
-  }
+  allFuture.filter(function(ev){return !sameDay(ev.start,now);}).forEach(function(ev){
+    var dayOffset=daysFromToday(ev.start,now);
+    var label=dayOffset<=SIDEBAR_LOOKAHEAD_DAYS
+      ? DAYS[ev.start.getDay()].toUpperCase()
+      : fmtSidebarGroupDate(ev.start);
+    var group=pool.length?pool[pool.length-1]:null;
+    if(!group||group.label!==label){
+      group={label:label,evs:[]};
+      pool.push(group);
+    }
+    group.evs.push(ev);
+  });
   if(!pool.length){
-    list.innerHTML='<div style="font-size:12px;color:#6068a0;font-style:italic;padding:4px 0">No upcoming events this week</div>';
+    list.innerHTML='<div style="font-size:12px;color:#6068a0;font-style:italic;padding:4px 0">No upcoming events</div>';
     return;
   }
   var frag=document.createDocumentFragment();
