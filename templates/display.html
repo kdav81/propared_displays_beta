@@ -441,15 +441,16 @@ function renderSidebar(evs,now){
     lblEl.firstChild.style.color       =cur?'rgba(255,255,255,.95)':'';
     timeEl.style.color                 =cur?'rgba(255,255,255,.75)':featColor+'cc';
   } else {
-    titleEl.style.display='none'; emptyEl.style.display='';
+    titleEl.textContent=farFuture?farFuture.title:'';
+    titleEl.style.display=farFuture?'':'none'; emptyEl.style.display=farFuture?'none':'';
     timeEl.textContent=farFuture?'Next: '+fmtShortDate(farFuture.start):'';
-    emptyEl.textContent=farFuture?'No events this week':'No upcoming events';
+    emptyEl.textContent='No upcoming events';
     card.style.borderLeftColor='#2563c7';
     card.style.borderLeftWidth='5px';
     card.style.background='#0d1a2e';
     card.style.boxShadow='0 0 0 1px rgba(255,255,255,.06),0 4px 20px rgba(0,0,0,.4)';
     card.classList.remove('is-now');
-    lblEl.firstChild.textContent=   farFuture?'SUMMER MODE':'UP NEXT';
+    lblEl.firstChild.textContent=   'UP NEXT';
     lblEl.firstChild.style.color=   '';
     timeEl.style.color=             '';
   }
