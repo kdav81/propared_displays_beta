@@ -199,6 +199,7 @@ var DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Satur
 var DAYS_S = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 var MONS_S = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var SIDEBAR_LOOKAHEAD_DAYS = 7;
 
 // Luminance-based text colour — returns '#000' or '#fff' for best contrast
 function textColor(hex){
@@ -247,8 +248,14 @@ function tagColor(tag){ var i=tagInfo(tag); return typeof i==='string'?i:(i.colo
 // Date helpers
 function fmt(d){ var h=d.getHours(),m=d.getMinutes(),ap=h>=12?'PM':'AM'; h=h%12||12;
   return h+':'+String(m).padStart(2,'0')+' '+ap; }
+function fmtShortDate(d){ return DAYS_S[d.getDay()]+' '+MONS_S[d.getMonth()]+' '+d.getDate(); }
 function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
 function isNow(ev,n){ return ev.start<=n&&ev.end>n; }
+function daysFromToday(d,now){
+  var a=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  var b=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  return Math.round((b-a)/86400000);
+}
 function getWeek(){
   var n=new Date();
   var day=n.getDay()||7; // Sunday=0 becomes 7, Mon=1..Sat=6 stay
@@ -390,15 +397,18 @@ function render(evs){
 
 function renderSidebar(evs,now){
   // Exclude global calendar events from sidebar — grid only
-  var todayEvs=evs.filter(function(ev){return sameDay(ev.start,now)&&!ev.globalOnly;})
+  var sidebarEvs=evs.filter(function(ev){return !ev.globalOnly;});
+  var todayEvs=sidebarEvs.filter(function(ev){return sameDay(ev.start,now);})
     .sort(function(a,b){return a.start-b.start;});
   var cur =todayEvs.find(function(ev){return isNow(ev,now);});
   var next=todayEvs.find(function(ev){return ev.start>now;});
-  // If nothing left today, find the next upcoming event across all days
+  var allFuture=sidebarEvs.filter(function(ev){return ev.start>now;})
+    .sort(function(a,b){return a.start-b.start;});
+  var farFuture=null;
+  // If nothing left today, find the next event only within the sidebar's near-term window.
   if(!cur && !next){
-    var allFuture=evs.filter(function(ev){return ev.start>now&&!ev.globalOnly;})
-      .sort(function(a,b){return a.start-b.start;});
-    next=allFuture[0]||null;
+    next=allFuture.find(function(ev){return daysFromToday(ev.start,now)<=SIDEBAR_LOOKAHEAD_DAYS;})||null;
+    farFuture=next?null:(allFuture[0]||null);
   }
   var feat=cur||next;
 
@@ -432,13 +442,14 @@ function renderSidebar(evs,now){
     timeEl.style.color                 =cur?'rgba(255,255,255,.75)':featColor+'cc';
   } else {
     titleEl.style.display='none'; emptyEl.style.display='';
-    timeEl.textContent='';
+    timeEl.textContent=farFuture?'Next: '+fmtShortDate(farFuture.start):'';
+    emptyEl.textContent=farFuture?'No events this week':'No upcoming events';
     card.style.borderLeftColor='#2563c7';
     card.style.borderLeftWidth='5px';
     card.style.background='#0d1a2e';
     card.style.boxShadow='0 0 0 1px rgba(255,255,255,.06),0 4px 20px rgba(0,0,0,.4)';
     card.classList.remove('is-now');
-    lblEl.firstChild.textContent=   'UP NEXT';
+    lblEl.firstChild.textContent=   farFuture?'SUMMER MODE':'UP NEXT';
     lblEl.firstChild.style.color=   '';
     timeEl.style.color=             '';
   }
@@ -448,14 +459,14 @@ function renderSidebar(evs,now){
   // All today events that haven't ended yet (including feat shown in card)
   var pool=[], todayRem=todayEvs.filter(function(ev){return ev.end>now;});
   if(todayRem.length) pool.push({label:'TODAY',evs:todayRem});
-  for(var d=1;d<=7;d++){
+  for(var d=1;d<=SIDEBAR_LOOKAHEAD_DAYS;d++){
     var day=new Date(now.getFullYear(),now.getMonth(),now.getDate()+d);
-    var dayEvs=evs.filter(function(ev){return sameDay(ev.start,day);})
+    var dayEvs=sidebarEvs.filter(function(ev){return sameDay(ev.start,day);})
       .sort(function(a,b){return a.start-b.start;});
     if(dayEvs.length) pool.push({label:DAYS[day.getDay()].toUpperCase(),evs:dayEvs});
   }
   if(!pool.length){
-    list.innerHTML='<div style="font-size:12px;color:#6068a0;font-style:italic;padding:4px 0">No upcoming events</div>';
+    list.innerHTML='<div style="font-size:12px;color:#6068a0;font-style:italic;padding:4px 0">No upcoming events this week</div>';
     return;
   }
   var frag=document.createDocumentFragment();
