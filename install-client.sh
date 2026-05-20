@@ -145,7 +145,7 @@ test_server_url() {
 if [[ -z "${SERVER_URL}" ]]; then
     header "Step 1 of 2 - Server"
     echo "  Enter the URL, IP, or hostname of your Propared Calendar Displays server."
-    echo "  Examples: https://129.80.14.172   129.80.14.172   hallway-server.local"
+    echo "  Examples: https://150.136.222.140   150.136.222.140   hallway-server.local"
     echo
     while true; do
         read -rp "  Server address: " RAW
