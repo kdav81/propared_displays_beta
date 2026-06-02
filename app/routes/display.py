@@ -9,10 +9,12 @@ from flask import Response, jsonify, make_response, redirect, render_template, r
 from app.auth import require_admin
 from app.services.media_library import local_slide_items
 from app.storage import (
+    load_notice,
     load_rooms,
     load_settings,
     load_tags,
     save_clients,
+    save_notice,
     save_rooms,
     save_settings,
     save_tags,
@@ -574,6 +576,9 @@ def register_display_routes(
         if rid in rooms:
             del rooms[rid]
         save_rooms(rooms)
+        notices = load_notice()
+        if notices["rooms"].pop(rid, None) is not None:
+            save_notice(notices)
         ical_cache.remove(rid)
         path = logo_path(rid)
         if path.exists():
