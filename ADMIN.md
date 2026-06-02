@@ -369,21 +369,22 @@ Rules are checked in order — the first matching rule wins.
 
 ## 11. Notice Board
 
-The notice board at `/notice` posts an emergency or informational banner across **all room displays** immediately.
+The notice board at `/notice` posts an emergency or informational banner globally or to one room. An active global notice overrides room-specific notices while it is within its scheduled window.
 
 ### Posting a notice
 
 1. Open `/notice` (or click **Notice** in the top nav)
 2. Enter your message
-3. Optionally set a **Start** and **End** time — the notice will only display during this window
-4. Check **Active — show on all displays now**
-5. Click **Save & Post**
+3. Choose **Global Notice** or an individual room
+4. Optionally set a **Start** and **End** time — the notice will only display during this window
+5. Check **Active — show when within the scheduled window**
+6. Click **Save & Post**
 
-The notice banner appears in red at the top of every room display. Displays pick it up within 30 seconds automatically even without pushing.
+The notice banner appears in red at the top of the selected room displays. Displays pick it up within 15 seconds automatically even without pushing.
 
 ### Clearing a notice
 
-Click **Clear Notice** — this removes the message and unchecks the Active toggle.
+Click **Clear Notice** — this removes the currently selected global or room notice and unchecks the Active toggle.
 
 ---
 

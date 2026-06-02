@@ -11,7 +11,7 @@ A web-based room display system for the University of Delaware's Department of T
 | **Room Displays** | Raspberry Pi kiosks running Chromium show a live calendar for one room — current event, upcoming events, and an optional photo slideshow |
 | **Admin Panel** | Web interface to manage rooms, clients, global calendars, slideshow settings, media access, and backups |
 | **Print Calendar** | Generates printable PDF calendars from Propared iCal feeds |
-| **Notice Board** | Posts an emergency/info banner across all room displays instantly |
+| **Notice Board** | Posts a global or room-specific emergency/info banner instantly |
 | **Office Dashboard** | A combined view of all rooms plus an embedded calendar, for a lobby or office screen |
 
 ---
@@ -129,6 +129,6 @@ These are created or maintained on the server and are not the main source code:
 | `/print-calendar` | Users — generate PDF production calendars or room schedules |
 | `/print-admin` | Protected page for managing productions and location rules |
 | `/print-admin/setup` | First-run Print Admin password setup |
-| `/notice` | Shared-password notice board for posting a banner to all room displays |
+| `/notice` | Shared-password notice board for posting global or room-specific banners |
 | `/dashboard` | Lobby/office screen |
 | `/display?room=ROOM_ID` | Pi kiosks (set automatically) |

@@ -604,7 +604,7 @@ init();
 var _noticeActive=false;
 var _noticeVersion=-1;
 function fetchNotice(){
-  fetch(SERVER+'/api/notice').then(function(r){return r.json();})
+  fetch(SERVER+'/api/notice?room='+encodeURIComponent(ROOM_ID)).then(function(r){return r.json();})
     .then(function(d){
       var banner=document.getElementById('notice-banner');
       var text=document.getElementById('notice-text');

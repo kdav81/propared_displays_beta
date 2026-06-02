@@ -112,11 +112,25 @@ def save_media_library(items: list) -> None:
     _save_json(MEDIA_LIBRARY_FILE, items)
 
 
+def empty_notice() -> dict:
+    return {"active": False, "message": "", "startTime": "", "endTime": "", "version": 0}
+
+
 def load_notice() -> dict:
-    return _load_json(
-        NOTICE_FILE,
-        lambda: {"active": False, "message": "", "startTime": "", "endTime": "", "version": 0},
-    )
+    data = _load_json(NOTICE_FILE, lambda: {"global": empty_notice(), "rooms": {}})
+    if not isinstance(data, dict):
+        return {"global": empty_notice(), "rooms": {}}
+
+    # Older installs stored the global notice directly at the top level.
+    if "global" not in data and any(key in data for key in empty_notice()):
+        return {"global": {**empty_notice(), **data}, "rooms": {}}
+
+    global_notice = data.get("global", {})
+    room_notices = data.get("rooms", {})
+    return {
+        "global": {**empty_notice(), **global_notice} if isinstance(global_notice, dict) else empty_notice(),
+        "rooms": room_notices if isinstance(room_notices, dict) else {},
+    }
 
 
 def save_notice(data: dict) -> None:
@@ -158,4 +172,3 @@ def write_password(path: Path, password: str) -> None:
 def check_password(password: str, path: Path) -> bool:
     stored = read_password_hash(path)
     return bool(stored) and hashlib.sha256(password.encode()).hexdigest() == stored
-
