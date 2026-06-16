@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 import urllib.request
 import uuid
+from pathlib import Path
 
 from flask import Response, jsonify, make_response, redirect, render_template, request
 
@@ -21,6 +22,13 @@ from app.storage import (
 )
 
 SUPPORTED_CLIENT_COMMANDS = {"restart_kiosk"}
+
+
+def _display_version() -> int:
+    try:
+        return int((Path(__file__).resolve().parents[2] / "templates" / "display.html").stat().st_mtime)
+    except OSError:
+        return 0
 
 
 def _coerce_bool(value) -> bool:
@@ -121,6 +129,10 @@ def register_display_routes(
     @app.route("/api/health")
     def api_health():
         return jsonify({"ok": True, "rooms": len(load_rooms()), "time": time.time()})
+
+    @app.route("/api/display-version")
+    def api_display_version():
+        return jsonify({"version": _display_version()})
 
     @app.route("/api/rooms")
     def api_rooms():
@@ -426,6 +438,7 @@ def register_display_routes(
         if not rid or rid not in rooms:
             return render_template("room_not_found.html", rooms=rooms, room_id=rid)
         room = public_room_config(rid, rooms, load_settings())
+        room["displayVersion"] = _display_version()
         response = make_response(
             render_template(
                 "display.html",
