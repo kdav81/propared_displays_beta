@@ -399,17 +399,16 @@ function render(evs){
 function renderSidebar(evs,now){
   // Exclude global calendar events from sidebar — grid only
   var sidebarEvs=evs.filter(function(ev){return !ev.globalOnly;});
-  var todayEvs=sidebarEvs.filter(function(ev){return sameDay(ev.start,now);})
-    .sort(function(a,b){return a.start-b.start;});
-  var cur =todayEvs.find(function(ev){return isNow(ev,now);});
-  var next=todayEvs.find(function(ev){return ev.start>now;});
   var allFuture=sidebarEvs.filter(function(ev){return ev.start>now;})
     .sort(function(a,b){return a.start-b.start;});
+  var cur =sidebarEvs.filter(function(ev){return isNow(ev,now);})
+    .sort(function(a,b){return a.start-b.start;})[0]||null;
+  var next=allFuture[0]||null;
   var farFuture=null;
-  // If nothing left today, find the next event only within the sidebar's near-term window.
-  if(!cur && !next){
-    next=allFuture.find(function(ev){return daysFromToday(ev.start,now)<=SIDEBAR_LOOKAHEAD_DAYS;})||null;
-    farFuture=next?null:(allFuture[0]||null);
+  // Keep the feature card calm when the next event is far away.
+  if(!cur && next && daysFromToday(next.start,now)>SIDEBAR_LOOKAHEAD_DAYS){
+    farFuture=next;
+    next=null;
   }
   var feat=cur||next;
 
@@ -459,7 +458,9 @@ function renderSidebar(evs,now){
   var list=document.getElementById('today-list');
   list.innerHTML='';
   // All upcoming sidebar events, with full dates once the list moves past the near-term window.
-  var pool=[], todayRem=todayEvs.filter(function(ev){return ev.end>now;});
+  var pool=[], todayRem=sidebarEvs.filter(function(ev){
+    return ev.end>now&&(sameDay(ev.start,now)||isNow(ev,now));
+  }).sort(function(a,b){return a.start-b.start;});
   if(todayRem.length) pool.push({label:'TODAY',evs:todayRem});
   allFuture.filter(function(ev){return !sameDay(ev.start,now);}).forEach(function(ev){
     var dayOffset=daysFromToday(ev.start,now);
