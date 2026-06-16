@@ -194,6 +194,7 @@ var SERVER    = '{{ server_url }}';
 var ROOM_ID   = '{{ room.roomId }}';
 var TAG_COLORS = {{ room.tagColors | tojson }};
 var CFG        = {{ room | tojson }};
+var DISPLAY_VERSION = CFG.displayVersion||0;
 
 var DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 var DAYS_S = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -255,6 +256,11 @@ function isNow(ev,n){ return ev.start<=n&&ev.end>n; }
 function dayStart(d){ return new Date(d.getFullYear(),d.getMonth(),d.getDate()); }
 function dayEnd(d){ return new Date(d.getFullYear(),d.getMonth(),d.getDate()+1); }
 function overlapsDay(ev,d){ return ev.start<dayEnd(d)&&ev.end>dayStart(d); }
+function sidebarCandidate(ev,now){
+  if(!ev.globalOnly) return true;
+  return ev.end>now&&daysFromToday(ev.start,now)<=SIDEBAR_LOOKAHEAD_DAYS;
+}
+function eventColor(ev){ return ev.globalColor||tagColor(getTag(ev.title)); }
 function daysFromToday(d,now){
   var a=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   var b=new Date(d.getFullYear(),d.getMonth(),d.getDate());
@@ -402,8 +408,8 @@ function render(evs){
 }
 
 function renderSidebar(evs,now){
-  // Exclude global calendar events from sidebar — grid only
-  var sidebarEvs=evs.filter(function(ev){return !ev.globalOnly;});
+  // Show room events, plus near-term timed global events that are visible on the grid.
+  var sidebarEvs=evs.filter(function(ev){return sidebarCandidate(ev,now);});
   var allFuture=sidebarEvs.filter(function(ev){return ev.start>now;})
     .sort(function(a,b){return a.start-b.start;});
   var cur =sidebarEvs.filter(function(ev){return isNow(ev,now);})
@@ -429,7 +435,7 @@ function renderSidebar(evs,now){
     var featDay=sameDay(feat.start,now)?'':DAYS_S[feat.start.getDay()]+' ';
     timeEl.textContent=featDay+fmt(feat.start)+' — '+fmt(feat.end);
     titleEl.style.display=''; emptyEl.style.display='none';
-    var featColor=tagColor(getTag(feat.title));
+    var featColor=eventColor(feat);
     card.style.borderLeftColor=cur?'var(--active)':featColor;
     card.style.borderLeftWidth=cur?'5px':'5px';
     // Use the tag color as a tinted background — vivid when NOW, subtle when upcoming
@@ -491,7 +497,7 @@ function renderSidebar(evs,now){
       var active=isNow(ev,now);
       var item=document.createElement('div');
       item.className='today-item'+(active?' active-item':'');
-      item.style.setProperty('--item-color',active?'var(--active)':tagColor(getTag(ev.title)));
+      item.style.setProperty('--item-color',active?'var(--active)':eventColor(ev));
       item.innerHTML='<div class="today-item-band"></div>'
         +'<div class="today-item-body">'
         +'<div class="today-item-time">'+fmt(ev.start)+' — '+fmt(ev.end)+'</div>'
@@ -605,6 +611,16 @@ async function init(){
   },30000);
 }
 init();
+
+async function checkDisplayVersion(){
+  try{
+    var r=await fetch(SERVER+'/api/display-version');
+    if(!r.ok) return;
+    var j=await r.json();
+    if(j.version&&DISPLAY_VERSION&&j.version!==DISPLAY_VERSION) window.location.reload();
+  } catch(e){}
+}
+setInterval(checkDisplayVersion,5*60000);
 
 // ── Notice banner ────────────────────────────────────────────────────────────
 var _noticeActive=false;
