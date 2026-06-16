@@ -252,6 +252,9 @@ function fmtShortDate(d){ return DAYS_S[d.getDay()]+' '+MONS_S[d.getMonth()]+' '
 function fmtSidebarGroupDate(d){ return DAYS_S[d.getDay()].toUpperCase()+' '+MONS_S[d.getMonth()].toUpperCase()+' '+d.getDate(); }
 function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
 function isNow(ev,n){ return ev.start<=n&&ev.end>n; }
+function dayStart(d){ return new Date(d.getFullYear(),d.getMonth(),d.getDate()); }
+function dayEnd(d){ return new Date(d.getFullYear(),d.getMonth(),d.getDate()+1); }
+function overlapsDay(ev,d){ return ev.start<dayEnd(d)&&ev.end>dayStart(d); }
 function daysFromToday(d,now){
   var a=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   var b=new Date(d.getFullYear(),d.getMonth(),d.getDate());
@@ -319,9 +322,11 @@ function render(evs){
       }
     }
 
-    evs.filter(function(ev){return sameDay(ev.start,day);}).forEach(function(ev){
-      var startH=ev.start.getHours()+(ev.start.getMinutes()/60);
-      var endH  =ev.end.getHours()  +(ev.end.getMinutes()/60);
+    evs.filter(function(ev){return overlapsDay(ev,day);}).forEach(function(ev){
+      var visibleStart=ev.start>dayStart(day)?ev.start:dayStart(day);
+      var visibleEnd=ev.end<dayEnd(day)?ev.end:dayEnd(day);
+      var startH=visibleStart.getHours()+(visibleStart.getMinutes()/60);
+      var endH  =visibleEnd.getHours()  +(visibleEnd.getMinutes()/60);
       var top   =Math.max(0,(startH-SH)*HPX);
       var bot   =Math.min(availH,(endH-SH)*HPX);
       var ht    =Math.max(bot-top,16);
@@ -459,7 +464,7 @@ function renderSidebar(evs,now){
   list.innerHTML='';
   // All upcoming sidebar events, with full dates once the list moves past the near-term window.
   var pool=[], todayRem=sidebarEvs.filter(function(ev){
-    return ev.end>now&&(sameDay(ev.start,now)||isNow(ev,now));
+    return ev.end>now&&overlapsDay(ev,now);
   }).sort(function(a,b){return a.start-b.start;});
   if(todayRem.length) pool.push({label:'TODAY',evs:todayRem});
   allFuture.filter(function(ev){return !sameDay(ev.start,now);}).forEach(function(ev){
