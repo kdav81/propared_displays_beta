@@ -299,6 +299,7 @@ sudo tee /etc/nginx/sites-available/propared-display > /dev/null <<'EOF'
 server {
     listen 80;
     server_name YOUR_PUBLIC_IP;
+    client_max_body_size 64M;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -360,6 +361,7 @@ sudo tee /etc/nginx/sites-available/propared-display > /dev/null <<'EOF'
 server {
     listen 80;
     server_name YOUR_PUBLIC_IP;
+    client_max_body_size 64M;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -373,6 +375,7 @@ server {
 server {
     listen 443 ssl http2;
     server_name YOUR_PUBLIC_IP;
+    client_max_body_size 64M;
 
     ssl_certificate /etc/letsencrypt/live/YOUR_PUBLIC_IP/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/YOUR_PUBLIC_IP/privkey.pem;

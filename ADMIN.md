@@ -199,6 +199,19 @@ Slideshow images are uploaded directly to the server through the **Media Library
 
 The Media Library uses the same shared password as the Notice page, so you can give someone limited slideshow access without giving them full Admin access.
 
+Uploads are limited to 64 MB by default. If the browser shows an nginx `413 Request Entity Too Large` page, the reverse proxy is rejecting the file before the app receives it. On the server, add this line inside each `server { ... }` block in `/etc/nginx/sites-available/propared-display`:
+
+```nginx
+client_max_body_size 64M;
+```
+
+Then apply the change:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
 Each media item can be:
 
 - always available

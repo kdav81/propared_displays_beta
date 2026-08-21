@@ -92,7 +92,7 @@
       <div class="sec">Upload Image</div>
       <div class="hint" style="margin-bottom:16px">
         Upload images directly to the server. Each item can have:
-        no dates, a start date only, an end date only, or both.
+        no dates, a start date only, an end date only, or both. Maximum file size: {{ max_upload_mb }} MB.
       </div>
       <form id="upload-form">
         <div class="fg">
@@ -232,6 +232,8 @@
 <script>
 var MEDIA = [];
 var DATE_PICKERS = {};
+var MAX_UPLOAD_BYTES = {{ max_upload_bytes }};
+var MAX_UPLOAD_MB = {{ max_upload_mb }};
 
 function setupDatePickers(){
   document.querySelectorAll('.js-date').forEach(function(input){
@@ -317,6 +319,11 @@ async function loadMedia(){
 
 document.getElementById('upload-form').addEventListener('submit', async function(e){
   e.preventDefault();
+  var file = e.target.elements.file.files[0];
+  if(file && file.size > MAX_UPLOAD_BYTES){
+    alert('Uploaded file is too large. Maximum size is ' + MAX_UPLOAD_MB + ' MB.');
+    return;
+  }
   var form = new FormData(e.target);
   if(!form.get('active')) form.set('active', '0');
   var r = await fetch('/api/media/upload', {method: 'POST', body: form});
