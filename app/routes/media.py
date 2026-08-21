@@ -5,10 +5,19 @@ from datetime import datetime
 from pathlib import Path
 
 from flask import Response, jsonify, redirect, render_template, request
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
 from app.auth import require_shared_media_auth
-from app.config import IMAGE_EXTS, MEDIA_DIR, NOTICE_PASSWORD_FILE, SITE_LOGO_STEM, STATIC_DIR
+from app.config import (
+    IMAGE_EXTS,
+    MAX_UPLOAD_BYTES,
+    MAX_UPLOAD_MB,
+    MEDIA_DIR,
+    NOTICE_PASSWORD_FILE,
+    SITE_LOGO_STEM,
+    STATIC_DIR,
+)
 from app.services.media_library import (
     local_slide_items,
     media_public_url,
@@ -27,6 +36,10 @@ from app.storage import (
 
 
 def register_media_routes(app) -> None:
+    @app.errorhandler(RequestEntityTooLarge)
+    def request_entity_too_large(_error):
+        return Response(f"Uploaded file is too large. Maximum size is {MAX_UPLOAD_MB} MB.", status=413)
+
     def _delete_site_logo() -> None:
         for ext in IMAGE_EXTS:
             candidate = STATIC_DIR / f"{SITE_LOGO_STEM}{ext}"
@@ -169,4 +182,6 @@ def register_media_routes(app) -> None:
             settings=load_settings(),
             setup_needed=setup_needed,
             site_logo_url=site_logo_url(),
+            max_upload_bytes=MAX_UPLOAD_BYTES,
+            max_upload_mb=MAX_UPLOAD_MB,
         )

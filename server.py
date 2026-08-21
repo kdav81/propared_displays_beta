@@ -51,6 +51,7 @@ from flask import Flask, Response
 
 from app.config import (
     BACKUP_DIR,
+    MAX_UPLOAD_BYTES,
     STATIC_DIR,
     ensure_runtime_dirs,
     load_secret_key,
@@ -93,6 +94,7 @@ ensure_runtime_dirs()
 app = Flask(__name__)
 app.secret_key = load_secret_key()
 app.json.sort_keys = False
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 # Trust a single reverse proxy for scheme/host so generated URLs stay HTTPS-safe.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 

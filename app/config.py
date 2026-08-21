@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+import os
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent.parent
@@ -23,7 +24,16 @@ PRINT_SHOWS_FILE = BASE / "print_shows.json"
 LOCATION_RULES_FILE = BASE / "location_rules.json"
 MEDIA_LIBRARY_FILE = BASE / "media_library.json"
 
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+MAX_UPLOAD_MB = max(1, _env_int("MAX_UPLOAD_MB", 64))
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
 DEFAULT_TAGS: dict = {
     "Class": {"color": "#2563c7", "fullName": "Class"},
