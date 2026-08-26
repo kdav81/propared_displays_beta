@@ -41,6 +41,32 @@ def _parse_dt(line: str) -> datetime | None:
         return None
 
 
+def _unescape_text(value: str) -> str:
+    return value.replace("\\,", ",").replace("\\n", "\n").replace("\\;", ";").replace("\\:", ":")
+
+
+def _description_sections(value: str) -> dict[str, str]:
+    sections: dict[str, str] = {}
+    current_key = ""
+    current_lines: list[str] = []
+
+    def _flush() -> None:
+        if current_key:
+            sections[current_key] = "\n".join(current_lines).strip()
+
+    for line in value.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("---") and stripped.endswith("---") and len(stripped) > 6:
+            _flush()
+            current_key = stripped.strip("-").strip().upper()
+            current_lines = []
+        elif current_key:
+            current_lines.append(line)
+
+    _flush()
+    return sections
+
+
 def parse_ical_allday(text: str) -> list[dict]:
     events: list[dict] = []
     text = text.replace("\r\n ", "").replace("\r\n\t", "")
@@ -81,7 +107,7 @@ def parse_ical_allday(text: str) -> list[dict]:
                 end_str = end_date.isoformat()
 
         raw_title = props["SUMMARY"].split(":", 1)[1].strip()
-        title = raw_title.replace("\\,", ",").replace("\\n", " ").replace("\\;", ";").replace("\\:", ":")
+        title = _unescape_text(raw_title).replace("\n", " ")
         events.append({"title": title, "start": start_str, "end": end_str})
     return events
 
@@ -113,8 +139,14 @@ def parse_ical(text: str) -> list[dict]:
             end = start
 
         raw_title = props["SUMMARY"].split(":", 1)[1].strip()
-        title = raw_title.replace("\\,", ",").replace("\\n", " ").replace("\\;", ";").replace("\\:", ":")
-        events.append({"title": title, "start": start, "end": end})
+        title = _unescape_text(raw_title).replace("\n", " ")
+
+        details = ""
+        if "DESCRIPTION" in props:
+            raw_description = props["DESCRIPTION"].split(":", 1)[1].strip()
+            details = _description_sections(_unescape_text(raw_description)).get("DETAILS", "")
+
+        events.append({"title": title, "start": start, "end": end, "details": details})
 
     return events
 
