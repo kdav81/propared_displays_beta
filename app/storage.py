@@ -58,12 +58,10 @@ def save_clients(data: dict) -> None:
 
 
 def load_tags() -> dict:
-    tags = _load_json(TAGS_FILE, lambda: dict(DEFAULT_TAGS))
+    tags = _load_json(TAGS_FILE, dict) if TAGS_FILE.exists() else dict(DEFAULT_TAGS)
     for key in list(tags):
         if isinstance(tags[key], str):
             tags[key] = {"color": tags[key], "fullName": key}
-    for key, value in DEFAULT_TAGS.items():
-        tags.setdefault(key, value)
     return tags
 
 
