@@ -173,7 +173,15 @@ def register_display_routes(
         def _dt_str(dt):
             return dt.isoformat() if dt else None
 
-        all_events = [{"title": event["title"], "start": _dt_str(event["start"]), "end": _dt_str(event["end"])} for event in events]
+        all_events = [
+            {
+                "title": event["title"],
+                "start": _dt_str(event["start"]),
+                "end": _dt_str(event["end"]),
+                "details": event.get("details", ""),
+            }
+            for event in events
+        ]
         for global_calendar in load_settings().get("globalCalendars", []):
             gc_id = global_calendar.get("id", "")
             gc_color = global_calendar.get("color", "#555555")
