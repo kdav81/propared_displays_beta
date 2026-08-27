@@ -79,12 +79,19 @@ def _preferred_client_ip(request, reported_ip: str = "", existing_ip: str = "") 
         return remote_ip
 
     return str(existing_ip or "").strip()
-def _ensure_client_defaults(existing: dict, *, hostname: str, ip: str, role: str = "display") -> dict:
+def _ensure_client_defaults(
+    existing: dict,
+    *,
+    hostname: str,
+    ip: str,
+    role: str = "display",
+    update_last_seen: bool = False,
+) -> dict:
     client = dict(existing or {})
     client["hostname"] = hostname
     client["ip"] = ip
     client["role"] = role
-    client["last_seen"] = time.time()
+    client["last_seen"] = time.time() if update_last_seen else float(client.get("last_seen", 0) or 0)
     client["assigned_room"] = (
         client.get("assigned_room")
         or client.get("assignedRoom")
@@ -279,6 +286,7 @@ def register_display_routes(
             hostname=hostname,
             ip=_preferred_client_ip(request, data.get("ip", ""), existing.get("ip", "")),
             role=role,
+            update_last_seen=True,
         )
         save_clients(clients)
         return jsonify({"ok": True})
