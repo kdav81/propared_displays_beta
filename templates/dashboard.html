@@ -56,15 +56,19 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 
 /* Current event */
 .room-current{font-size:16px;font-weight:600;color:#fff;line-height:1.3}
+.room-current-details{font-size:14px;font-weight:600;color:#fff;line-height:1.25;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .room-current-time{font-size:14px;color:rgba(255,255,255,.65);margin-bottom:2px}
 
 /* Next event */
-.room-next-row{display:flex;align-items:baseline;gap:6px;margin-top:3px;padding-top:6px;
+.room-next-row{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:start;gap:6px;margin-top:3px;padding-top:6px;
   border-top:1px solid rgba(255,255,255,.08)}
 .room-next-label{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
   color:rgba(255,255,255,.4);flex-shrink:0}
 .room-next-time{font-size:14px;color:rgba(255,255,255,.55);flex-shrink:0}
 .room-next-title{font-size:14px;color:rgba(255,255,255,.75);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room-next-details{font-size:13px;color:#fff;font-weight:600;line-height:1.2;margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Available state */
@@ -252,6 +256,42 @@ function setOffline(isOffline){
 // Single fetch replaces 6 iCal fetches + client-side parsing.
 var REFRESH_MS = 5*60*1000;
 
+function getTag(title){ var m=(title||'').match(/\[([^\]]+)\]/); return m?m[1].trim():null; }
+function eventDetails(ev){
+  var tag=getTag(ev&&ev.title);
+  return tag&&tag.toLowerCase()==='class'&&ev.details ? ev.details : '';
+}
+
+function appendEventDetails(parent,event,className){
+  var details=eventDetails(event);
+  if(!details) return;
+  var el=document.createElement('div');
+  el.className=className;
+  el.textContent=details;
+  parent.appendChild(el);
+}
+
+function appendNextRow(parent,event){
+  var nr=document.createElement('div');
+  nr.className='room-next-row';
+  var label=document.createElement('span');
+  label.className='room-next-label';
+  label.textContent='Next';
+  var time=document.createElement('span');
+  time.className='room-next-time';
+  time.textContent=event.start;
+  var text=document.createElement('div');
+  var title=document.createElement('div');
+  title.className='room-next-title';
+  title.textContent=event.title;
+  text.appendChild(title);
+  appendEventDetails(text,event,'room-next-details');
+  nr.appendChild(label);
+  nr.appendChild(time);
+  nr.appendChild(text);
+  parent.appendChild(nr);
+}
+
 function updateCard(room){
   var card=document.getElementById('card-'+room.rid);
   if(!card) return;
@@ -268,13 +308,10 @@ function updateCard(room){
       var cn=document.createElement('div'); cn.className='room-current';
       cn.textContent=room.current.title;
       body.appendChild(ct); body.appendChild(cn);
+      appendEventDetails(body,room.current,'room-current-details');
     }
     if(room.next){
-      var nr=document.createElement('div'); nr.className='room-next-row';
-      nr.innerHTML='<span class="room-next-label">Next</span>'
-        +'<span class="room-next-time">'+room.next.start+'</span>'
-        +'<span class="room-next-title">'+room.next.title+'</span>';
-      body.appendChild(nr);
+      appendNextRow(body,room.next);
     }
   } else {
     card.className='room-card available';
@@ -283,11 +320,7 @@ function updateCard(room){
       var fu=document.createElement('div'); fu.className='room-free-until';
       fu.textContent='Free until '+room.next.start;
       body.appendChild(fu);
-      var nr=document.createElement('div'); nr.className='room-next-row';
-      nr.innerHTML='<span class="room-next-label">Next</span>'
-        +'<span class="room-next-time">'+room.next.start+'</span>'
-        +'<span class="room-next-title">'+room.next.title+'</span>';
-      body.appendChild(nr);
+      appendNextRow(body,room.next);
     } else {
       var fu=document.createElement('div'); fu.className='room-free-until';
       fu.textContent='No more events today';
