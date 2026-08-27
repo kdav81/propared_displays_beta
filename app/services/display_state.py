@@ -34,6 +34,7 @@ def room_status(ical_cache, rid: str, *, now: datetime | None = None) -> dict:
             "title": event["title"],
             "start": format_event_time(event["start"]),
             "end": format_event_time(event["end"]),
+            "details": event.get("details", ""),
         }
 
     return {
