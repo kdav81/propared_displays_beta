@@ -45,12 +45,8 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 .room-card.occupied{background:var(--red-bg);border-color:var(--red-border)}
 .room-card.available{background:var(--green-bg);border-color:var(--green-border)}
 
-.room-card-top{padding:12px 18px 7px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.room-card-top{padding:12px 18px 7px}
 .room-card-name{font-size:21px;font-weight:700;line-height:1.12}
-.room-status-badge{font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
-  padding:3px 8px;border-radius:20px;flex-shrink:0;margin-top:1px}
-.occupied .room-status-badge{background:rgba(192,57,43,.35);color:#ff9090;border:1px solid rgba(192,57,43,.5)}
-.available .room-status-badge{background:rgba(26,122,64,.35);color:#6dffaa;border:1px solid rgba(26,122,64,.5)}
 
 .room-card-body{padding:0 18px 10px;display:flex;flex-direction:column;gap:2px;min-height:0;overflow:hidden}
 
@@ -127,7 +123,6 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
       <div class="room-card" id="card-{{ rid }}" data-rid="{{ rid }}">
         <div class="room-card-top">
           <div class="room-card-name">{{ room.title }}</div>
-          <div class="room-status-badge">Loading</div>
         </div>
         <div class="room-card-body"></div>
       </div>
@@ -299,13 +294,11 @@ function appendNextRow(parent,event){
 function updateCard(room){
   var card=document.getElementById('card-'+room.rid);
   if(!card) return;
-  var badge=card.querySelector('.room-status-badge');
   var body =card.querySelector('.room-card-body');
   body.innerHTML='';
 
   if(room.occupied){
     card.className='room-card occupied';
-    badge.textContent='Occupied';
     if(room.current){
       var ct=document.createElement('div'); ct.className='room-current-time';
       ct.textContent=room.current.start+' — '+room.current.end;
@@ -321,7 +314,6 @@ function updateCard(room){
     }
   } else {
     card.className='room-card available';
-    badge.textContent='Available';
     if(room.next){
       var fu=document.createElement('div'); fu.className='room-free-until';
       fu.textContent='Free until '+room.next.start;
