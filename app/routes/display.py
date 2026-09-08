@@ -242,7 +242,9 @@ def register_display_routes(
     @app.route("/api/slides")
     def api_slides():
         force = request.args.get("refresh") == "1"
-        return jsonify({"links": get_slides(force=force)})
+        response = jsonify({"links": get_slides(force=force)})
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        return response
 
     @app.route("/api/slides/debug")
     def api_slides_debug():
