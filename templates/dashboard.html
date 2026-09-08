@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Room Dashboard</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#0a0a0f;
@@ -22,7 +21,7 @@
   --red-now:#c0392b;
 }
 html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
-  font-family:'Inter',sans-serif;overflow:hidden}
+  font-family:Inter,Arial,Helvetica,sans-serif;overflow:hidden}
 
 /* ── Layout ── */
 #layout{display:grid;grid-template-columns:380px 1fr;height:100vh;gap:0}
@@ -136,15 +135,11 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
     </div>
   </div>
   <div id="right">
-    {% if iframe_url %}
-    <iframe id="main-iframe" src="{{ iframe_url }}" allowfullscreen></iframe>
-    {% else %}
-    <div id="iframe-placeholder">
+    <div id="iframe-placeholder" {% if iframe_url %}data-iframe-src="{{ iframe_url }}"{% endif %}>
       <div style="font-size:32px;opacity:.2">&#128197;</div>
-      <div>No URL configured.</div>
+      <div>{% if iframe_url %}Loading calendar...{% else %}No URL configured.{% endif %}</div>
       <a href="/admin" style="color:#4f6ef7;font-size:12px">Set one in Admin</a>
     </div>
-    {% endif %}
     <div id="slide-overlay"><img id="slide-img" src="" alt=""></div>
   </div>
 </div>
@@ -152,6 +147,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
 <script>
 var SERVER = '{{ server_url }}';
 var ROOM_IDS = {{ rooms | map(attribute=0) | list | tojson }};
+var IFRAME_URL = {{ iframe_url | tojson }};
 
 var DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -173,24 +169,46 @@ var CAL_DURATION   = {{ cal_duration }} * 1000;
 var SLIDE_DURATION = {{ slide_duration }} * 1000;
 var _slideLinks = [];
 var _slideIdx   = 0;
-var HAS_IFRAME  = !!document.getElementById('main-iframe');
+var _slideLinksDate = '';
+var HAS_IFRAME  = !!IFRAME_URL;
+var _iframeLoaded = false;
+
+function slideDateKey() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function loadDashboardIframe() {
+  if (!IFRAME_URL || _iframeLoaded) return;
+  _iframeLoaded = true;
+  var right = document.getElementById('right');
+  var placeholder = document.getElementById('iframe-placeholder');
+  var iframe = document.createElement('iframe');
+  iframe.id = 'main-iframe';
+  iframe.allowFullscreen = true;
+  iframe.src = IFRAME_URL;
+  if (placeholder) placeholder.remove();
+  right.insertBefore(iframe, document.getElementById('slide-overlay'));
+}
 
 async function loadSlideLinks() {
   try {
-    var r = await fetch(SERVER + '/api/slides');
+    var r = await fetch(SERVER + '/api/slides?refresh=1&_=' + Date.now(), {cache:'no-store'});
     var j = await r.json();
     _slideLinks = (j.links || []);
+    _slideLinksDate = slideDateKey();
+    if (_slideIdx >= _slideLinks.length) _slideIdx = 0;
   } catch(e) { _slideLinks = []; }
 }
 
-function showSlide() {
-  if (!_slideLinks.length) {
-    loadSlideLinks().then(function() {
-      if (_slideLinks.length) _doShowSlide(); else scheduleCalendar();
-    });
-    return;
-  }
-  _doShowSlide();
+function showSlide(retryCalendar) {
+  if (retryCalendar === undefined) retryCalendar = true;
+  var today = slideDateKey();
+  var needsLoad = !_slideLinksDate || _slideLinksDate !== today;
+  (needsLoad ? loadSlideLinks() : Promise.resolve()).then(function() {
+    if (_slideLinks.length) _doShowSlide();
+    else if (retryCalendar) scheduleCalendar();
+  });
 }
 
 function _doShowSlide() {
@@ -216,17 +234,12 @@ function scheduleCalendar() {
 if (HAS_IFRAME) {
   scheduleCalendar();
 } else {
-  loadSlideLinks().then(function() {
-    if (_slideLinks.length) {
-      _doShowSlide();
-      setInterval(function() {
-        document.getElementById('slide-overlay').classList.remove('visible');
-        setTimeout(_doShowSlide, 800);
-      }, SLIDE_DURATION + 1600);
-    }
-  });
+  showSlide(false);
+  setInterval(function() {
+    document.getElementById('slide-overlay').classList.remove('visible');
+    setTimeout(function(){ showSlide(false); }, 800);
+  }, SLIDE_DURATION + 1600);
 }
-setInterval(loadSlideLinks, 10 * 60 * 1000);
 
 // ── Offline overlay ───────────────────────────────────────────
 var _serverOnline=true;
@@ -349,6 +362,7 @@ window.addEventListener('resize',sizeGrid);
 // Initial load + refresh every 5 min (no per-minute re-render needed —
 // server returns pre-computed status so just re-fetch on schedule)
 refreshAll();
+setTimeout(loadDashboardIframe, 1500);
 setInterval(refreshAll, REFRESH_MS);
 </script>
 </body>

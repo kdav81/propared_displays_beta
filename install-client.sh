@@ -30,6 +30,7 @@ CONF_FILE="${CONF_DIR}/client.conf"
 WATCHDOG_SERVICE="propared-watchdog"
 SCREEN_ON_TIMER="propared-screen-on"
 SCREEN_OFF_TIMER="propared-screen-off"
+KIOSK_NIGHTLY_TIMER="propared-kiosk-nightly"
 KIOSK_USER="${USER}"
 KIOSK_DIR="${HOME}/.config/propared-kiosk"
 
@@ -348,6 +349,12 @@ unclutter -idle 3 -root &
 openbox &
 sleep 1
 
+# Wake HDMI and reassert the intended kiosk resolution after X starts.
+vcgencmd display_power 1 2>/dev/null || true
+if command -v xrandr >/dev/null 2>&1; then
+    xrandr --output HDMI-1 --mode 1920x1080 --rate 60 2>/dev/null || true
+fi
+
 while true; do
     # Fetch config fresh on each loop iteration
     CFG=$(fetch_config)
@@ -371,7 +378,7 @@ while true; do
 {"browser":{"check_default_browser":false,"has_seen_welcome_page":true},"profile":{"exit_type":"Normal","exited_cleanly":true,"password_manager_enabled":false},"signin":{"allowed":false},"credentials_enable_service":false}
 PREFS
 
-    chromium         --no-memcheck         --kiosk         --start-fullscreen         --window-size=1920,1080         --window-position=0,0         --noerrdialogs         --disable-infobars         --no-first-run         --no-default-browser-check         --disable-translate         --disable-extensions         --disable-sync         --disable-background-networking         --disable-default-apps         --disable-component-update         --disable-hang-monitor         --disable-popup-blocking         --disable-prompt-on-repost         --disable-renderer-backgrounding         --metrics-recording-only         --safebrowsing-disable-auto-update         --password-store=basic         ${DISABLE_GPU_FLAG}         --disable-session-crashed-bubble         --user-data-dir="${KIOSK_DIR}/chromium"         "${LAUNCH_URL}"
+    chromium         --no-memcheck         --kiosk         --start-fullscreen         --window-size=1920,1080         --window-position=0,0         --noerrdialogs         --disable-infobars         --no-first-run         --no-default-browser-check         --disable-translate         --disable-extensions         --disable-sync         --disable-background-networking         --disable-default-apps         --disable-component-update         --disable-hang-monitor         --disable-popup-blocking         --disable-prompt-on-repost         --disable-renderer-backgrounding         --metrics-recording-only         --safebrowsing-disable-auto-update         --password-store=basic         ${DISABLE_GPU_FLAG}         --disable-software-rasterizer         --disable-gpu-compositing         --disable-features=UseOzonePlatform,Vulkan,WebGPU         --disable-session-crashed-bubble         --user-data-dir="${KIOSK_DIR}/chromium"         "${LAUNCH_URL}"
     echo "Chromium exited $? at $(date) -- refetching config in 5s"
     sleep 5
 done
@@ -494,6 +501,13 @@ if [[ "$(getconf PAGESIZE)" -gt "4096" ]]; then
 export CHROMIUM_FLAGS=$(echo "$CHROMIUM_FLAGS" | sed 's/--js-flags=--no-decommit-pooled-pages//')
 CHROMEOF
     info "Applied Chromium Pi 5 page size fix"
+else
+    sudo tee /etc/chromium.d/propared-zero-w2-override > /dev/null << 'CHROMEOF'
+# Propared Calendar Displays: keep Chromium fully software-rendered on Pi Zero W2.
+# Debian's Chromium wrapper may add GPU/ANGLE flags before kiosk flags.
+export CHROMIUM_FLAGS="$(printf '%s' "$CHROMIUM_FLAGS" | sed -e 's/--enable-gpu-rasterization//g' -e 's/--use-angle=gles//g' -e 's/--use-angle=[^ ]*//g')"
+CHROMEOF
+    info "Applied Chromium Pi Zero W2 software rendering fix"
 fi
 
 # =============================================================================
@@ -650,6 +664,35 @@ else
 fi
 
 # =============================================================================
+# Step 12b — Nightly kiosk refresh
+# Restart the LightDM kiosk session each night so Chromium gets a clean page load.
+# =============================================================================
+sudo tee /etc/systemd/system/${KIOSK_NIGHTLY_TIMER}.service > /dev/null << EOF
+[Unit]
+Description=Propared Calendar Displays -- Nightly Kiosk Refresh
+
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl restart lightdm
+EOF
+
+sudo tee /etc/systemd/system/${KIOSK_NIGHTLY_TIMER}.timer > /dev/null << EOF
+[Unit]
+Description=Propared Calendar Displays -- Nightly Kiosk Refresh at 3 AM
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now ${KIOSK_NIGHTLY_TIMER}.timer
+info "Nightly kiosk refresh enabled at 3 AM"
+
+# =============================================================================
 # Step 13 — Convenience aliases
 # =============================================================================
 BASHRC="${HOME}/.bashrc"
@@ -687,6 +730,7 @@ sudo systemctl is-active ${WATCHDOG_SERVICE}.timer && info "Watchdog timer activ
 # Also add to /etc/systemd/system preset to survive reboots
 sudo mkdir -p /etc/systemd/system-preset
 echo "enable ${WATCHDOG_SERVICE}.timer" | sudo tee /etc/systemd/system-preset/50-propared.preset > /dev/null
+echo "enable ${KIOSK_NIGHTLY_TIMER}.timer" | sudo tee -a /etc/systemd/system-preset/50-propared.preset > /dev/null
 
 info "Restarting LightDM -- kiosk should appear on screen now..."
 sudo systemctl restart lightdm
@@ -703,6 +747,7 @@ echo
 echo "  Displaying  : ${DISPLAY_URL}"
 echo "  Server      : ${SERVER_URL}"
 echo "  Stack       : LightDM -> propared-kiosk session"
+echo "  Refresh     : kiosk restarts nightly at 3 AM"
 if [[ "${SCREEN_SCHEDULE_ENABLED}" == "yes" ]]; then
     echo "  Screen      : ON at ${SCREEN_ON}, OFF at ${SCREEN_OFF}"
 else

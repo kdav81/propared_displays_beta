@@ -676,25 +676,30 @@ fetchNotice();
 setInterval(fetchNotice,15*1000);
 
 // ── Slideshow overlay ────────────────────────────────────────────────────────
-var _slideLinks=[], _slideIdx=0;
+var _slideLinks=[], _slideIdx=0, _slideLinksDate='';
+
+function slideDateKey(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 
 async function loadSlideLinks(){
   try{
-    var r=await fetch(SERVER+'/api/slides');
+    var r=await fetch(SERVER+'/api/slides?refresh=1&_='+Date.now(), {cache:'no-store'});
     var j=await r.json();
     _slideLinks=(j.links||[]);
+    _slideLinksDate=slideDateKey();
+    if(_slideIdx>=_slideLinks.length) _slideIdx=0;
   } catch(e){ _slideLinks=[]; }
 }
 
 function showSlide(){
   if(!CFG.hasSlideshow||_noticeActive){ scheduleCalendar(); return; }
-  if(!_slideLinks.length){
-    loadSlideLinks().then(function(){
-      if(_slideLinks.length) _doShowSlide(); else scheduleCalendar();
-    });
-    return;
-  }
-  _doShowSlide();
+  var today=slideDateKey();
+  var needsLoad=!_slideLinksDate||_slideLinksDate!==today;
+  (needsLoad?loadSlideLinks():Promise.resolve()).then(function(){
+    if(_slideLinks.length) _doShowSlide(); else scheduleCalendar();
+  });
 }
 function _doShowSlide(){
   var overlay=document.getElementById('slide-overlay');
