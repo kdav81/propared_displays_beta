@@ -33,7 +33,7 @@ SCREEN_OFF_TIMER="propared-screen-off"
 KIOSK_NIGHTLY_TIMER="propared-kiosk-nightly"
 CLIENT_UPDATE_SERVICE="propared-client-update"
 CLIENT_UPDATE_SCRIPT="/usr/local/sbin/propared-client-update.sh"
-INSTALLER_CLIENT_VERSION="10.09"
+INSTALLER_CLIENT_VERSION="10.10"
 CLIENT_VERSION="${INSTALLER_CLIENT_VERSION}"
 CLIENT_KEEP_CONFIG="no"
 KIOSK_USER="${USER}"
@@ -289,6 +289,16 @@ else
     info "Installed minimal X stack + LightDM"
 fi
 info "Packages installed."
+
+X11_HEALTH_PACKAGES=(libxext6 libxtst6 libx11-6 libxcb1 x11-xserver-utils openbox)
+if ! X11_VERIFY_OUTPUT="$(sudo dpkg -V "${X11_HEALTH_PACKAGES[@]}" 2>&1)"; then
+    warn "Display library verification failed; reinstalling X11 kiosk packages."
+    if [[ -n "${X11_VERIFY_OUTPUT}" ]]; then
+        echo "${X11_VERIFY_OUTPUT}"
+    fi
+    sudo apt-get install --reinstall -y -qq "${X11_HEALTH_PACKAGES[@]}"
+    info "X11 kiosk packages reinstalled."
+fi
 
 # =============================================================================
 # Step 6 — Chromium kiosk launcher
