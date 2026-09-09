@@ -113,7 +113,10 @@
 </div>
 <div class="section-body" id="bdy-clients">
   <div class="card">
-    <div class="card-hint">Each Pi registers itself automatically on first boot. Assign a room and screen schedule here.</div>
+    <div class="client-toolbar">
+      <div class="card-hint">Each Pi registers itself automatically on first boot. Assign a room and screen schedule here.</div>
+      <button type="button" class="btn btn-ghost btn-sm" id="client-update-all">Update All</button>
+    </div>
     <div id="client-list">
       <div style="font-size:12px;color:var(--muted);font-style:italic">Loading clients…</div>
     </div>

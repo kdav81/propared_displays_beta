@@ -155,6 +155,8 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:40px 0 0}
 .client-row-body{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:6px}
 .client-hostname{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .client-ip{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);text-decoration:none;cursor:pointer}
+.client-toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.client-toolbar .card-hint{margin-bottom:0}
 .client-control{font-size:12px;padding:4px 8px;min-width:0}
 .client-schedule{display:flex;align-items:center;gap:6px}
 .client-schedule-checkbox{width:15px;height:15px;cursor:pointer}
@@ -167,6 +169,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:40px 0 0}
   }
 }
 @media (max-width: 980px){
+  .client-toolbar{flex-direction:column}
   .client-row,
   .client-row-header{grid-template-columns:1fr}
   .client-row-header{display:none}

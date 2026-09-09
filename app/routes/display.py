@@ -59,6 +59,15 @@ def _client_supports_update(client_version: str) -> bool:
     return _version_tuple(client_version) >= (0, 1, 1)
 
 
+def _new_pending_command(command: str) -> dict:
+    return {
+        "id": str(uuid.uuid4()),
+        "command": command,
+        "created_at": time.time(),
+        "status": "pending",
+    }
+
+
 def _normalized_pending_command(value):
     if not isinstance(value, dict):
         return None
@@ -452,14 +461,47 @@ def register_display_routes(
         command = str(data.get("command", "")).strip()
         if command not in SUPPORTED_CLIENT_COMMANDS:
             return jsonify({"error": "Unsupported command"}), 400
-        clients[client_id]["pending_command"] = {
-            "id": str(uuid.uuid4()),
-            "command": command,
-            "created_at": time.time(),
-            "status": "pending",
-        }
+        clients[client_id]["pending_command"] = _new_pending_command(command)
         save_clients(clients)
         return jsonify({"ok": True, "pending_command": clients[client_id]["pending_command"]})
+
+    @app.route("/admin/clients/update-all", methods=["POST"])
+    @require_admin
+    def admin_clients_update_all():
+        queued = []
+        skipped_current = []
+        skipped_manual = []
+        skipped_pending = []
+
+        for client_id, client in clients.items():
+            client = clients[client_id] = _ensure_client_defaults(
+                client,
+                hostname=client.get("hostname", client_id[:8]),
+                ip=client.get("ip", ""),
+                role=client.get("role", "display"),
+            )
+            version = client.get("clientVersion", "")
+            pending = _normalized_pending_command(client.get("pending_command"))
+            if version == EXPECTED_CLIENT_VERSION:
+                skipped_current.append(client_id)
+            elif not _client_supports_update(version):
+                skipped_manual.append(client_id)
+            elif pending:
+                skipped_pending.append(client_id)
+            else:
+                client["pending_command"] = _new_pending_command("update_client")
+                queued.append(client_id)
+
+        save_clients(clients)
+        return jsonify(
+            {
+                "ok": True,
+                "queued": len(queued),
+                "skippedCurrent": len(skipped_current),
+                "skippedManual": len(skipped_manual),
+                "skippedPending": len(skipped_pending),
+            }
+        )
 
     @app.route("/api/client-command/<client_id>/ack", methods=["POST"])
     def api_client_command_ack(client_id):
