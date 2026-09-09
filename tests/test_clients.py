@@ -7,7 +7,7 @@ from unittest.mock import patch
 if find_spec("flask") is None:
     raise unittest.SkipTest("Flask is not installed in this test environment")
 
-from app.routes.display import _ensure_client_defaults
+from app.routes.display import SUPPORTED_CLIENT_COMMANDS, _client_supports_update, _ensure_client_defaults
 
 
 class ClientPresenceTests(unittest.TestCase):
@@ -39,6 +39,14 @@ class ClientPresenceTests(unittest.TestCase):
         )
 
         self.assertEqual(client["clientVersion"], "0.1.0")
+
+    def test_update_client_command_is_supported(self):
+        self.assertIn("update_client", SUPPORTED_CLIENT_COMMANDS)
+
+    def test_update_requires_self_updater_version(self):
+        self.assertFalse(_client_supports_update(""))
+        self.assertFalse(_client_supports_update("0.1.0"))
+        self.assertTrue(_client_supports_update("0.1.1"))
 
 
 if __name__ == "__main__":

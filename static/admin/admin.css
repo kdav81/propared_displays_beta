@@ -148,7 +148,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:40px 0 0}
   z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
 #toast.show{opacity:1}
 :root{
-  --client-grid-columns:minmax(90px,.85fr) minmax(104px,.8fr) minmax(84px,.72fr) minmax(82px,.72fr) minmax(160px,1.55fr) minmax(98px,.9fr) minmax(98px,.9fr) minmax(86px,.72fr) 124px;
+  --client-grid-columns:minmax(90px,.85fr) minmax(104px,.8fr) minmax(84px,.72fr) minmax(82px,.72fr) minmax(150px,1.35fr) minmax(92px,.82fr) minmax(92px,.82fr) minmax(82px,.7fr) 176px;
 }
 .client-row{display:grid;grid-template-columns:var(--client-grid-columns);gap:8px;align-items:center}
 .client-row-header{padding:0 10px 6px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
@@ -163,7 +163,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:40px 0 0}
 .btn-icon{width:34px;min-width:34px;justify-content:center;padding:6px}
 @media (max-width: 1180px){
   :root{
-    --client-grid-columns:minmax(82px,.75fr) minmax(92px,.75fr) minmax(78px,.7fr) minmax(78px,.7fr) minmax(140px,1.2fr) minmax(92px,.85fr) minmax(92px,.85fr) minmax(82px,.7fr) 124px;
+    --client-grid-columns:minmax(78px,.72fr) minmax(88px,.72fr) minmax(76px,.68fr) minmax(76px,.68fr) minmax(128px,1.05fr) minmax(86px,.78fr) minmax(86px,.78fr) minmax(78px,.68fr) 176px;
   }
 }
 @media (max-width: 980px){
