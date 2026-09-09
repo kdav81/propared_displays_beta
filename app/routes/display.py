@@ -22,7 +22,7 @@ from app.storage import (
     save_tags,
 )
 
-SUPPORTED_CLIENT_COMMANDS = {"restart_kiosk"}
+SUPPORTED_CLIENT_COMMANDS = {"restart_kiosk", "update_client"}
 
 
 def _display_version() -> int:
@@ -40,6 +40,23 @@ def _coerce_bool(value) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "on", "enabled"}
     return False
+
+
+def _version_tuple(value: str) -> tuple[int, int, int]:
+    parts = str(value or "").strip().split(".")
+    parsed = []
+    for part in parts[:3]:
+        try:
+            parsed.append(int(part))
+        except ValueError:
+            parsed.append(0)
+    while len(parsed) < 3:
+        parsed.append(0)
+    return tuple(parsed)
+
+
+def _client_supports_update(client_version: str) -> bool:
+    return _version_tuple(client_version) >= (0, 1, 1)
 
 
 def _normalized_pending_command(value):
@@ -400,6 +417,7 @@ def register_display_routes(
                     "clientVersion": client.get("clientVersion", ""),
                     "expectedClientVersion": EXPECTED_CLIENT_VERSION,
                     "clientVersionCurrent": client.get("clientVersion", "") == EXPECTED_CLIENT_VERSION,
+                    "clientSupportsUpdate": _client_supports_update(client.get("clientVersion", "")),
                     "pending_command": client.get("pending_command"),
                 }
             )

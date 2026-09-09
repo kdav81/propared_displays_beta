@@ -31,9 +31,29 @@ WATCHDOG_SERVICE="propared-watchdog"
 SCREEN_ON_TIMER="propared-screen-on"
 SCREEN_OFF_TIMER="propared-screen-off"
 KIOSK_NIGHTLY_TIMER="propared-kiosk-nightly"
-CLIENT_VERSION="0.1.0"
+CLIENT_UPDATE_SERVICE="propared-client-update"
+CLIENT_UPDATE_SCRIPT="/usr/local/sbin/propared-client-update.sh"
+INSTALLER_CLIENT_VERSION="0.1.1"
+CLIENT_VERSION="${INSTALLER_CLIENT_VERSION}"
+CLIENT_KEEP_CONFIG="no"
 KIOSK_USER="${USER}"
 KIOSK_DIR="${HOME}/.config/propared-kiosk"
+
+for ARG in "$@"; do
+    case "${ARG}" in
+        --keep-config|--noninteractive)
+            CLIENT_KEEP_CONFIG="yes"
+            ;;
+        --help|-h)
+            echo "Usage: $0 [--keep-config]"
+            echo "  --keep-config  Keep /etc/propared/client.conf and run without prompts."
+            exit 0
+            ;;
+        *)
+            die "Unknown option: ${ARG}"
+            ;;
+    esac
+done
 
 # =============================================================================
 # Detect display stack
@@ -67,7 +87,7 @@ fi
 # =============================================================================
 header "Propared Calendar Displays Client Installer"
 
-if [[ "${EUID}" -eq 0 ]]; then
+if [[ "${EUID}" -eq 0 && "${CLIENT_KEEP_CONFIG}" != "yes" ]]; then
     die "Run this installer as your normal user, not root."
 fi
 
@@ -84,13 +104,19 @@ PREVIOUS_SERVER_URL=""
 
 if [[ -f "${CONF_FILE}" ]]; then
     source "${CONF_FILE}"
+    CLIENT_VERSION="${INSTALLER_CLIENT_VERSION}"
     PREVIOUS_SERVER_URL="${SERVER_URL}"
     echo
     echo "  Existing config found:"
     echo "    Server    : ${SERVER_URL}"
     echo "    Client ID : ${CLIENT_ID}"
     echo
-    read -rp "  Keep this config? [Y/n]: " KEEP
+    if [[ "${CLIENT_KEEP_CONFIG}" == "yes" ]]; then
+        KEEP="y"
+        info "Keeping existing config (--keep-config)."
+    else
+        read -rp "  Keep this config? [Y/n]: " KEEP
+    fi
     if [[ "${KEEP,,}" == "n" ]]; then
         SERVER_URL=""
         # Keep CLIENT_ID — it's the Pi's permanent identity
@@ -100,11 +126,21 @@ if [[ -f "${CONF_FILE}" ]]; then
     fi
 fi
 
+if [[ "${CLIENT_KEEP_CONFIG}" == "yes" && -z "${SERVER_URL}" ]]; then
+    die "--keep-config requires an existing ${CONF_FILE} with SERVER_URL."
+fi
+
 # Generate a CLIENT_ID if we don't have one yet
 if [[ -z "${CLIENT_ID}" ]]; then
     CLIENT_ID=$(cat /proc/sys/kernel/random/uuid)
     info "Generated new Client ID: ${CLIENT_ID}"
 fi
+
+KIOSK_HOME="$(getent passwd "${KIOSK_USER}" | cut -d: -f6)"
+if [[ -z "${KIOSK_HOME}" ]]; then
+    KIOSK_HOME="${HOME}"
+fi
+KIOSK_GROUP="$(id -gn "${KIOSK_USER}" 2>/dev/null || printf '%s' "${KIOSK_USER}")"
 
 unregister_previous_server() {
     local PREVIOUS_URL="$1"
@@ -454,7 +490,7 @@ info "Default target set to graphical.target"
 info "Configuring keyring for silent unlock..."
 
 # Remove any old keyring that has a password set
-KEYRING_DIR="${HOME}/.local/share/keyrings"
+KEYRING_DIR="${KIOSK_HOME}/.local/share/keyrings"
 mkdir -p "${KEYRING_DIR}"
 rm -f "${KEYRING_DIR}"/*.keyring 2>/dev/null || true
 
@@ -566,6 +602,14 @@ if [[ -n "${CFG}" ]]; then
             logger -t "${LOG_TAG}" "Received restart_kiosk command but ack failed -- skipping restart this cycle"
         fi
         exit 0
+    elif [[ "${PENDING_COMMAND}" == "update_client" && -n "${PENDING_ID}" ]]; then
+        if ack_command "${PENDING_ID}"; then
+            logger -t "${LOG_TAG}" "Received update_client command -- starting client updater"
+            sudo systemctl start propared-client-update.service
+        else
+            logger -t "${LOG_TAG}" "Received update_client command but ack failed -- skipping update this cycle"
+        fi
+        exit 0
     fi
 fi
 
@@ -576,6 +620,41 @@ if ! pgrep -f "chromium.*kiosk" > /dev/null 2>&1; then
 fi
 WATCHDOG
 chmod +x "${KIOSK_DIR}/watchdog.sh"
+
+sudo tee "${CLIENT_UPDATE_SCRIPT}" > /dev/null << 'UPDATER'
+#!/usr/bin/env bash
+set -euo pipefail
+source /etc/propared/client.conf
+
+TMP="$(mktemp)"
+cleanup() {
+    rm -f "${TMP}"
+}
+trap cleanup EXIT
+
+curl -fsSL --max-time 30 \
+    https://raw.githubusercontent.com/kdav81/propared_displays_beta/main/install-client.sh \
+    -o "${TMP}"
+chmod +x "${TMP}"
+bash "${TMP}" --keep-config
+systemctl restart lightdm
+UPDATER
+sudo chmod 755 "${CLIENT_UPDATE_SCRIPT}"
+sudo chown -R "${KIOSK_USER}:${KIOSK_GROUP}" "${KIOSK_DIR}" "${KEYRING_DIR}" 2>/dev/null || true
+
+sudo tee /etc/systemd/system/${CLIENT_UPDATE_SERVICE}.service > /dev/null << EOF
+[Unit]
+Description=Propared Calendar Displays Client Update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=${CLIENT_UPDATE_SCRIPT}
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=propared-client-update
+EOF
 
 # Watchdog systemd service
 sudo tee /etc/systemd/system/${WATCHDOG_SERVICE}.service > /dev/null << EOF
@@ -607,7 +686,7 @@ EOF
 
 # Allow kiosk user to restart LightDM without password (for crash recovery)
 SUDOERS_FILE="/etc/sudoers.d/propared-kiosk"
-echo "${KIOSK_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart lightdm" \
+echo "${KIOSK_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart lightdm, /bin/systemctl start ${CLIENT_UPDATE_SERVICE}.service" \
     | sudo tee "${SUDOERS_FILE}" > /dev/null
 sudo chmod 440 "${SUDOERS_FILE}"
 info "Watchdog configured"
@@ -697,7 +776,7 @@ info "Nightly kiosk refresh enabled at 3 AM"
 # =============================================================================
 # Step 13 — Convenience aliases
 # =============================================================================
-BASHRC="${HOME}/.bashrc"
+BASHRC="${KIOSK_HOME}/.bashrc"
 declare -A ALIAS_MAP=(
     ["kiosk-logs"]="journalctl -u ${WATCHDOG_SERVICE} -f"
     ["kiosk-restart"]="sudo systemctl restart lightdm"
@@ -715,6 +794,7 @@ for NAME in "${!ALIAS_MAP[@]}"; do
         echo "alias ${NAME}='${ALIAS_MAP[$NAME]}'" >> "${BASHRC}"
     fi
 done
+sudo chown "${KIOSK_USER}:${KIOSK_GROUP}" "${BASHRC}" 2>/dev/null || true
 # Source bashrc so aliases are available immediately
 source "${BASHRC}" 2>/dev/null || true
 info "Shell aliases added and loaded"

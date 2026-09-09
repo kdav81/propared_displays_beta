@@ -238,7 +238,11 @@ function loadClients(){
       var versionPill = document.createElement('span');
       versionPill.className = 'pill ' + (current ? 'pill-green' : 'pill-red');
       versionPill.textContent = clientVersion;
-      if(!current && expectedVersion) versionPill.title = 'Expected ' + expectedVersion;
+      if(!current && expectedVersion){
+        versionPill.title = c.clientSupportsUpdate
+          ? 'Expected ' + expectedVersion
+          : 'Expected ' + expectedVersion + '; manual installer update needed first';
+      }
       version.appendChild(versionPill);
       row.appendChild(version);
 
@@ -292,6 +296,7 @@ function loadClients(){
 
       var btns = document.createElement('div');
       btns.className = 'client-actions';
+      var pendingCommand = c.pending_command && c.pending_command.command;
       var saveBtn = document.createElement('button');
       saveBtn.className = 'btn btn-primary btn-sm';
       saveBtn.textContent = 'Save';
@@ -320,7 +325,7 @@ function loadClients(){
       restartBtn.className = 'btn btn-ghost btn-sm btn-icon';
       restartBtn.innerHTML = '&#8635;';
       restartBtn.title = 'Queue kiosk restart';
-      if(c.pending_command && c.pending_command.command === 'restart_kiosk'){
+      if(pendingCommand === 'restart_kiosk'){
         restartBtn.disabled = true;
         restartBtn.innerHTML = '&#8987;';
         restartBtn.title = 'Kiosk restart queued';
@@ -340,6 +345,31 @@ function loadClients(){
       });
       btns.appendChild(saveBtn);
       btns.appendChild(restartBtn);
+      if(!c.clientVersionCurrent && c.clientSupportsUpdate){
+        var updateBtn = document.createElement('button');
+        updateBtn.className = 'btn btn-ghost btn-sm';
+        updateBtn.textContent = 'Update';
+        updateBtn.title = 'Queue client installer update';
+        if(pendingCommand === 'update_client'){
+          updateBtn.disabled = true;
+          updateBtn.textContent = 'Queued';
+          updateBtn.title = 'Client update queued';
+        }
+        updateBtn.addEventListener('click', function(){
+          if(!confirm('Queue a client update for ' + c.hostname + '?')) return;
+          _fetch('/admin/client/' + c.client_id + '/command', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({command: 'update_client'})
+          }).then(function(r){
+            if(r.ok){
+              showToast('Client update queued.');
+              loadClients();
+            }
+          });
+        });
+        btns.appendChild(updateBtn);
+      }
       btns.appendChild(delBtn);
       row.appendChild(btns);
       el.appendChild(row);
