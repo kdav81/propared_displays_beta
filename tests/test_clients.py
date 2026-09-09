@@ -47,6 +47,7 @@ class ClientPresenceTests(unittest.TestCase):
         self.assertFalse(_client_supports_update(""))
         self.assertFalse(_client_supports_update("0.1.0"))
         self.assertTrue(_client_supports_update("0.1.1"))
+        self.assertTrue(_client_supports_update("10.09"))
 
 
 if __name__ == "__main__":
