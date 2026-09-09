@@ -24,17 +24,18 @@ PRINT_SHOWS_FILE = BASE / "print_shows.json"
 LOCATION_RULES_FILE = BASE / "location_rules.json"
 MEDIA_LIBRARY_FILE = BASE / "media_library.json"
 VERSION_FILE = BASE / "VERSION"
+CLIENT_VERSION_FILE = BASE / "CLIENT_VERSION"
 
 
-def _read_version() -> str:
+def _read_version(path: Path) -> str:
     try:
-        return VERSION_FILE.read_text().strip() or "0.0.0"
+        return path.read_text().strip() or "0.0.0"
     except OSError:
         return "0.0.0"
 
 
-APP_VERSION = _read_version()
-EXPECTED_CLIENT_VERSION = APP_VERSION
+APP_VERSION = _read_version(VERSION_FILE)
+EXPECTED_CLIENT_VERSION = _read_version(CLIENT_VERSION_FILE)
 
 def _env_int(name: str, default: int) -> int:
     try:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import unittest
+import re
 from importlib.util import find_spec
+from pathlib import Path
 from unittest.mock import patch
 
 if find_spec("flask") is None:
@@ -110,6 +112,15 @@ class ClientPresenceTests(unittest.TestCase):
         )
         self.assertEqual(clients["eligible"]["pending_command"]["command"], "update_client")
         self.assertEqual(clients["pending"]["pending_command"]["id"], "existing-command")
+
+    def test_client_version_file_matches_installer_constant(self):
+        root = Path(__file__).resolve().parents[1]
+        expected = (root / "CLIENT_VERSION").read_text(encoding="utf-8").strip()
+        installer = (root / "install-client.sh").read_text(encoding="utf-8")
+        match = re.search(r'^INSTALLER_CLIENT_VERSION="([^"]+)"', installer, re.MULTILINE)
+
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), expected)
 
 
 if __name__ == "__main__":
