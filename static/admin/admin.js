@@ -381,6 +381,26 @@ function loadClients(){
 loadClients();
 setInterval(loadClients, 30000);
 
+var updateAllBtn = document.getElementById('client-update-all');
+if(updateAllBtn){
+  updateAllBtn.addEventListener('click', function(){
+    if(!confirm('Queue updates for all eligible outdated clients?')) return;
+    updateAllBtn.disabled = true;
+    _fetch('/admin/clients/update-all', {method:'POST'}).then(function(r){ return r.json(); }).then(function(result){
+      if(result.ok){
+        showToast('Queued ' + result.queued + ' update' + (result.queued === 1 ? '' : 's') + '.');
+        loadClients();
+      } else {
+        showToast('Could not queue updates.');
+      }
+    }).catch(function(){
+      showToast('Could not queue updates.');
+    }).finally(function(){
+      updateAllBtn.disabled = false;
+    });
+  });
+}
+
 function renderGlobalCals(){
   var list = document.getElementById('global-cal-list');
   list.innerHTML = '';

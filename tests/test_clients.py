@@ -7,6 +7,10 @@ from unittest.mock import patch
 if find_spec("flask") is None:
     raise unittest.SkipTest("Flask is not installed in this test environment")
 
+from flask import Flask
+
+from app.config import EXPECTED_CLIENT_VERSION
+from app.routes import display as display_routes
 from app.routes.display import SUPPORTED_CLIENT_COMMANDS, _client_supports_update, _ensure_client_defaults
 
 
@@ -51,6 +55,61 @@ class ClientPresenceTests(unittest.TestCase):
         self.assertTrue(_client_supports_update("10.10"))
         self.assertTrue(_client_supports_update("10.11"))
         self.assertTrue(_client_supports_update("10.12"))
+        self.assertTrue(_client_supports_update("10.13"))
+
+    def test_update_all_queues_only_eligible_outdated_clients(self):
+        clients = {
+            "eligible": {"hostname": "eligible", "ip": "10.0.0.1", "clientVersion": "10.12"},
+            "current": {"hostname": "current", "ip": "10.0.0.2", "clientVersion": EXPECTED_CLIENT_VERSION},
+            "manual": {"hostname": "manual", "ip": "10.0.0.3", "clientVersion": "0.1.0"},
+            "pending": {
+                "hostname": "pending",
+                "ip": "10.0.0.4",
+                "clientVersion": "10.12",
+                "pending_command": {
+                    "id": "existing-command",
+                    "command": "restart_kiosk",
+                    "created_at": 1,
+                    "status": "pending",
+                },
+            },
+        }
+        app = Flask(__name__)
+
+        original_require_admin = display_routes.require_admin
+        display_routes.require_admin = lambda func: func
+        try:
+            display_routes.register_display_routes(
+                app,
+                clients=clients,
+                ical_cache=None,
+                global_cal_cache=None,
+                get_slides=lambda force=False: [],
+                logo_path=lambda rid: None,
+                public_room_config=lambda rid, rooms, settings: {},
+                room_status=lambda rid: {},
+                sync_global_calendar_cache=lambda calendars: None,
+                to_int=lambda value, default, minimum=None, maximum=None: default,
+                validated_proxy_ical_url=lambda url: "",
+            )
+        finally:
+            display_routes.require_admin = original_require_admin
+
+        response = app.test_client().post("/admin/clients/update-all")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.get_json(),
+            {
+                "ok": True,
+                "queued": 1,
+                "skippedCurrent": 1,
+                "skippedManual": 1,
+                "skippedPending": 1,
+            },
+        )
+        self.assertEqual(clients["eligible"]["pending_command"]["command"], "update_client")
+        self.assertEqual(clients["pending"]["pending_command"]["id"], "existing-command")
 
 
 if __name__ == "__main__":

@@ -134,7 +134,7 @@ Each Raspberry Pi registers itself with the server when the client installer run
 
 The Pi picks up the new assignment within 60 seconds.
 
-Each client row also shows the version reported by that Pi. A red version pill means the Pi's installer/watchdog version does not match the server's expected client version; re-run the client installer on older Pis to bring them current. Once a Pi has the self-updater installed, Admin will show an **Update** button for future client updates.
+Each client row also shows the version reported by that Pi. A red version pill means the Pi's installer/watchdog version does not match the server's expected client version; re-run the client installer on older Pis to bring them current. Once a Pi has the self-updater installed, Admin will show an **Update** button for future client updates. Use **Update All** to queue updates for every eligible outdated Pi at once.
 
 ### Restarting a kiosk from Admin
 
