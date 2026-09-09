@@ -23,6 +23,18 @@ SECRET_KEY_FILE = BASE / "secret_key.txt"
 PRINT_SHOWS_FILE = BASE / "print_shows.json"
 LOCATION_RULES_FILE = BASE / "location_rules.json"
 MEDIA_LIBRARY_FILE = BASE / "media_library.json"
+VERSION_FILE = BASE / "VERSION"
+
+
+def _read_version() -> str:
+    try:
+        return VERSION_FILE.read_text().strip() or "0.0.0"
+    except OSError:
+        return "0.0.0"
+
+
+APP_VERSION = _read_version()
+EXPECTED_CLIENT_VERSION = APP_VERSION
 
 def _env_int(name: str, default: int) -> int:
     try:

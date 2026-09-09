@@ -31,6 +31,15 @@ class ClientPresenceTests(unittest.TestCase):
 
         self.assertEqual(client["last_seen"], 456.0)
 
+    def test_client_version_is_normalized_from_legacy_key(self):
+        client = _ensure_client_defaults(
+            {"client_version": "0.1.0"},
+            hostname="display-1",
+            ip="10.0.0.10",
+        )
+
+        self.assertEqual(client["clientVersion"], "0.1.0")
+
 
 if __name__ == "__main__":
     unittest.main()
