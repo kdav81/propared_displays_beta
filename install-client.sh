@@ -33,11 +33,17 @@ SCREEN_OFF_TIMER="propared-screen-off"
 KIOSK_NIGHTLY_TIMER="propared-kiosk-nightly"
 CLIENT_UPDATE_SERVICE="propared-client-update"
 CLIENT_UPDATE_SCRIPT="/usr/local/sbin/propared-client-update.sh"
-INSTALLER_CLIENT_VERSION="10.10"
+INSTALLER_CLIENT_VERSION="10.12"
 CLIENT_VERSION="${INSTALLER_CLIENT_VERSION}"
 CLIENT_KEEP_CONFIG="no"
-KIOSK_USER="${USER}"
-KIOSK_DIR="${HOME}/.config/propared-kiosk"
+INSTALL_RUN_USER="${SUDO_USER:-${USER:-$(id -un)}}"
+INSTALL_RUN_HOME="$(getent passwd "${INSTALL_RUN_USER}" | cut -d: -f6)"
+if [[ -z "${INSTALL_RUN_HOME}" ]]; then
+    INSTALL_RUN_HOME="${HOME:-/home/${INSTALL_RUN_USER}}"
+fi
+export HOME="${HOME:-${INSTALL_RUN_HOME}}"
+KIOSK_USER="${INSTALL_RUN_USER}"
+KIOSK_DIR="${INSTALL_RUN_HOME}/.config/propared-kiosk"
 
 for ARG in "$@"; do
     case "${ARG}" in
@@ -100,6 +106,7 @@ fi
 
 SERVER_URL=""
 CLIENT_ID=""
+DISPLAY_URL=""
 PREVIOUS_SERVER_URL=""
 
 if [[ -f "${CONF_FILE}" ]]; then
@@ -646,7 +653,7 @@ curl -fsSL --max-time 30 \
     https://raw.githubusercontent.com/kdav81/propared_displays_beta/main/install-client.sh \
     -o "${TMP}"
 chmod +x "${TMP}"
-bash "${TMP}" --keep-config
+HOME="${HOME:-/root}" bash "${TMP}" --keep-config
 systemctl restart lightdm
 UPDATER
 sudo chmod 755 "${CLIENT_UPDATE_SCRIPT}"
