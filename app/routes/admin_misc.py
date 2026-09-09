@@ -7,7 +7,7 @@ import urllib.parse
 from flask import Response, jsonify, redirect, render_template, request, send_file
 
 from app.auth import require_admin
-from app.config import BACKUP_DIR, NOTICE_PASSWORD_FILE, PASSWORD_FILE
+from app.config import APP_VERSION, BACKUP_DIR, NOTICE_PASSWORD_FILE, PASSWORD_FILE
 from app.services.backup import make_backup_zip, restore_backup_archive
 from app.services.media_library import site_logo_url
 from app.storage import (
@@ -50,6 +50,7 @@ def register_admin_misc_routes(app, *, ical_cache, sync_global_calendar_cache, t
             rooms=load_rooms(),
             tag_colors=load_tags(),
             settings=load_settings(),
+            app_version=APP_VERSION,
         )
 
     @app.route("/admin/backup")

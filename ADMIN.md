@@ -134,6 +134,8 @@ Each Raspberry Pi registers itself with the server when the client installer run
 
 The Pi picks up the new assignment within 60 seconds.
 
+Each client row also shows the version reported by that Pi. A red version pill means the Pi's installer/watchdog version does not match the server's expected client version; re-run the client installer on that Pi to bring it current.
+
 ### Restarting a kiosk from Admin
 
 Each client row also has a restart button:

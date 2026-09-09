@@ -8,6 +8,7 @@ from pathlib import Path
 from flask import Response, jsonify, make_response, redirect, render_template, request
 
 from app.auth import require_admin
+from app.config import APP_VERSION, EXPECTED_CLIENT_VERSION
 from app.services.media_library import local_slide_items
 from app.storage import (
     load_notice,
@@ -113,6 +114,12 @@ def _ensure_client_defaults(
     client["scheduleEnabled"] = _coerce_bool(
         client.get("scheduleEnabled", client.get("schedule_enabled", client.get("SCREEN_SCHEDULE_ENABLED", False)))
     )
+    client["clientVersion"] = str(
+        client.get("clientVersion")
+        or client.get("client_version")
+        or client.get("CLIENT_VERSION")
+        or ""
+    ).strip()
     client["pending_command"] = _normalized_pending_command(client.get("pending_command"))
     client["last_command_completed_at"] = float(client.get("last_command_completed_at", 0) or 0)
     client["last_command_id"] = str(client.get("last_command_id", "")).strip()
@@ -135,7 +142,15 @@ def register_display_routes(
 ) -> None:
     @app.route("/api/health")
     def api_health():
-        return jsonify({"ok": True, "rooms": len(load_rooms()), "time": time.time()})
+        return jsonify(
+            {
+                "ok": True,
+                "rooms": len(load_rooms()),
+                "time": time.time(),
+                "version": APP_VERSION,
+                "expectedClientVersion": EXPECTED_CLIENT_VERSION,
+            }
+        )
 
     @app.route("/api/display-version")
     def api_display_version():
@@ -278,6 +293,7 @@ def register_display_routes(
         client_id = data.get("client_id", "")
         hostname = data.get("hostname", request.remote_addr)
         role = data.get("role", "display")
+        client_version = str(data.get("client_version", data.get("clientVersion", ""))).strip()
 
         if not client_id:
             return jsonify({"ok": False, "error": "missing client_id"}), 400
@@ -290,6 +306,8 @@ def register_display_routes(
             role=role,
             update_last_seen=True,
         )
+        if client_version:
+            clients[client_id]["clientVersion"] = client_version
         save_clients(clients)
         return jsonify({"ok": True})
 
@@ -351,6 +369,7 @@ def register_display_routes(
                 "screenOff": config.get("screenOff", "22:00"),
                 "scheduleEnabled": config.get("scheduleEnabled", False),
                 "server_url": settings.get("serverUrl", ""),
+                "expectedClientVersion": EXPECTED_CLIENT_VERSION,
                 "pending_command": config.get("pending_command"),
             }
         )
@@ -378,6 +397,9 @@ def register_display_routes(
                     "screenOn": client.get("screenOn", "08:00"),
                     "screenOff": client.get("screenOff", "22:00"),
                     "scheduleEnabled": client.get("scheduleEnabled", False),
+                    "clientVersion": client.get("clientVersion", ""),
+                    "expectedClientVersion": EXPECTED_CLIENT_VERSION,
+                    "clientVersionCurrent": client.get("clientVersion", "") == EXPECTED_CLIENT_VERSION,
                     "pending_command": client.get("pending_command"),
                 }
             )

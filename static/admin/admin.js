@@ -207,7 +207,7 @@ function loadClients(){
     el.innerHTML = '';
     var header = document.createElement('div');
     header.className = 'client-row client-row-header';
-    header.innerHTML = '<span>Hostname</span><span>IP</span><span>Status</span><span>Assigned Room</span><span>Screen On</span><span>Screen Off</span><span>Schedule</span><span>Actions</span>';
+    header.innerHTML = '<span>Hostname</span><span>IP</span><span>Status</span><span>Version</span><span>Assigned Room</span><span>Screen On</span><span>Screen Off</span><span>Schedule</span><span>Actions</span>';
     el.appendChild(header);
 
     data.forEach(function(c){
@@ -230,6 +230,17 @@ function loadClients(){
         ? '<span class="pill pill-green">&#9679; Online</span>'
         : '<span class="pill pill-red">&#9675; Offline</span>';
       row.appendChild(badge);
+
+      var version = document.createElement('div');
+      var clientVersion = c.clientVersion || 'unknown';
+      var expectedVersion = c.expectedClientVersion || '';
+      var current = !!c.clientVersionCurrent;
+      var versionPill = document.createElement('span');
+      versionPill.className = 'pill ' + (current ? 'pill-green' : 'pill-red');
+      versionPill.textContent = clientVersion;
+      if(!current && expectedVersion) versionPill.title = 'Expected ' + expectedVersion;
+      version.appendChild(versionPill);
+      row.appendChild(version);
 
       var sel = document.createElement('select');
       sel.className = 'fi';
