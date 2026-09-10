@@ -673,6 +673,8 @@ Once a Pi has run the installer, it appears in the Admin panel.
 
 The Pi picks up its new room assignment within 60 seconds and switches from the waiting screen to that room's live calendar.
 
+The Clients section also shows each Pi's reported client version. If a Pi is outdated and already has the self-updater installed, Admin shows an **Update** button for that Pi. Use **Update All** to queue updates for every eligible outdated Pi at once. Older Pis that do not yet have the self-updater still need the latest client installer run manually one more time.
+
 ---
 
 ## 9. Updating the Server
@@ -769,6 +771,8 @@ bash install-client.sh
 ```
 
 This is the recommended replacement for the old thumbdrive workflow.
+
+After a Pi has the self-updater installed, day-to-day client updates can also be queued from the Admin panel. Use the per-client **Update** button for one Pi or **Update All** for every eligible outdated Pi. Server and client versions are separate: `display-update` updates the server, while the client version only changes when the Raspberry Pi installer, watchdog, kiosk session, or systemd setup changes.
 
 ---
 

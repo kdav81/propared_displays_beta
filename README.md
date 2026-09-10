@@ -71,6 +71,8 @@ bash install-client.sh
 
 The script will prompt for the server address or full URL (`http://` or `https://`) and can be safely re-run on an existing Pi to update it, switch it to HTTPS, or repoint it at a different server while keeping the same Client ID.
 
+Server and client versions are tracked separately. Server version bumps cover Admin/API/display-page changes, while client version bumps cover Raspberry Pi installer, watchdog, kiosk session, and systemd changes. The Admin panel shows each Pi's client version and can queue updates for clients that already have the self-updater installed.
+
 ---
 
 ## Repository Layout
