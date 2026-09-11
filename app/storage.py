@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import threading
 from pathlib import Path
@@ -26,9 +27,9 @@ _file_lock = threading.Lock()
 def _load_json(path: Path, default):
     try:
         if path.exists():
-            with path.open() as f:
+            with path.open(encoding="utf-8") as f:
                 return json.load(f)
-    except Exception:
+    except (OSError, json.JSONDecodeError):
         pass
     return default() if callable(default) else default
 
@@ -36,7 +37,7 @@ def _load_json(path: Path, default):
 def _save_json(path: Path, data) -> None:
     with _file_lock:
         tmp = path.with_suffix(".tmp")
-        with tmp.open("w") as f:
+        with tmp.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         tmp.replace(path)
 
@@ -144,12 +145,7 @@ def save_print_shows(data: dict) -> None:
 
 
 def load_location_rules() -> list:
-    if LOCATION_RULES_FILE.exists():
-        try:
-            return json.loads(LOCATION_RULES_FILE.read_text())
-        except Exception:
-            pass
-    return list(DEFAULT_LOCATION_RULES)
+    return _load_json(LOCATION_RULES_FILE, lambda: list(DEFAULT_LOCATION_RULES))
 
 
 def save_location_rules(data: list) -> None:
@@ -158,15 +154,16 @@ def save_location_rules(data: list) -> None:
 
 def read_password_hash(path: Path) -> str:
     try:
-        return path.read_text().strip() if path.exists() else ""
-    except Exception:
+        return path.read_text(encoding="utf-8").strip() if path.exists() else ""
+    except OSError:
         return ""
 
 
 def write_password(path: Path, password: str) -> None:
-    path.write_text(hashlib.sha256(password.encode()).hexdigest())
+    path.write_text(hashlib.sha256(password.encode()).hexdigest(), encoding="utf-8")
 
 
 def check_password(password: str, path: Path) -> bool:
     stored = read_password_hash(path)
-    return bool(stored) and hashlib.sha256(password.encode()).hexdigest() == stored
+    candidate = hashlib.sha256(password.encode()).hexdigest()
+    return bool(stored) and hmac.compare_digest(candidate, stored)

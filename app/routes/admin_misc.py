@@ -7,17 +7,10 @@ import urllib.parse
 from flask import Response, jsonify, redirect, render_template, request, send_file
 
 from app.auth import require_admin
-from app.config import APP_VERSION, BACKUP_DIR, NOTICE_PASSWORD_FILE, PASSWORD_FILE
+from app.config import APP_VERSION, BACKUP_DIR, PASSWORD_FILE
 from app.services.backup import make_backup_zip, restore_backup_archive
 from app.services.media_library import site_logo_url
-from app.storage import (
-    check_password,
-    load_rooms,
-    load_settings,
-    load_tags,
-    read_password_hash,
-    write_password,
-)
+from app.storage import load_rooms, load_settings, load_tags, read_password_hash, write_password
 
 
 def register_admin_misc_routes(app, *, ical_cache, sync_global_calendar_cache, to_int, log) -> None:
@@ -98,7 +91,7 @@ def register_admin_misc_routes(app, *, ical_cache, sync_global_calendar_cache, t
             restore_backup_archive(f.read())
             restored_rooms = load_rooms()
             restored_settings = load_settings()
-            for rid in list(ical_cache._data):
+            for rid in ical_cache.calendar_ids():
                 if rid not in restored_rooms:
                     ical_cache.remove(rid)
             for rid, room in restored_rooms.items():

@@ -6,75 +6,59 @@ from .config import NOTICE_PASSWORD_FILE, PASSWORD_FILE, PRINT_ADMIN_PASSWORD_FI
 from .storage import check_password, read_password_hash
 
 
-def require_admin(f):
+def _basic_auth_required(f, *, password_path, realm: str, message: str, setup_response=None):
     import functools
 
     @functools.wraps(f)
     def decorated(*args, **kwargs):
-        if not read_password_hash(PASSWORD_FILE):
-            return redirect("/admin/setup")
+        if setup_response is not None and not read_password_hash(password_path):
+            return setup_response()
         auth = request.authorization
-        if not auth or not check_password(auth.password, PASSWORD_FILE):
+        if not auth or not check_password(auth.password, password_path):
             return Response(
-                "Admin access required.",
+                message,
                 401,
-                {"WWW-Authenticate": 'Basic realm="Propared Calendar Displays Admin"'},
+                {"WWW-Authenticate": f'Basic realm="{realm}"'},
             )
         return f(*args, **kwargs)
 
     return decorated
+
+
+def require_admin(f):
+    return _basic_auth_required(
+        f,
+        password_path=PASSWORD_FILE,
+        realm="Propared Calendar Displays Admin",
+        message="Admin access required.",
+        setup_response=lambda: redirect("/admin/setup"),
+    )
 
 
 def require_notice_auth(f):
-    import functools
-
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not check_password(auth.password, NOTICE_PASSWORD_FILE):
-            return Response(
-                "Notice access required.",
-                401,
-                {"WWW-Authenticate": 'Basic realm="Notice Board"'},
-            )
-        return f(*args, **kwargs)
-
-    return decorated
+    return _basic_auth_required(
+        f,
+        password_path=NOTICE_PASSWORD_FILE,
+        realm="Notice Board",
+        message="Notice access required.",
+    )
 
 
 def require_shared_media_auth(f):
-    import functools
-
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        if not read_password_hash(NOTICE_PASSWORD_FILE):
-            return Response("Shared media password not set. Visit /media-admin first.", 403)
-        auth = request.authorization
-        if not auth or not check_password(auth.password, NOTICE_PASSWORD_FILE):
-            return Response(
-                "Shared media access required.",
-                401,
-                {"WWW-Authenticate": 'Basic realm="Notice Board"'},
-            )
-        return f(*args, **kwargs)
-
-    return decorated
+    return _basic_auth_required(
+        f,
+        password_path=NOTICE_PASSWORD_FILE,
+        realm="Notice Board",
+        message="Shared media access required.",
+        setup_response=lambda: Response("Shared media password not set. Visit /media-admin first.", 403),
+    )
 
 
 def require_print_admin_auth(f):
-    import functools
-
-    @functools.wraps(f)
-    def decorated(*args, **kwargs):
-        if not read_password_hash(PRINT_ADMIN_PASSWORD_FILE):
-            return Response("Print Admin password not set. Visit /print-admin/setup first.", 403)
-        auth = request.authorization
-        if not auth or not check_password(auth.password, PRINT_ADMIN_PASSWORD_FILE):
-            return Response(
-                "Print Admin access required.",
-                401,
-                {"WWW-Authenticate": 'Basic realm="Print Admin"'},
-            )
-        return f(*args, **kwargs)
-
-    return decorated
+    return _basic_auth_required(
+        f,
+        password_path=PRINT_ADMIN_PASSWORD_FILE,
+        realm="Print Admin",
+        message="Print Admin access required.",
+        setup_response=lambda: Response("Print Admin password not set. Visit /print-admin/setup first.", 403),
+    )

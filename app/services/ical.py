@@ -171,6 +171,10 @@ class ICalCache:
             data = self._data.get(rid, {})
             return {"fetched_at": data.get("fetched_at"), "error": data.get("error")}
 
+    def calendar_ids(self) -> list[str]:
+        with self._lock:
+            return list(self._data)
+
     def schedule(self, rid: str, ical_url: str, interval_min: int) -> None:
         self._cancel(rid)
         if ical_url:
@@ -230,6 +234,6 @@ class ICalCache:
         except Exception as exc:
             self._log.warning("Room %s iCal fetch failed: %s", rid, exc)
             with self._lock:
-                previous = self._data.get(rid, {"events": [], "fetched_at": None})
+                previous = self._data.get(rid, {"events": [], "allday": [], "fetched_at": None})
                 previous["error"] = str(exc)
                 self._data[rid] = previous

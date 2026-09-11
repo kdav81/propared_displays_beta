@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 import re
+import tempfile
 from importlib.util import find_spec
 from pathlib import Path
 from unittest.mock import patch
@@ -11,6 +12,7 @@ if find_spec("flask") is None:
 
 from flask import Flask
 
+from app.routes import printing as printing_routes
 from app.config import EXPECTED_CLIENT_VERSION
 from app.routes import display as display_routes
 from app.routes.display import SUPPORTED_CLIENT_COMMANDS, _client_supports_update, _ensure_client_defaults
@@ -121,6 +123,26 @@ class ClientPresenceTests(unittest.TestCase):
 
         self.assertIsNotNone(match)
         self.assertEqual(match.group(1), expected)
+
+    def test_print_show_order_requires_print_admin_auth(self):
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "app.auth.PRINT_ADMIN_PASSWORD_FILE",
+            Path(tmp) / "print_admin_password.txt",
+        ):
+            app = Flask(__name__)
+            printing_routes.register_printing_routes(
+                app,
+                pdf_available=False,
+                build_calendar_pdf=None,
+                build_weekly_pdf=None,
+                build_room_calendar_pdf=None,
+                to_int=lambda value, default, minimum=None, maximum=None: default,
+                log=None,
+            )
+
+            response = app.test_client().post("/api/print-shows/order", json={"order": []})
+
+        self.assertEqual(response.status_code, 403)
 
 
 if __name__ == "__main__":

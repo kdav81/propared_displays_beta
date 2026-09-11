@@ -183,6 +183,7 @@ def register_printing_routes(
         return jsonify({"ok": True})
 
     @app.route("/api/print-shows/order", methods=["POST"])
+    @require_print_admin_auth
     def api_print_shows_order():
         data = request.get_json(force=True, silent=True) or {}
         order = data.get("order", [])

@@ -90,6 +90,7 @@ def _client_hostname_matches(client: dict | None, hostname: str) -> bool:
         return True
     return existing_hostname == hostname
 
+
 def _preferred_client_ip(request, reported_ip: str = "", existing_ip: str = "") -> str:
     reported_ip = str(reported_ip or "").strip()
     if reported_ip:
@@ -106,6 +107,8 @@ def _preferred_client_ip(request, reported_ip: str = "", existing_ip: str = "") 
         return remote_ip
 
     return str(existing_ip or "").strip()
+
+
 def _ensure_client_defaults(
     existing: dict,
     *,

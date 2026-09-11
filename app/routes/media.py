@@ -22,7 +22,6 @@ from app.services.media_library import (
     local_slide_items,
     media_public_url,
     parse_optional_date,
-    site_logo_path,
     site_logo_url,
 )
 from app.storage import (
