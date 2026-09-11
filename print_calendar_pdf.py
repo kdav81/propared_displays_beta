@@ -223,6 +223,10 @@ def _date_key(d) -> str:
     return d.strftime("%Y-%m-%d")
 
 
+def _short_mdy(d: date | datetime) -> str:
+    return f"{d.month}/{d.day}/{d.strftime('%y')}"
+
+
 def build_month_weeks(year: int, month: int) -> list[list[date]]:
     """Return list of weeks (each a list of 7 dates) for the month grid."""
     first = date(year, month, 1)
@@ -461,7 +465,7 @@ def build_calendar_pdf(
         header_sub   = ""
 
     cal_sub = cal_subtitle or "Rehearsal Performance Calendar"
-    now_str = datetime.now().strftime("%-m/%-d/%y")
+    now_str = _short_mdy(datetime.now())
     updated = f"Updated {now_str}" + (f" {updated_by}" if updated_by else "")
 
     # -- Build month range ---------------------------------------------------
@@ -773,7 +777,7 @@ def build_weekly_pdf(
         header_sub   = ""
 
     cal_sub  = cal_subtitle or "Rehearsal Performance Calendar"
-    now_str  = datetime.now().strftime("%-m/%-d/%y")
+    now_str  = _short_mdy(datetime.now())
     updated  = f"Updated {now_str}" + (f" {updated_by}" if updated_by else "")
 
     def tag_color_hex(tag: str) -> str:
@@ -1192,7 +1196,7 @@ def build_room_calendar_pdf(
     room_titles = [rooms[rid].get("title", rid) for rid in room_ids if rid in rooms]
     header_title = " / ".join(room_titles)
     cal_sub  = cal_subtitle or "Room Schedule"
-    now_str  = datetime.now().strftime("%-m/%-d/%y")
+    now_str  = _short_mdy(datetime.now())
     updated  = f"Updated {now_str}" + (f" {updated_by}" if updated_by else "")
 
     def _tag_full(tag: str) -> str:

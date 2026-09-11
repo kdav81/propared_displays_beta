@@ -34,10 +34,13 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 from pathlib import Path
 
 from werkzeug.middleware.proxy_fix import ProxyFix
+
+_build_calendar_pdf = None
+_build_weekly_pdf = None
+_build_room_calendar_pdf = None
 
 try:
     from print_calendar_pdf import build_calendar_pdf as _build_calendar_pdf
@@ -47,10 +50,9 @@ try:
 except ImportError:
     _PDF_AVAILABLE = False
 
-from flask import Flask, Response
+from flask import Flask
 
 from app.config import (
-    BACKUP_DIR,
     MAX_UPLOAD_BYTES,
     STATIC_DIR,
     ensure_runtime_dirs,
