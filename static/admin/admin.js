@@ -207,7 +207,7 @@ function loadClients(){
     el.innerHTML = '';
     var header = document.createElement('div');
     header.className = 'client-row client-row-header';
-    header.innerHTML = '<span>Hostname</span><span>IP</span><span>Status</span><span>Version</span><span>Assigned Room</span><span>Screen On</span><span>Screen Off</span><span>Schedule</span><span>Actions</span>';
+    header.innerHTML = '<span>Hostname</span><span>IP</span><span>Status</span><span>Page Check</span><span>Version</span><span>Assigned Room</span><span>Screen On</span><span>Screen Off</span><span>Schedule</span><span>Actions</span>';
     el.appendChild(header);
 
     data.forEach(function(c){
@@ -230,6 +230,25 @@ function loadClients(){
         ? '<span class="pill pill-green">&#9679; Online</span>'
         : '<span class="pill pill-red">&#9675; Offline</span>';
       row.appendChild(badge);
+
+      var pageCheck = document.createElement('div');
+      var displayStatus = c.displayStatus || {};
+      var health = displayStatus.health || 'unknown';
+      var pagePill = document.createElement('span');
+      pagePill.className = 'pill ' + (
+        health === 'ok' ? 'pill-green' :
+        health === 'error' ? 'pill-red' :
+        health === 'warn' ? 'pill-yellow' : 'pill-blue'
+      );
+      pagePill.textContent = displayStatus.label || 'Unknown page';
+      var pageTitle = displayStatus.title ? 'Title: ' + displayStatus.title : '';
+      var pageDetail = displayStatus.detail || '';
+      var checkedAgo = typeof displayStatus.checkedAgo === 'number'
+        ? 'Checked ' + displayStatus.checkedAgo + 's ago'
+        : '';
+      pagePill.title = [pageDetail, pageTitle, checkedAgo].filter(Boolean).join('\n');
+      pageCheck.appendChild(pagePill);
+      row.appendChild(pageCheck);
 
       var version = document.createElement('div');
       var clientVersion = c.clientVersion || 'unknown';

@@ -15,7 +15,12 @@ from flask import Flask
 from app.routes import printing as printing_routes
 from app.config import EXPECTED_CLIENT_VERSION
 from app.routes import display as display_routes
-from app.routes.display import SUPPORTED_CLIENT_COMMANDS, _client_supports_update, _ensure_client_defaults
+from app.routes.display import (
+    SUPPORTED_CLIENT_COMMANDS,
+    _client_supports_update,
+    _display_status_for_admin,
+    _ensure_client_defaults,
+)
 
 
 class ClientPresenceTests(unittest.TestCase):
@@ -47,6 +52,66 @@ class ClientPresenceTests(unittest.TestCase):
         )
 
         self.assertEqual(client["clientVersion"], "0.1.0")
+
+    def test_display_status_is_normalized_for_admin(self):
+        client = _ensure_client_defaults(
+            {
+                "display_status": {
+                    "health": "error",
+                    "title": "502 Bad Gateway",
+                    "detail": "Chromium appears to be showing a browser or server error.",
+                    "checked_at": 100.0,
+                    "chromium_running": True,
+                }
+            },
+            hostname="display-1",
+            ip="10.0.0.10",
+        )
+
+        status = _display_status_for_admin(client, 130.0)
+
+        self.assertEqual(status["health"], "error")
+        self.assertEqual(status["label"], "Page error")
+        self.assertEqual(status["title"], "502 Bad Gateway")
+        self.assertEqual(status["checkedAgo"], 30)
+
+    def test_checkin_stores_display_status(self):
+        clients = {}
+        app = Flask(__name__)
+
+        display_routes.register_display_routes(
+            app,
+            clients=clients,
+            ical_cache=None,
+            global_cal_cache=None,
+            get_slides=lambda force=False: [],
+            logo_path=lambda rid: None,
+            public_room_config=lambda rid, rooms, settings: {},
+            room_status=lambda rid: {},
+            sync_global_calendar_cache=lambda calendars: None,
+            to_int=lambda value, default, minimum=None, maximum=None: default,
+            validated_proxy_ical_url=lambda url: "",
+        )
+
+        response = app.test_client().post(
+            "/api/checkin",
+            json={
+                "client_id": "client-1",
+                "hostname": "display-1",
+                "ip": "10.0.0.10",
+                "display_status": {
+                    "health": "ok",
+                    "title": "Studio A",
+                    "detail": "Chromium window title looks normal.",
+                    "checked_at": 123.0,
+                    "chromium_running": True,
+                },
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(clients["client-1"]["displayStatus"]["health"], "ok")
+        self.assertEqual(clients["client-1"]["displayStatus"]["title"], "Studio A")
 
     def test_update_client_command_is_supported(self):
         self.assertIn("update_client", SUPPORTED_CLIENT_COMMANDS)

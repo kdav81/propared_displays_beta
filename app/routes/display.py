@@ -82,6 +82,63 @@ def _normalized_pending_command(value):
     }
 
 
+def _normalized_display_status(value):
+    if not isinstance(value, dict):
+        return None
+    health = str(value.get("health", "unknown")).strip().lower()
+    if health not in {"ok", "warn", "error", "unknown"}:
+        health = "unknown"
+    title = str(value.get("title", "")).strip()
+    detail = str(value.get("detail", "")).strip()
+    try:
+        checked_at = float(value.get("checked_at", 0) or 0)
+    except (TypeError, ValueError):
+        checked_at = 0
+    return {
+        "health": health,
+        "title": title[:160],
+        "detail": detail[:200],
+        "checked_at": checked_at,
+        "chromium_running": _coerce_bool(value.get("chromium_running", False)),
+    }
+
+
+def _display_status_for_admin(client: dict, now: float) -> dict:
+    status = _normalized_display_status(client.get("displayStatus"))
+    if not status:
+        return {
+            "health": "unknown",
+            "label": "No page check",
+            "title": "",
+            "detail": "This client has not reported what Chromium is showing yet.",
+            "checkedAgo": None,
+        }
+
+    checked_at = status.get("checked_at", 0)
+    checked_ago = max(0, int(now - checked_at)) if checked_at else None
+    health = status.get("health", "unknown")
+    label = {
+        "ok": "Page OK",
+        "warn": "Check page",
+        "error": "Page error",
+        "unknown": "Unknown page",
+    }.get(health, "Unknown page")
+    detail = status.get("detail", "")
+    if checked_ago is not None and checked_ago > 150 and health == "ok":
+        health = "warn"
+        label = "Stale check"
+        detail = "The last kiosk page check is stale."
+
+    return {
+        "health": health,
+        "label": label,
+        "title": status.get("title", ""),
+        "detail": detail,
+        "checkedAgo": checked_ago,
+        "chromiumRunning": status.get("chromium_running", False),
+    }
+
+
 def _client_hostname_matches(client: dict | None, hostname: str) -> bool:
     if not hostname:
         return True
@@ -152,6 +209,9 @@ def _ensure_client_defaults(
     client["pending_command"] = _normalized_pending_command(client.get("pending_command"))
     client["last_command_completed_at"] = float(client.get("last_command_completed_at", 0) or 0)
     client["last_command_id"] = str(client.get("last_command_id", "")).strip()
+    client["displayStatus"] = _normalized_display_status(
+        client.get("displayStatus", client.get("display_status"))
+    )
     return client
 
 
@@ -323,6 +383,7 @@ def register_display_routes(
         hostname = data.get("hostname", request.remote_addr)
         role = data.get("role", "display")
         client_version = str(data.get("client_version", data.get("clientVersion", ""))).strip()
+        display_status = _normalized_display_status(data.get("display_status", data.get("displayStatus")))
 
         if not client_id:
             return jsonify({"ok": False, "error": "missing client_id"}), 400
@@ -337,6 +398,8 @@ def register_display_routes(
         )
         if client_version:
             clients[client_id]["clientVersion"] = client_version
+        if display_status:
+            clients[client_id]["displayStatus"] = display_status
         save_clients(clients)
         return jsonify({"ok": True})
 
@@ -431,6 +494,7 @@ def register_display_routes(
                     "clientVersionCurrent": client.get("clientVersion", "") == EXPECTED_CLIENT_VERSION,
                     "clientSupportsUpdate": _client_supports_update(client.get("clientVersion", "")),
                     "pending_command": client.get("pending_command"),
+                    "displayStatus": _display_status_for_admin(client, now),
                 }
             )
         return jsonify(out)
