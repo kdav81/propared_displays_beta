@@ -207,31 +207,35 @@ function loadClients(){
     el.innerHTML = '';
     var header = document.createElement('div');
     header.className = 'client-row client-row-header';
-    header.innerHTML = '<span>Hostname</span><span>IP</span><span>Status</span><span>Page Check</span><span>Version</span><span>Assigned Room</span><span>Screen On</span><span>Screen Off</span><span>Schedule</span><span>Actions</span>';
+    header.innerHTML = '<span>Display</span><span>Health</span><span>Assigned Room</span><span>Schedule</span><span>Actions</span>';
     el.appendChild(header);
 
     data.forEach(function(c){
       var row = document.createElement('div');
       row.className = 'client-row client-row-body';
+
+      var displayCell = document.createElement('div');
+      displayCell.className = 'client-display';
       var hn = document.createElement('div');
       hn.className = 'client-hostname';
       hn.textContent = c.hostname;
-      row.appendChild(hn);
-
       var ip = document.createElement('a');
       ip.href = 'ssh://screenadmin@' + c.ip;
       ip.className = 'client-ip';
       ip.title = 'Open SSH session to ' + c.ip;
       ip.textContent = c.ip;
-      row.appendChild(ip);
+      displayCell.appendChild(hn);
+      displayCell.appendChild(ip);
+      row.appendChild(displayCell);
 
-      var badge = document.createElement('div');
+      var healthCell = document.createElement('div');
+      healthCell.className = 'client-health';
+      var badge = document.createElement('span');
       badge.innerHTML = c.online
         ? '<span class="pill pill-green">&#9679; Online</span>'
         : '<span class="pill pill-red">&#9675; Offline</span>';
-      row.appendChild(badge);
+      healthCell.appendChild(badge);
 
-      var pageCheck = document.createElement('div');
       var displayStatus = c.displayStatus || {};
       var health = displayStatus.health || 'unknown';
       var pagePill = document.createElement('span');
@@ -247,10 +251,8 @@ function loadClients(){
         ? 'Checked ' + displayStatus.checkedAgo + 's ago'
         : '';
       pagePill.title = [pageDetail, pageTitle, checkedAgo].filter(Boolean).join('\n');
-      pageCheck.appendChild(pagePill);
-      row.appendChild(pageCheck);
+      healthCell.appendChild(pagePill);
 
-      var version = document.createElement('div');
       var clientVersion = c.clientVersion || 'unknown';
       var expectedVersion = c.expectedClientVersion || '';
       var current = !!c.clientVersionCurrent;
@@ -262,8 +264,8 @@ function loadClients(){
           ? 'Expected ' + expectedVersion
           : 'Expected ' + expectedVersion + '; manual installer update needed first';
       }
-      version.appendChild(versionPill);
-      row.appendChild(version);
+      healthCell.appendChild(versionPill);
+      row.appendChild(healthCell);
 
       var sel = document.createElement('select');
       sel.className = 'fi';
@@ -286,19 +288,19 @@ function loadClients(){
       });
       row.appendChild(sel);
 
+      var scheduleCell = document.createElement('div');
+      scheduleCell.className = 'client-schedule-cell';
       var onInput = document.createElement('input');
       onInput.className = 'fi';
       onInput.classList.add('client-control');
       onInput.type = 'time';
       onInput.value = c.screenOn || '08:00';
-      row.appendChild(onInput);
 
       var offInput = document.createElement('input');
       offInput.className = 'fi';
       offInput.classList.add('client-control');
       offInput.type = 'time';
       offInput.value = c.screenOff || '22:00';
-      row.appendChild(offInput);
 
       var schedWrap = document.createElement('div');
       schedWrap.className = 'client-schedule';
@@ -311,7 +313,17 @@ function loadClients(){
       schedLbl.textContent = 'Enabled';
       schedWrap.appendChild(schedCb);
       schedWrap.appendChild(schedLbl);
-      row.appendChild(schedWrap);
+      var timeWrap = document.createElement('div');
+      timeWrap.className = 'client-time-range';
+      var timeSep = document.createElement('span');
+      timeSep.className = 'client-time-sep';
+      timeSep.textContent = 'to';
+      timeWrap.appendChild(onInput);
+      timeWrap.appendChild(timeSep);
+      timeWrap.appendChild(offInput);
+      scheduleCell.appendChild(schedWrap);
+      scheduleCell.appendChild(timeWrap);
+      row.appendChild(scheduleCell);
 
       var btns = document.createElement('div');
       btns.className = 'client-actions';
@@ -366,12 +378,12 @@ function loadClients(){
       btns.appendChild(restartBtn);
       if(!c.clientVersionCurrent && c.clientSupportsUpdate){
         var updateBtn = document.createElement('button');
-        updateBtn.className = 'btn btn-ghost btn-sm';
-        updateBtn.textContent = 'Update';
+        updateBtn.className = 'btn btn-ghost btn-sm btn-icon';
+        updateBtn.innerHTML = '&#8679;';
         updateBtn.title = 'Queue client installer update';
         if(pendingCommand === 'update_client'){
           updateBtn.disabled = true;
-          updateBtn.textContent = 'Queued';
+          updateBtn.innerHTML = '&#8987;';
           updateBtn.title = 'Client update queued';
         }
         updateBtn.addEventListener('click', function(){
