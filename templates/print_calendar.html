@@ -234,6 +234,7 @@ var LOCATION_RULES = [];
 var _calType = 'monthly';
 var _calSource = 'productions';
 var _selectedFeedIdsByShow = {};
+var _seasonFeedType = 'full';
 var FEED_TYPES = {
   full: 'Full View',
   performer: 'Performer',
@@ -283,7 +284,7 @@ function availableSeasonFeedTypes(){
 }
 function preferredSeasonFeedType(){
   var select = document.getElementById('seasonFeedType');
-  return select ? select.value : 'full';
+  return select ? select.value : _seasonFeedType;
 }
 function setPreferredFeedForShow(showId, preferredType){
   var feeds = normalizedFeeds(SHOWS[showId] || {});
@@ -321,7 +322,7 @@ function setProductionSelection(showIds){
   });
 }
 function applySeasonSelection(showIds){
-  var preferredType = preferredSeasonFeedType();
+  var preferredType = _seasonFeedType;
   showIds.forEach(function(showId){
     setPreferredFeedForShow(showId, preferredType);
   });
@@ -329,8 +330,9 @@ function applySeasonSelection(showIds){
   renderFeedSelectors();
 }
 function applySeasonFeedTypeToSelected(){
+  _seasonFeedType = preferredSeasonFeedType();
   selectedIds().forEach(function(showId){
-    setPreferredFeedForShow(showId, preferredSeasonFeedType());
+    setPreferredFeedForShow(showId, _seasonFeedType);
   });
   renderFeedSelectors();
 }
@@ -346,7 +348,7 @@ function renderSeasonFeedToolbar(showIds){
     return;
   }
   var options = availableSeasonFeedTypes().map(function(item){
-    return '<option value="' + esc(item.value) + '">' + esc(item.label) + '</option>';
+    return '<option value="' + esc(item.value) + '"' + (item.value === _seasonFeedType ? ' selected' : '') + '>' + esc(item.label) + '</option>';
   }).join('');
   el.innerHTML = ''
     + '<div class="feed-bulk-toolbar">'
