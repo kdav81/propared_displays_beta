@@ -33,7 +33,7 @@ SCREEN_OFF_TIMER="propared-screen-off"
 KIOSK_NIGHTLY_TIMER="propared-kiosk-nightly"
 CLIENT_UPDATE_SERVICE="propared-client-update"
 CLIENT_UPDATE_SCRIPT="/usr/local/sbin/propared-client-update.sh"
-INSTALLER_CLIENT_VERSION="10.13"
+INSTALLER_CLIENT_VERSION="10.14"
 CLIENT_VERSION="${INSTALLER_CLIENT_VERSION}"
 CLIENT_KEEP_CONFIG="no"
 INSTALL_RUN_USER="${SUDO_USER:-${USER:-$(id -un)}}"
@@ -274,6 +274,7 @@ if [[ "${DISPLAY_STACK}" == "lightdm" ]]; then
         curl \
         python3 \
         unclutter \
+        xdotool \
         x11-xserver-utils \
         gnome-keyring \
         libpam-gnome-keyring
@@ -284,6 +285,7 @@ else
         curl \
         python3 \
         unclutter \
+        xdotool \
         x11-xserver-utils \
         xserver-xorg \
         xinit \
@@ -297,7 +299,7 @@ else
 fi
 info "Packages installed."
 
-X11_HEALTH_PACKAGES=(libxext6 libxtst6 libx11-6 libxcb1 x11-xserver-utils openbox)
+X11_HEALTH_PACKAGES=(libxext6 libxtst6 libx11-6 libxcb1 x11-xserver-utils openbox xdotool)
 if ! X11_VERIFY_OUTPUT="$(sudo dpkg -V "${X11_HEALTH_PACKAGES[@]}" 2>&1)"; then
     warn "Display library verification failed; reinstalling X11 kiosk packages."
     if [[ -n "${X11_VERIFY_OUTPUT}" ]]; then
@@ -594,11 +596,84 @@ ack_command() {
         > /dev/null 2>&1
 }
 
+build_checkin_payload() {
+    local WINDOW_TITLE=""
+    local CHROMIUM_RUNNING="false"
+    local DISPLAY_VALUE="${DISPLAY:-:0}"
+    local XAUTHORITY_VALUE="${XAUTHORITY:-${HOME}/.Xauthority}"
+
+    if pgrep -f "chromium.*kiosk" > /dev/null 2>&1; then
+        CHROMIUM_RUNNING="true"
+    fi
+
+    if command -v xdotool > /dev/null 2>&1; then
+        WINDOW_TITLE=$(DISPLAY="${DISPLAY_VALUE}" XAUTHORITY="${XAUTHORITY_VALUE}" \
+            xdotool getactivewindow getwindowname 2>/dev/null || true)
+        if [[ -z "${WINDOW_TITLE}" ]]; then
+            WINDOW_TITLE=$(DISPLAY="${DISPLAY_VALUE}" XAUTHORITY="${XAUTHORITY_VALUE}" \
+                xdotool search --onlyvisible --class chromium getwindowname %@ 2>/dev/null | tail -n 1 || true)
+        fi
+    fi
+
+    CLIENT_ID="${CLIENT_ID}" \
+    HOSTNAME_VAL="${HOSTNAME_VAL}" \
+    IP_VAL="${IP_VAL}" \
+    CLIENT_VERSION="${CLIENT_VERSION:-unknown}" \
+    WINDOW_TITLE="${WINDOW_TITLE}" \
+    CHROMIUM_RUNNING="${CHROMIUM_RUNNING}" \
+    python3 - << 'PY'
+import json
+import os
+import time
+
+title = os.environ.get("WINDOW_TITLE", "").strip()
+running = os.environ.get("CHROMIUM_RUNNING") == "true"
+lower_title = title.lower()
+bad_markers = [
+    "bad gateway",
+    "502",
+    "nginx",
+    "this site can't be reached",
+    "aw, snap",
+    "err_",
+]
+
+if not running:
+    health = "error"
+    detail = "Chromium is not running."
+elif any(marker in lower_title for marker in bad_markers):
+    health = "error"
+    detail = "Chromium appears to be showing a browser or server error."
+elif not title:
+    health = "warn"
+    detail = "Chromium is running, but the watchdog could not read the kiosk window title."
+else:
+    health = "ok"
+    detail = "Chromium window title looks normal."
+
+print(json.dumps({
+    "client_id": os.environ.get("CLIENT_ID", ""),
+    "hostname": os.environ.get("HOSTNAME_VAL", ""),
+    "ip": os.environ.get("IP_VAL", ""),
+    "role": "display",
+    "client_version": os.environ.get("CLIENT_VERSION", "unknown"),
+    "display_status": {
+        "health": health,
+        "title": title,
+        "detail": detail,
+        "checked_at": time.time(),
+        "chromium_running": running,
+    },
+}))
+PY
+}
+
 # Send heartbeat checkin
+CHECKIN_PAYLOAD="$(build_checkin_payload)"
 curl -sf --max-time 4 \
     -X POST "${SERVER_URL}/api/checkin" \
     -H "Content-Type: application/json" \
-    -d "{\"client_id\":\"${CLIENT_ID}\",\"hostname\":\"${HOSTNAME_VAL}\",\"ip\":\"${IP_VAL}\",\"role\":\"display\",\"client_version\":\"${CLIENT_VERSION:-unknown}\"}" \
+    -d "${CHECKIN_PAYLOAD}" \
     > /dev/null 2>&1 || true
 
 # If server unreachable, leave Chromium running on last loaded page
