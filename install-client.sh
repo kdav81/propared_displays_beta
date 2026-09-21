@@ -33,7 +33,7 @@ SCREEN_OFF_TIMER="propared-screen-off"
 KIOSK_NIGHTLY_TIMER="propared-kiosk-nightly"
 CLIENT_UPDATE_SERVICE="propared-client-update"
 CLIENT_UPDATE_SCRIPT="/usr/local/sbin/propared-client-update.sh"
-INSTALLER_CLIENT_VERSION="10.14"
+INSTALLER_CLIENT_VERSION="2"
 CLIENT_VERSION="${INSTALLER_CLIENT_VERSION}"
 CLIENT_KEEP_CONFIG="no"
 INSTALL_RUN_USER="${SUDO_USER:-${USER:-$(id -un)}}"
@@ -97,11 +97,11 @@ if [[ "${EUID}" -eq 0 && "${CLIENT_KEEP_CONFIG}" != "yes" ]]; then
     die "Run this installer as your normal user, not root."
 fi
 
-if ! command -v curl >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+if ! command -v wget >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
     header "Bootstrapping Installer Dependencies"
     sudo apt-get update -qq
-    sudo apt-get install -y -qq curl python3
-    info "Installed required bootstrap tools: curl, python3"
+    sudo apt-get install -y -qq wget python3
+    info "Installed required bootstrap tools: wget, python3"
 fi
 
 SERVER_URL=""
@@ -158,10 +158,10 @@ unregister_previous_server() {
     HOSTNAME_VAL=$(hostname)
 
     info "Removing this client from previous server: ${PREVIOUS_URL}"
-    if curl -sf --max-time 8 \
-        -X POST "${PREVIOUS_URL}/api/client-unregister" \
-        -H "Content-Type: application/json" \
-        -d "{\"client_id\":\"${CLIENT_ID}\",\"hostname\":\"${HOSTNAME_VAL}\"}" \
+    if wget -q -O /dev/null --timeout=8 --tries=1 \
+        --header="Content-Type: application/json" \
+        --post-data="{\"client_id\":\"${CLIENT_ID}\",\"hostname\":\"${HOSTNAME_VAL}\"}" \
+        "${PREVIOUS_URL}/api/client-unregister" \
         > /dev/null 2>&1; then
         info "Previous server client entry removed"
     else
@@ -178,7 +178,7 @@ normalize_server_input() {
 test_server_url() {
     local candidate="$1"
     info "Testing connection to ${candidate}/api/health ..."
-    if curl -sf --max-time 5 "${candidate}/api/health" > /dev/null 2>&1; then
+    if wget -q --spider --timeout=5 --tries=1 "${candidate}/api/health" > /dev/null 2>&1; then
         SERVER_URL="${candidate}"
         return 0
     fi
@@ -230,10 +230,10 @@ header "Step 2 of 2 - Register with server"
 info "Registering client ID with server..."
 HOSTNAME_VAL=$(hostname)
 IP_VAL="$(hostname -I | awk '{print $1}')"
-if curl -sf --max-time 8 \
-    -X POST "${SERVER_URL}/api/checkin" \
-    -H "Content-Type: application/json" \
-    -d "{\"client_id\":\"${CLIENT_ID}\",\"hostname\":\"${HOSTNAME_VAL}\",\"ip\":\"${IP_VAL}\",\"role\":\"display\",\"client_version\":\"${CLIENT_VERSION}\"}" \
+if wget -q -O /dev/null --timeout=8 --tries=1 \
+    --header="Content-Type: application/json" \
+    --post-data="{\"client_id\":\"${CLIENT_ID}\",\"hostname\":\"${HOSTNAME_VAL}\",\"ip\":\"${IP_VAL}\",\"role\":\"display\",\"client_version\":\"${CLIENT_VERSION}\"}" \
+    "${SERVER_URL}/api/checkin" \
     > /dev/null 2>&1; then
     info "Client registered. Assign a room in the Admin panel at ${SERVER_URL}/admin"
     unregister_previous_server "${PREVIOUS_SERVER_URL}"
@@ -354,7 +354,7 @@ WAITHTML
 fetch_config() {
     local HN=$(hostname)
     local RESPONSE
-    RESPONSE=$(curl -sf --max-time 8         "${SERVER_URL}/api/client-config/${CLIENT_ID}?hostname=${HN}" 2>/dev/null)
+    RESPONSE=$(wget -q -O - --timeout=8 --tries=1 "${SERVER_URL}/api/client-config/${CLIENT_ID}?hostname=${HN}" 2>/dev/null)
     if [[ -n "${RESPONSE}" ]]; then
         echo "${RESPONSE}" > "${CACHE_FILE}"
         echo "${RESPONSE}"
@@ -392,7 +392,7 @@ apply_schedule() {
 
 # Wait for network before starting — avoids empty config fetch on fast boot
 for i in $(seq 1 15); do
-    if curl -sf --max-time 3 "${SERVER_URL}/api/health" > /dev/null 2>&1; then
+    if wget -q --spider --timeout=3 --tries=1 "${SERVER_URL}/api/health" > /dev/null 2>&1; then
         echo "Network ready after ${i}s"
         break
     fi
@@ -589,10 +589,10 @@ LOG_TAG="propared-watchdog"
 
 ack_command() {
     local COMMAND_ID="$1"
-    curl -sf --max-time 5 \
-        -X POST "${SERVER_URL}/api/client-command/${CLIENT_ID}/ack" \
-        -H "Content-Type: application/json" \
-        -d "{\"command_id\":\"${COMMAND_ID}\"}" \
+    wget -q -O /dev/null --timeout=5 --tries=1 \
+        --header="Content-Type: application/json" \
+        --post-data="{\"command_id\":\"${COMMAND_ID}\"}" \
+        "${SERVER_URL}/api/client-command/${CLIENT_ID}/ack" \
         > /dev/null 2>&1
 }
 
@@ -670,19 +670,19 @@ PY
 
 # Send heartbeat checkin
 CHECKIN_PAYLOAD="$(build_checkin_payload)"
-curl -sf --max-time 4 \
-    -X POST "${SERVER_URL}/api/checkin" \
-    -H "Content-Type: application/json" \
-    -d "${CHECKIN_PAYLOAD}" \
+wget -q -O /dev/null --timeout=4 --tries=1 \
+    --header="Content-Type: application/json" \
+    --post-data="${CHECKIN_PAYLOAD}" \
+    "${SERVER_URL}/api/checkin" \
     > /dev/null 2>&1 || true
 
 # If server unreachable, leave Chromium running on last loaded page
-if ! curl -sf --max-time 5 "${SERVER_URL}/api/health" > /dev/null 2>&1; then
+if ! wget -q --spider --timeout=5 --tries=1 "${SERVER_URL}/api/health" > /dev/null 2>&1; then
     logger -t "${LOG_TAG}" "Server unreachable -- Chromium kept on last page"
     exit 0
 fi
 
-CFG=$(curl -sf --max-time 8 "${SERVER_URL}/api/client-config/${CLIENT_ID}?hostname=${HOSTNAME_VAL}" 2>/dev/null || true)
+CFG=$(wget -q -O - --timeout=8 --tries=1 "${SERVER_URL}/api/client-config/${CLIENT_ID}?hostname=${HOSTNAME_VAL}" 2>/dev/null || true)
 if [[ -n "${CFG}" ]]; then
     PENDING_COMMAND=$(echo "${CFG}" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('pending_command') or {}; print(p.get('command',''))" 2>/dev/null)
     PENDING_ID=$(echo "${CFG}" | python3 -c "import sys,json; d=json.load(sys.stdin); p=d.get('pending_command') or {}; print(p.get('id',''))" 2>/dev/null)
