@@ -45,6 +45,13 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
   text-shadow:0 1px 8px rgba(0,0,0,.6)}
 #up-next-details{font-size:18px;font-weight:600;color:#fff;line-height:1.25;margin-top:4px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#up-next-title.up-next-stack{display:flex;flex-direction:column;gap:9px;margin-top:8px;
+  white-space:normal;overflow:visible;text-overflow:clip}
+.up-next-stack-item{min-width:0}
+.up-next-stack-title{font-size:22px;font-weight:700;color:#fff;line-height:1.15;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.up-next-stack-details{font-size:16px;font-weight:600;color:#fff;line-height:1.2;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #up-next-empty{font-size:17px;color:var(--muted);font-style:italic;margin-top:6px}
 
 /* Upcoming list */
@@ -419,8 +426,9 @@ function renderSidebar(evs,now){
   var sidebarEvs=evs.filter(function(ev){return sidebarCandidate(ev,now);});
   var allFuture=sidebarEvs.filter(function(ev){return ev.start>now;})
     .sort(function(a,b){return a.start-b.start;});
-  var cur =sidebarEvs.filter(function(ev){return isNow(ev,now);})
-    .sort(function(a,b){return a.start-b.start;})[0]||null;
+  var currentEvents=sidebarEvs.filter(function(ev){return isNow(ev,now);})
+    .sort(function(a,b){return a.start-b.start;});
+  var cur=currentEvents[0]||null;
   var next=allFuture[0]||null;
   var farFuture=null;
   // Keep the feature card calm when the next event is far away.
@@ -438,13 +446,37 @@ function renderSidebar(evs,now){
   var emptyEl=document.getElementById('up-next-empty');
 
   if(feat){
-    var featDetails=eventDetails(feat);
-    titleEl.textContent=feat.title;
-    detailsEl.textContent=featDetails;
-    // Show day name if event is not today
-    var featDay=sameDay(feat.start,now)?'':DAYS_S[feat.start.getDay()]+' ';
-    timeEl.textContent=featDay+fmt(feat.start)+' — '+fmt(feat.end);
-    titleEl.style.display=''; detailsEl.style.display=featDetails?'':'none'; emptyEl.style.display='none';
+    titleEl.classList.toggle('up-next-stack',currentEvents.length>1);
+    titleEl.textContent='';
+    detailsEl.textContent='';
+    if(currentEvents.length>1){
+      currentEvents.forEach(function(ev){
+        var stackItem=document.createElement('div');
+        stackItem.className='up-next-stack-item';
+        var stackTitle=document.createElement('div');
+        stackTitle.className='up-next-stack-title';
+        stackTitle.textContent=ev.title;
+        stackItem.appendChild(stackTitle);
+        var details=eventDetails(ev);
+        if(details){
+          var stackDetails=document.createElement('div');
+          stackDetails.className='up-next-stack-details';
+          stackDetails.textContent=details;
+          stackItem.appendChild(stackDetails);
+        }
+        titleEl.appendChild(stackItem);
+      });
+      timeEl.textContent=currentEvents.length+' events';
+      titleEl.style.display=''; detailsEl.style.display='none'; emptyEl.style.display='none';
+    } else {
+      var featDetails=eventDetails(feat);
+      titleEl.textContent=feat.title;
+      detailsEl.textContent=featDetails;
+      // Show day name if event is not today
+      var featDay=sameDay(feat.start,now)?'':DAYS_S[feat.start.getDay()]+' ';
+      timeEl.textContent=featDay+fmt(feat.start)+' — '+fmt(feat.end);
+      titleEl.style.display=''; detailsEl.style.display=featDetails?'':'none'; emptyEl.style.display='none';
+    }
     var featColor=eventColor(feat);
     card.style.borderLeftColor=cur?'var(--active)':featColor;
     card.style.borderLeftWidth=cur?'5px':'5px';
@@ -462,6 +494,7 @@ function renderSidebar(evs,now){
     lblEl.firstChild.style.color       =cur?'rgba(255,255,255,.95)':'';
     timeEl.style.color                 =cur?'rgba(255,255,255,.75)':featColor+'cc';
   } else {
+    titleEl.classList.remove('up-next-stack');
     titleEl.textContent=farFuture?farFuture.title:'';
     var farDetails=farFuture?eventDetails(farFuture):'';
     detailsEl.textContent=farDetails;
