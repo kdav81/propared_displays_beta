@@ -217,7 +217,7 @@ When it finishes you'll see your server's IP and the Admin panel URL. Visit `htt
 
 You can also visit `http://YOUR_SERVER_IP/` for the landing page, which links to the main tools without needing to remember each route.
 
-There is no separate browser `/status` page in the current app. For a quick health check use `http://YOUR_SERVER_IP/api/health` (or `https://.../api/health` after Section 5), and for service status over SSH use the `display-status` alias from Section 10.
+There is no separate browser `/status` page in the current app. For a quick health check use `http://YOUR_SERVER_IP/api/health` (or `https://.../api/health` after Section 5). That endpoint returns the server version, expected client version, room count, and a simple `ok` value. For service status over SSH use the `display-status` alias from Section 10.
 
 > **If the page doesn't load on Oracle Cloud:** double-check that you added the Security List ingress rule for port 80 (Section 2d). The Linux firewall is handled by the installer but the Oracle cloud firewall is separate.
 
@@ -608,9 +608,11 @@ Re-running the latest installer is also the easiest way to refresh Pi-specific C
 5. **Creates the kiosk launcher** — a script that starts Chromium in fullscreen mode pointing at the server
 6. **Configures LightDM** — the display manager that starts automatically on boot and launches the kiosk session
 7. **Installs the watchdog** — a background service that checks in with the server every 60 seconds and automatically restarts Chromium if it crashes
-8. **Applies Pi-specific fixes** — GPU flags for Pi Zero W2, page size fix for Pi 5, disables screen blanking
-9. **Adds shell aliases** — convenience commands for managing the kiosk
-10. **Restarts LightDM** — Chromium launches immediately
+8. **Reports page health** — each watchdog check-in includes what Chromium appears to be showing, so Admin can flag stale or broken kiosk pages
+9. **Installs the self-updater** — eligible clients can later receive update commands from Admin without re-running the installer by hand
+10. **Applies Pi-specific fixes** — GPU flags for Pi Zero W2, page size fix for Pi 5, disables screen blanking
+11. **Adds shell aliases** — convenience commands for managing the kiosk
+12. **Restarts LightDM** — Chromium launches immediately
 
 When the installer finishes, Chromium should appear fullscreen on the connected display showing a **"Waiting for room assignment"** screen. This is correct — the Pi is registered and waiting to be assigned.
 
@@ -668,12 +670,13 @@ Once a Pi has run the installer, it appears in the Admin panel.
 3. Find the Pi by hostname
 4. Click **Edit**:
    - Select a **Room** from the dropdown
+   - Or select **Dashboard** if this Pi should show the office/lobby dashboard instead of a room calendar
    - Optionally enable a **Screen Schedule** (the display powers off and on at set times)
 5. Click **Save**
 
 The Pi picks up its new room assignment within 60 seconds and switches from the waiting screen to that room's live calendar.
 
-The Clients section also shows each Pi's reported client version. If a Pi is outdated and already has the self-updater installed, Admin shows an **Update** button for that Pi. Use **Update All** to queue updates for every eligible outdated Pi at once. Older Pis that do not yet have the self-updater still need the latest client installer run manually one more time.
+The Clients section also shows each Pi's online/offline state, page health, and reported client version. If a Pi is outdated and already has the self-updater installed, Admin shows an **Update** button for that Pi. Use **Update All** to queue updates for every eligible outdated Pi at once. Older Pis that do not yet have the self-updater still need the latest client installer run manually one more time.
 
 ---
 
