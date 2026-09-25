@@ -430,13 +430,18 @@ function renderSidebar(evs,now){
     .sort(function(a,b){return a.start-b.start;});
   var cur=currentEvents[0]||null;
   var next=allFuture[0]||null;
+  var nextEvents=next?allFuture.filter(function(ev){
+    return ev.start.getTime()===next.start.getTime();
+  }):[];
   var farFuture=null;
   // Keep the feature card calm when the next event is far away.
   if(!cur && next && daysFromToday(next.start,now)>SIDEBAR_LOOKAHEAD_DAYS){
     farFuture=next;
     next=null;
+    nextEvents=[];
   }
   var feat=cur||next;
+  var featuredEvents=cur?currentEvents:nextEvents;
 
   var card   =document.getElementById('up-next-card');
   var lblEl  =document.querySelector('#up-next-label');
@@ -446,11 +451,11 @@ function renderSidebar(evs,now){
   var emptyEl=document.getElementById('up-next-empty');
 
   if(feat){
-    titleEl.classList.toggle('up-next-stack',currentEvents.length>1);
+    titleEl.classList.toggle('up-next-stack',featuredEvents.length>1);
     titleEl.textContent='';
     detailsEl.textContent='';
-    if(currentEvents.length>1){
-      currentEvents.forEach(function(ev){
+    if(featuredEvents.length>1){
+      featuredEvents.forEach(function(ev){
         var stackItem=document.createElement('div');
         stackItem.className='up-next-stack-item';
         var stackTitle=document.createElement('div');
@@ -466,7 +471,8 @@ function renderSidebar(evs,now){
         }
         titleEl.appendChild(stackItem);
       });
-      timeEl.textContent=currentEvents.length+' events';
+      var pluralLabel=featuredEvents.length+' events';
+      timeEl.textContent=cur?pluralLabel:pluralLabel+' at '+fmt(feat.start);
       titleEl.style.display=''; detailsEl.style.display='none'; emptyEl.style.display='none';
     } else {
       var featDetails=eventDetails(feat);
