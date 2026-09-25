@@ -342,7 +342,7 @@ function render(evs){
       }
     }
 
-    evs.filter(function(ev){return overlapsDay(ev,day);}).forEach(function(ev){
+    var dayEvents=evs.filter(function(ev){return overlapsDay(ev,day);}).map(function(ev){
       var visibleStart=ev.start>dayStart(day)?ev.start:dayStart(day);
       var visibleEnd=ev.end<dayEnd(day)?ev.end:dayEnd(day);
       var startH=visibleStart.getHours()+(visibleStart.getMinutes()/60);
@@ -350,17 +350,49 @@ function render(evs){
       var top   =Math.max(0,(startH-SH)*HPX);
       var bot   =Math.min(availH,(endH-SH)*HPX);
       var ht    =Math.max(bot-top,16);
-      if(top>=availH||bot<=0) return;
+      if(top>=availH||bot<=0) return null;
+      return {ev:ev,visibleStart:visibleStart,visibleEnd:visibleEnd,top:top,ht:ht,col:0,cols:1};
+    }).filter(Boolean).sort(function(a,b){
+      return a.visibleStart-b.visibleStart || b.visibleEnd-a.visibleEnd;
+    });
 
+    var clusters=[], cluster=null, clusterEnd=null;
+    dayEvents.forEach(function(item){
+      if(!cluster||item.visibleStart>=clusterEnd){
+        cluster=[];
+        clusters.push(cluster);
+        clusterEnd=item.visibleEnd;
+      } else if(item.visibleEnd>clusterEnd) {
+        clusterEnd=item.visibleEnd;
+      }
+      cluster.push(item);
+    });
+    clusters.forEach(function(items){
+      var colEnds=[];
+      items.forEach(function(item){
+        var col=0;
+        while(col<colEnds.length&&item.visibleStart<colEnds[col]) col++;
+        item.col=col;
+        colEnds[col]=item.visibleEnd;
+      });
+      items.forEach(function(item){ item.cols=colEnds.length; });
+    });
+
+    dayEvents.forEach(function(item){
+      var ev=item.ev;
       var active=isNow(ev,now);
       var color =active?'var(--active)':(ev.globalColor||tagColor(getTag(ev.title)));
+      var widthPct=100/item.cols;
       var blk=document.createElement('div');
       blk.className='ev'+(active?' is-active':'');
-      blk.style.cssText='top:'+top+'px;height:'+ht+'px;background:'+color+';color:#000';
+      blk.style.cssText='top:'+item.top+'px;height:'+item.ht+'px;'
+        +'left:calc('+(item.col*widthPct)+'% + 2px);'
+        +'right:calc('+((item.cols-item.col-1)*widthPct)+'% + 2px);'
+        +'background:'+color+';color:#000';
       var inner=document.createElement('div'); inner.className='ev-inner';
       var tt=document.createElement('div'); tt.className='ev-title'; tt.textContent=ev.title;
       inner.appendChild(tt);
-      if(ht>28){
+      if(item.ht>28){
         var tm=document.createElement('div'); tm.className='ev-time';
         tm.textContent=fmt(ev.start)+(ev.end>ev.start?' – '+fmt(ev.end):'');
         inner.appendChild(tm);
