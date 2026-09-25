@@ -120,10 +120,13 @@ Each Raspberry Pi registers itself with the server when the client installer run
 |---|---|
 | **Hostname** | The Pi's network name (set during OS install) |
 | **IP** | The Pi's last reported IP address. This is the value used by the quick SSH link in Admin |
+| **Health** | Online/offline heartbeat, kiosk page check, and reported client version |
 | **Room** | Which room this Pi is currently displaying |
 | **Last seen** | How long ago the Pi last checked in (green = online, red = offline) |
 
 “Offline” here means the server has not seen a recent heartbeat from that Pi. It does not always mean the hardware is dead — it can also mean Wi-Fi, power, or kiosk-process trouble.
+
+The page-health pill is reported by the client watchdog. It helps distinguish a Pi that is online but showing a bad or stale Chromium page from a Pi that is simply offline.
 
 ### Assigning a room
 
@@ -145,6 +148,8 @@ Each client row also has a restart button:
 - Click the circular-arrow button to queue a kiosk restart for that Pi
 - The Pi will acknowledge it on the next watchdog check-in and restart its LightDM kiosk session
 - While a restart is pending, the button changes to an hourglass state in the Admin list
+
+You can also remove an old client record with the **×** button. This only removes the server-side record; it does not wipe or shut down the physical Pi. If that Pi is still pointed at the server, it can register again on a later check-in.
 
 ### Screen schedule
 
@@ -183,6 +188,8 @@ Expand the **Office Dashboard** section in Admin:
 - **Timing** — how many seconds to show the calendar iframe before switching to the slideshow, and how long each photo shows
 
 Click **Save Dashboard Settings** to apply. Click **Preview** to open the dashboard in a new tab.
+
+To put the dashboard on a Raspberry Pi, install the Pi like any other client, then assign that client to **Dashboard** in the Clients section. The client will launch `/dashboard` instead of `/display?room=...`.
 
 ---
 
@@ -286,6 +293,8 @@ Backups do **not** include:
 
 The **Saved on Server** section lists recent backups stored on the server itself. These are useful if you need to roll back without a local copy. Click **Refresh** to update the list.
 
+Saved backups can be downloaded again or deleted from the server backup list.
+
 If you restore onto a different server, existing Pi clients will still need to check in again there because client records are not part of the backup archive.
 
 ---
@@ -303,7 +312,7 @@ The page only works with one source type at a time, so you choose either product
 
 1. **Calendar Source** — choose **Productions** or **Rooms**
 2. **Select item(s)** — check one or more productions or rooms. Drag to reorder if you want a specific order in a combined calendar title
-3. If you chose **Productions**, use the **Production Feeds** section to choose one enabled feed per selected production (for example Performer View, Full View, Crew View, or Designer View)
+3. If you chose **Productions**, use the **Production Feeds** section to choose one enabled feed per selected production (for example Performer View, Full View, Crew View, or Designer View). Use the bulk feed selector when several productions should use the same feed type
 4. **Calendar Type** — choose Monthly (one page per month) or Weekly (one page per week)
 5. **Date Range** — set the start and end month/year (monthly) or specific dates (weekly)
 6. **Calendar Options**:
@@ -326,6 +335,8 @@ The page only works with one source type at a time, so you choose either product
 If the same event appears more than once across attached feeds, the print renderer now collapses exact duplicates so they only print once.
 
 For production calendars, the monthly and weekly PDF generators also no longer add a printed short-tag prefix to untagged events on their own.
+
+Weekly PDFs lay out overlapping events side by side so simultaneous rehearsals or holds remain visible instead of covering each other.
 
 ### Default date behavior
 
@@ -359,6 +370,8 @@ Each production is a named show with one or more Propared iCal feeds attached to
 3. Click **Save Production**
 
 **Editing / deleting** a production: use the **Edit** or **Delete** buttons on the production card.
+
+**Reordering productions:** drag production cards in Print Admin to change the default order shown on the Print Calendar page.
 
 ### Location Rules
 
@@ -421,6 +434,13 @@ Click **Clear Notice** — this removes the currently selected global or room no
 - Check that the Pi is powered on and connected to Wi-Fi
 - SSH in and run `kiosk-logs` to see what the watchdog is reporting
 - Run `kiosk-restart` to restart the kiosk
+
+### A Pi is online but the page-health pill is yellow or red
+
+- Hover the page-health pill in Admin for the client-reported title/detail
+- If the page check is stale, wait one watchdog cycle or run `watchdog-run` over SSH
+- If Chromium is stuck or showing the wrong page, queue a restart from Admin or run `kiosk-restart`
+- If the problem started after a client update, re-run the latest `install-client.sh` on that Pi
 
 ### Events aren't updating on a display
 

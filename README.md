@@ -8,8 +8,8 @@ A web-based room display system for the University of Delaware's Department of T
 
 | Component | Description |
 |---|---|
-| **Room Displays** | Raspberry Pi kiosks running Chromium show a live calendar for one room — current event, upcoming events, and an optional photo slideshow |
-| **Admin Panel** | Web interface to manage rooms, clients, global calendars, slideshow settings, media access, and backups |
+| **Room Displays** | Raspberry Pi kiosks running Chromium show a live weekly calendar for one room, including overlapping events, simultaneous current/upcoming events, global calendar banners, notices, and an optional photo slideshow |
+| **Admin Panel** | Web interface to manage rooms, clients, dashboard assignments, global calendars, slideshow settings, media access, client updates, restarts, health checks, and backups |
 | **Print Calendar** | Generates printable PDF calendars from Propared iCal feeds |
 | **Notice Board** | Posts a global or room-specific emergency/info banner instantly |
 | **Office Dashboard** | A combined view of all rooms plus an embedded calendar, for a lobby or office screen |
@@ -83,7 +83,7 @@ Server and client versions are tracked separately. Server version bumps cover Ad
 | `app/routes/` | Route modules for admin, display, media, notice, and print tools |
 | `app/services/` | Shared logic for iCal caching, display state, media handling, and backups |
 | `app/storage.py` / `app/config.py` / `app/auth.py` | Persistence helpers, path/default settings, and auth decorators |
-| `print_calendar_pdf.py` | ReportLab PDF renderer for production and room calendars, both monthly and weekly |
+| `print_calendar_pdf.py` | ReportLab PDF renderer for production and room calendars, both monthly and weekly, including duplicate-event cleanup and overlapping weekly-event layout |
 | `templates/` | Jinja templates for admin, room displays, dashboard, notice page, and print-calendar tools |
 | `static/admin/` | Shared admin CSS and JavaScript used by the admin and print pages |
 | `install-server.sh` | Production server installer for the live `main` branch deployment |
@@ -108,9 +108,9 @@ These are created or maintained on the server and are not the main source code:
 | `clients.json` | Registered Raspberry Pi clients and their assignments |
 | `tag_colors.json` | Tag color and full-name mappings used by displays and weekly print calendars |
 | `settings.json` | Global display and dashboard settings |
+| `location_rules.json` | Location cleanup rules used by print calendar generation |
 | `media_library.json` | Slideshow media metadata including scheduling and active state |
 | `print_shows.json` | Production definitions and iCal feeds for print calendars |
-| `location_rules.json` | Location cleanup rules used by print calendar generation |
 | `notice.json` | Current notice-board message state |
 | `admin_password.txt` | Admin panel password hash |
 | `notice_password.txt` | Shared password hash used by Notice and Media Library |
@@ -134,3 +134,5 @@ These are created or maintained on the server and are not the main source code:
 | `/notice` | Shared-password notice board for posting global or room-specific banners |
 | `/dashboard` | Lobby/office screen |
 | `/display?room=ROOM_ID` | Pi kiosks (set automatically) |
+| `/api/health` | Lightweight JSON health check used by installers, clients, and service checks |
+| `/api/slides/debug` | Slideshow media debug summary |
