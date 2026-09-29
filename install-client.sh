@@ -724,9 +724,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-curl -fsSL --max-time 30 \
-    https://raw.githubusercontent.com/kdav81/propared_displays_beta/main/install-client.sh \
-    -o "${TMP}"
+INSTALLER_URL="https://raw.githubusercontent.com/kdav81/propared_displays_beta/main/install-client.sh"
+if command -v wget >/dev/null 2>&1; then
+    wget -q -O "${TMP}" --timeout=30 --tries=1 "${INSTALLER_URL}"
+else
+    curl -fsSL --max-time 30 "${INSTALLER_URL}" -o "${TMP}"
+fi
 chmod +x "${TMP}"
 HOME="${HOME:-/root}" bash "${TMP}" --keep-config
 systemctl restart lightdm

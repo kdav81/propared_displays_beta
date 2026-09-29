@@ -189,6 +189,21 @@ class ClientPresenceTests(unittest.TestCase):
         self.assertIsNotNone(match)
         self.assertEqual(match.group(1), expected)
 
+    def test_client_updater_prefers_wget_download(self):
+        root = Path(__file__).resolve().parents[1]
+        installer = (root / "install-client.sh").read_text(encoding="utf-8")
+        updater_match = re.search(
+            r"sudo tee \"\$\{CLIENT_UPDATE_SCRIPT\}\" > /dev/null << 'UPDATER'\n(?P<body>.*?)\nUPDATER",
+            installer,
+            re.DOTALL,
+        )
+
+        self.assertIsNotNone(updater_match)
+        updater_body = updater_match.group("body")
+        self.assertIn("command -v wget", updater_body)
+        self.assertIn('wget -q -O "${TMP}"', updater_body)
+        self.assertIn("curl -fsSL", updater_body)
+
     def test_print_show_order_requires_print_admin_auth(self):
         with tempfile.TemporaryDirectory() as tmp, patch(
             "app.auth.PRINT_ADMIN_PASSWORD_FILE",
