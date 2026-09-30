@@ -9,9 +9,9 @@ A web-based room display system for the University of Delaware's Department of T
 | Component | Description |
 |---|---|
 | **Room Displays** | Raspberry Pi kiosks running Chromium show a live weekly calendar for one room, including overlapping events, simultaneous current/upcoming events, global calendar banners, notices, and an optional photo slideshow |
-| **Admin Panel** | Web interface to manage rooms, clients, dashboard assignments, global calendars, slideshow settings, media access, client updates, restarts, health checks, and backups |
+| **Admin Panel** | Web interface to manage rooms, clients, dashboard assignments, global calendars, slideshow settings, password changes, client updates, restarts, health checks, and backups |
 | **Print Calendar** | Generates printable PDF calendars from Propared iCal feeds |
-| **Notice Board** | Posts a global or room-specific emergency/info banner instantly |
+| **Notice Board** | Schedules global or room-specific emergency/info banners with enabled and visible-window controls |
 | **Office Dashboard** | A combined view of all rooms plus an embedded calendar, for a lobby or office screen |
 
 ---
@@ -111,7 +111,7 @@ These are created or maintained on the server and are not the main source code:
 | `location_rules.json` | Location cleanup rules used by print calendar generation |
 | `media_library.json` | Slideshow media metadata including scheduling and active state |
 | `print_shows.json` | Production definitions and iCal feeds for print calendars |
-| `notice.json` | Current notice-board message state |
+| `notice.json` | Scheduled notice-board items, including scope, enabled state, and start/end windows |
 | `admin_password.txt` | Admin panel password hash |
 | `notice_password.txt` | Shared password hash used by Notice and Media Library |
 | `print_admin_password.txt` | Separate password hash used by Print Admin |
@@ -124,14 +124,14 @@ These are created or maintained on the server and are not the main source code:
 
 | URL | Who uses it |
 |---|---|
-| `/admin` | Admin — manage rooms, clients, settings |
+| `/admin` | Admin — manage rooms, clients, settings, passwords, backups |
 | `/admin/setup` | First-run admin password setup |
 | `/` | Landing page — front door with links to the main tools |
 | `/media-admin` | Shared-password media library for slideshow uploads, scheduling, and landing-page logo updates |
 | `/print-calendar` | Users — generate PDF production calendars or room schedules |
 | `/print-admin` | Protected page for managing productions and location rules |
 | `/print-admin/setup` | First-run Print Admin password setup |
-| `/notice` | Shared-password notice board for posting global or room-specific banners |
+| `/notice` | Shared-password notice board for scheduled global or room-specific banners |
 | `/dashboard` | Lobby/office screen |
 | `/display?room=ROOM_ID` | Pi kiosks (set automatically) |
 | `/api/health` | Lightweight JSON health check used by installers, clients, and service checks |

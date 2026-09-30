@@ -117,6 +117,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:40px 0 0}
 .btn-success{background:var(--success);color:#fff}.btn-success:hover{background:#15803d}
 .btn-danger{background:transparent;border:1px solid #3a1a1a;color:#f87171}.btn-danger:hover{background:#3a1a1a}
 .timing-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.password-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
 .fg{margin-bottom:14px}
 .fl{display:block;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
 .fi{width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);
@@ -186,4 +187,5 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:40px 0 0}
   .client-schedule-cell{gap:8px}
   .client-time-range{width:100%;max-width:260px}
   .client-actions{justify-content:flex-start}
+  .password-grid{grid-template-columns:1fr}
 }

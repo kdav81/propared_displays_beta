@@ -7,10 +7,18 @@ import urllib.parse
 from flask import Response, jsonify, redirect, render_template, request, send_file
 
 from app.auth import require_admin
-from app.config import APP_VERSION, BACKUP_DIR, PASSWORD_FILE
+from app.config import APP_VERSION, BACKUP_DIR, NOTICE_PASSWORD_FILE, PASSWORD_FILE
 from app.services.backup import make_backup_zip, restore_backup_archive
 from app.services.media_library import site_logo_url
 from app.storage import load_rooms, load_settings, load_tags, read_password_hash, write_password
+
+
+def _password_redirect(*, success: str | None = None, error: str | None = None) -> str:
+    if error:
+        return "/admin?password_error=" + urllib.parse.quote(error) + "#hdr-passwords"
+    if success:
+        return f"/admin?{success}=1#hdr-passwords"
+    return "/admin#hdr-passwords"
 
 
 def register_admin_misc_routes(app, *, ical_cache, sync_global_calendar_cache, to_int, log) -> None:
@@ -80,6 +88,24 @@ def register_admin_misc_routes(app, *, ical_cache, sync_global_calendar_cache, t
         if fp.exists():
             fp.unlink()
         return redirect("/admin#backup")
+
+    @app.route("/admin/passwords", methods=["POST"])
+    @require_admin
+    def admin_passwords():
+        target = request.form.get("target", "").strip()
+        pw = request.form.get("password", "").strip()
+        pw2 = request.form.get("password2", "").strip()
+        if len(pw) < 6:
+            return redirect(_password_redirect(error="Password must be at least 6 characters."))
+        if pw != pw2:
+            return redirect(_password_redirect(error="Passwords do not match."))
+        if target == "admin":
+            write_password(PASSWORD_FILE, pw)
+            return redirect(_password_redirect(success="admin_password_updated"))
+        if target == "notice":
+            write_password(NOTICE_PASSWORD_FILE, pw)
+            return redirect(_password_redirect(success="notice_password_updated"))
+        return redirect(_password_redirect(error="Choose a valid password to update."))
 
     @app.route("/admin/restore", methods=["POST"])
     @require_admin

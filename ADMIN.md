@@ -47,13 +47,14 @@ The page is divided into collapsible sections. Click any section header to expan
 - Office Dashboard
 - Slideshow
 - Backup & Restore
+- Passwords
 
 **Sections that start expanded** (things you use regularly):
 - Rooms
 - Tag Colors
 - Clients
 
-Navigation buttons at the top right link to Print Calendar, Print Admin, and the Notice Board.
+Navigation buttons at the top right link to Admin, Media Library, Notice, Print Calendar, and Print Admin.
 
 The bare server URL (`/`) now opens a landing page with quick links to Admin, Media Library, Notice, Print Calendar, and Dashboard.
 
@@ -244,15 +245,15 @@ This is intentionally tucked away because it is not something you need to change
 
 ### Shared password
 
-The first time you open `/media-admin`, you can set the shared Notice/Media password if it has not already been created through the Notice page.
+The shared Notice/Media password can be created or changed from the **Passwords** section in `/admin`.
+
+The first time you open `/media-admin` or `/notice`, those pages can also create the shared password if it has not already been set.
 
 After that:
 
 - `/notice` and `/media-admin` use the same password
-- `/admin` still uses its own separate admin password
+- `/admin` still uses its own separate admin password, changed from the same **Passwords** section
 - `/print-admin` uses a third, separate password of its own
-
-You can create the shared Notice/Media password from either `/notice` or `/media-admin`, whichever you reach first.
 
 ---
 
@@ -263,9 +264,10 @@ Backups capture the day-to-day display and print configuration:
 - rooms and room logos
 - tag colors
 - display and dashboard settings
-- notice content
+- scheduled notice content
 - productions and location rules for Print Admin
 - slideshow media metadata and uploaded slideshow files
+- the Media Library site logo
 - the shared Notice/Media password
 
 Backups do **not** include:
@@ -286,7 +288,7 @@ Backups do **not** include:
 ### Restoring a backup
 
 1. Click **Restore**, choose the `.zip` file from your computer
-2. Confirm the prompt — this will overwrite all current rooms, tags, and settings
+2. Confirm the prompt — this will overwrite backed-up rooms, tags, settings, notices, media, and logos
 3. The page will reload when the restore is complete
 
 ### Backups saved on the server
@@ -296,6 +298,10 @@ The **Saved on Server** section lists recent backups stored on the server itself
 Saved backups can be downloaded again or deleted from the server backup list.
 
 If you restore onto a different server, existing Pi clients will still need to check in again there because client records are not part of the backup archive.
+
+### Changing passwords
+
+Expand **Passwords** on the Admin page to update either the full Admin password or the shared Notice/Media password.
 
 ---
 
@@ -399,7 +405,7 @@ Rules are checked in order — the first matching rule wins.
 
 ## 11. Notice Board
 
-The notice board at `/notice` posts an emergency or informational banner globally or to one room. An active global notice overrides room-specific notices while it is within its scheduled window.
+The notice board at `/notice` schedules emergency or informational banners globally or for individual rooms. Active global notices override room-specific notices while they are within their scheduled window.
 
 ### Posting a notice
 
@@ -407,14 +413,14 @@ The notice board at `/notice` posts an emergency or informational banner globall
 2. Enter your message
 3. Choose **Global Notice** or an individual room
 4. Optionally set a **Start** and **End** time — the notice will only display during this window
-5. Check **Active — show when within the scheduled window**
-6. Click **Save & Post**
+5. Leave **Enabled after saving** checked if the notice should be eligible to appear
+6. Click **Save Notice**
 
 The notice banner appears in red at the top of the selected room displays. Displays pick it up within 15 seconds automatically even without pushing.
 
-### Clearing a notice
+### Managing notices
 
-Click **Clear Notice** — this removes the currently selected global or room notice and unchecks the Active toggle.
+The Notice Library shows all saved notices with **Enabled** and **Visible now** badges. Click **Edit** to change the message, scope, schedule, or enabled state. Click **Delete** to remove a notice.
 
 ---
 

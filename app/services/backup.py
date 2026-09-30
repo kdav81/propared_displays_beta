@@ -6,7 +6,7 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from app.config import BACKUP_DIR, BASE, MEDIA_DIR, STATIC_DIR
+from app.config import BACKUP_DIR, BASE, IMAGE_EXTS, MEDIA_DIR, SITE_LOGO_STEM, STATIC_DIR
 
 BACKUP_JSON_FILES = (
     "rooms.json",
@@ -42,6 +42,20 @@ def restore_slide_files(archive_names: list[str], zf: zipfile.ZipFile) -> None:
         (MEDIA_DIR / slide_name).write_bytes(zf.read(f"static/slides/{slide_name}"))
 
 
+def restore_site_logo_files(archive_names: list[str], zf: zipfile.ZipFile) -> None:
+    archived_logos = {
+        Path(name).name
+        for name in archive_names
+        if name.startswith(f"static/{SITE_LOGO_STEM}") and Path(name).suffix.lower() in IMAGE_EXTS
+    }
+    for ext in IMAGE_EXTS:
+        candidate = STATIC_DIR / f"{SITE_LOGO_STEM}{ext}"
+        if candidate.exists() and candidate.name not in archived_logos:
+            candidate.unlink()
+    for logo_name in archived_logos:
+        (STATIC_DIR / logo_name).write_bytes(zf.read(f"static/{logo_name}"))
+
+
 def make_backup_zip(room_ids: list[str]) -> io.BytesIO:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -57,6 +71,11 @@ def make_backup_zip(room_ids: list[str]) -> io.BytesIO:
             for fn in MEDIA_DIR.iterdir():
                 if fn.is_file():
                     zf.write(fn, f"static/slides/{fn.name}")
+        if STATIC_DIR.is_dir():
+            for ext in IMAGE_EXTS:
+                fn = STATIC_DIR / f"{SITE_LOGO_STEM}{ext}"
+                if fn.exists():
+                    zf.write(fn, f"static/{fn.name}")
         manifest = {
             "version": 4,
             "createdAt": datetime.now().isoformat(),
@@ -76,6 +95,7 @@ def restore_backup_archive(uploaded_bytes: bytes) -> None:
                 (BASE / fname).write_bytes(zf.read(fname))
         restore_logo_files(names, zf)
         restore_slide_files(names, zf)
+        restore_site_logo_files(names, zf)
 
 
 def save_backup_copy(filename: str, data: bytes) -> None:

@@ -25,6 +25,15 @@
 {% if request.args.get('restore_error') %}
 <div class="alert alert-error">&#10007; Restore failed: {{ request.args.get('restore_error') }}</div>
 {% endif %}
+{% if request.args.get('admin_password_updated') %}
+<div class="alert alert-success">&#10003; Admin password updated.</div>
+{% endif %}
+{% if request.args.get('notice_password_updated') %}
+<div class="alert alert-success">&#10003; Notice/Media password updated.</div>
+{% endif %}
+{% if request.args.get('password_error') %}
+<div class="alert alert-error">&#10007; Password update failed: {{ request.args.get('password_error') }}</div>
+{% endif %}
 
 <!-- Rooms -->
 <div class="sec" id="hdr-rooms" onclick="secToggle('bdy-rooms')">
@@ -233,7 +242,7 @@
 <!-- Backup & Restore -->
 <hr class="divider">
 <div class="sec" id="hdr-backup" onclick="secToggle('bdy-backup')" style="margin-top:28px">
-  <span>Backup &amp; Restore <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">rooms, tags, settings &amp; logos</span></span>
+  <span>Backup &amp; Restore <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">rooms, tags, settings, notices, media &amp; logos</span></span>
   <span class="chevron">&#9660;</span>
 </div>
 <div class="section-body" id="bdy-backup">
@@ -241,12 +250,12 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
       <div>
         <div class="card-title">Create Backup</div>
-        <div class="card-hint">Downloads a <code style="color:var(--accent)">.zip</code> with all rooms, tag colours, settings and logos. A copy is also saved on the Pi.</div>
+        <div class="card-hint">Downloads a <code style="color:var(--accent)">.zip</code> with rooms, tag colours, settings, notices, media metadata, uploaded slideshow files and logos. A copy is also saved on the Pi.</div>
         <a href="/admin/backup" class="btn btn-primary btn-sm">&#11015; Download Backup</a>
       </div>
       <div>
         <div class="card-title">Restore from Backup</div>
-        <div class="card-hint">Upload a <code style="color:var(--accent)">.zip</code> to overwrite current rooms, tags, settings and logos.</div>
+        <div class="card-hint">Upload a <code style="color:var(--accent)">.zip</code> to overwrite current rooms, tags, settings, notices, media and logos.</div>
         <form method="POST" action="/admin/restore" enctype="multipart/form-data"
               onsubmit="return confirm('This will overwrite all current config. Continue?')">
           <div style="display:flex;gap:8px;align-items:center">
@@ -265,6 +274,47 @@
         <button class="btn btn-ghost btn-sm" onclick="loadBackupList()">&#8635; Refresh</button>
       </div>
       <div id="backup-list" style="font-size:12px;color:var(--muted)">Loading&hellip;</div>
+    </div>
+  </div>
+</div>
+
+<!-- Passwords -->
+<hr class="divider">
+<div class="sec" id="hdr-passwords" onclick="secToggle('bdy-passwords')" style="margin-top:28px">
+  <span>Passwords <span style="font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;margin-left:8px">admin and shared Notice/Media access</span></span>
+  <span class="chevron">&#9660;</span>
+</div>
+<div class="section-body" id="bdy-passwords">
+  <div class="card">
+    <div class="password-grid">
+      <form method="POST" action="/admin/passwords">
+        <input type="hidden" name="target" value="admin">
+        <div class="card-title">Admin Password</div>
+        <div class="card-hint">Changes the full Admin password used for this page.</div>
+        <div class="fg">
+          <label class="fl">New Password</label>
+          <input class="fi" type="password" name="password" required minlength="6" autocomplete="new-password">
+        </div>
+        <div class="fg">
+          <label class="fl">Confirm Password</label>
+          <input class="fi" type="password" name="password2" required minlength="6" autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Update Admin Password</button>
+      </form>
+      <form method="POST" action="/admin/passwords">
+        <input type="hidden" name="target" value="notice">
+        <div class="card-title">Notice/Media Password</div>
+        <div class="card-hint">Changes the shared password for Notice Board and Media Library access.</div>
+        <div class="fg">
+          <label class="fl">New Password</label>
+          <input class="fi" type="password" name="password" required minlength="6" autocomplete="new-password">
+        </div>
+        <div class="fg">
+          <label class="fl">Confirm Password</label>
+          <input class="fi" type="password" name="password2" required minlength="6" autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Update Notice/Media Password</button>
+      </form>
     </div>
   </div>
 </div>
@@ -378,7 +428,7 @@ window.ADMIN_BOOTSTRAP = {
 // ── Collapsible sections ───────────────────────────────────────────────────
 var SEC_KEY = 'propared-sec-state';
 // Sections collapsed by default (set-once, rarely changed)
-var DEFAULT_CLOSED = ['bdy-global-cals', 'bdy-dashboard', 'bdy-slideshow', 'bdy-backup'];
+var DEFAULT_CLOSED = ['bdy-global-cals', 'bdy-dashboard', 'bdy-slideshow', 'bdy-backup', 'bdy-passwords'];
 
 function secToggle(id) {
   var body = document.getElementById(id);

@@ -458,7 +458,7 @@ Do these steps in the Admin panel before setting up any display clients.
 
 You will also likely want to set the other two passwords during initial setup:
 
-- Open `/notice` or `/media-admin` once to create the shared Notice/Media password
+- In `/admin`, expand **Passwords** to create or change the shared Notice/Media password
 - Open `/print-admin` once to create the separate Print Admin password at `/print-admin/setup`
 
 ### Add rooms
@@ -484,7 +484,7 @@ If your Propared events use `[TAG]` labels in their titles (e.g. `Tech Rehearsal
 If you want room displays to show rotating photos between calendar views:
 
 1. Open `/media-admin`
-2. Set the shared Notice/Media password if prompted
+2. Set the shared Notice/Media password if prompted, or set it first from **Passwords** in `/admin`
 3. Upload images directly to the server
 4. Optionally set start and end dates for scheduled display
 5. Optionally upload a landing-page site logo from the collapsible **Site Logo** section near the bottom of the Media Library page
@@ -500,6 +500,7 @@ Normal server updates preserve your runtime data. That includes:
 - settings
 - media library metadata
 - uploaded slideshow images
+- the landing-page site logo
 - passwords and secret key files
 - backups
 

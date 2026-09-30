@@ -7,7 +7,15 @@ var GLOBAL_CALS = BOOT.globalCalendars || [];
 // so refreshes don't keep showing stale success/error banners.
 (function(){
   var url = new URL(window.location.href);
-  var transientKeys = ['dropbox', 'dropbox_error', 'restored', 'restore_error'];
+  var transientKeys = [
+    'dropbox',
+    'dropbox_error',
+    'restored',
+    'restore_error',
+    'admin_password_updated',
+    'notice_password_updated',
+    'password_error'
+  ];
   var changed = false;
   transientKeys.forEach(function(key){
     if(url.searchParams.has(key)){
