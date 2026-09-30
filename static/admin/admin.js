@@ -65,7 +65,7 @@ var PROPARED = {
   rows: ['All Calendar','Misc','Dance Shows','UG Shows','REP Shows'],
   cols: ['Red','Orange','Amber','Yellow','Lime','Yellow-Green','Green','Teal','Blue','Indigo','Purple','Pink','Gray'],
   colors: [
-    ['#FFF1F0','#FFF2E8','#FFF7E6','#FFFBE6','#FEFFE6','#FCFFE6','#F6FFED','#E6FFFB','#E6F7FF','#F0F5FF','#FAF0FF','#FFF0F6','#FFFFFF'],
+    ['#FFF1F0','#FFF2E8','#FFF7E6','#FFFBE6','#FEFFE6','#FCFFE6','#F6FFED','#E6FFFB','#E6F7FF','#F0F5FF','#F9F0FF','#FFF0F6','#FFFFFF'],
     ['#FFCCC7','#FFD8BF','#FFE7BA','#FFF1B8','#FFFFB8','#F4FFB8','#D9F7BE','#B5F5EC','#BAE7FF','#D6E4FF','#EFDBFF','#FFD6E7','#FAFAFA'],
     ['#FFA39E','#FFBB96','#FFD591','#FFE58F','#FFFB8F','#EAFF8F','#B7EB8F','#87E8DE','#91D5FF','#ADC6FF','#D3ADF7','#FFADD2','#F5F5F5'],
     ['#FF7875','#FF9C6E','#FFC069','#FFD666','#FFF566','#D3F261','#95DE64','#5CDBD3','#69C0FF','#85A5FF','#B37FEB','#FF85C0','#F0F0F0'],
@@ -75,6 +75,27 @@ var PROPARED = {
 
 var _pickerTarget = null;
 var _pickerEl = null;
+var _pickerHexInput = null;
+
+function normalizeHexColor(value){
+  if(!value) return '';
+  var raw = String(value).trim();
+  var shortHex = raw.match(/^#?([0-9a-fA-F]{3})$/);
+  if(shortHex){
+    return '#' + shortHex[1].split('').map(function(ch){ return ch + ch; }).join('').toUpperCase();
+  }
+  var longHex = raw.match(/^#?([0-9a-fA-F]{6})$/);
+  if(longHex) return '#' + longHex[1].toUpperCase();
+  var rgb = raw.match(/^rgba?\(\s*(\d{1,3})[,\s]+(\d{1,3})[,\s]+(\d{1,3})/i);
+  if(rgb){
+    var parts = rgb.slice(1, 4).map(function(part){
+      var n = Math.max(0, Math.min(255, parseInt(part, 10) || 0));
+      return n.toString(16).padStart(2, '0');
+    });
+    return '#' + parts.join('').toUpperCase();
+  }
+  return '';
+}
 
 function _buildPicker(){
   if(_pickerEl) return;
@@ -98,6 +119,8 @@ function _buildPicker(){
         var sw = document.createElement('div');
         sw.className = 'propared-swatch';
         sw.style.background = color;
+        sw.dataset.color = normalizeHexColor(color);
+        sw.title = sw.dataset.color;
         sw.addEventListener('click', function(){ selectProparedColor(color); });
         rowDiv.appendChild(sw);
       });
@@ -106,6 +129,41 @@ function _buildPicker(){
     wrapper.appendChild(section);
   });
   el.appendChild(wrapper);
+  var custom = document.createElement('div');
+  custom.className = 'propared-custom';
+  var label = document.createElement('label');
+  label.className = 'propared-custom-label';
+  label.setAttribute('for', 'propared-hex-input');
+  label.textContent = 'Hex';
+  var input = document.createElement('input');
+  input.id = 'propared-hex-input';
+  input.className = 'propared-hex-input';
+  input.type = 'text';
+  input.placeholder = '#2563C7';
+  input.maxLength = 7;
+  input.addEventListener('input', function(){
+    input.value = input.value.replace(/[^#0-9a-fA-F]/g, '').slice(0, 7);
+  });
+  input.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      selectProparedColor(input.value);
+    }
+  });
+  input.addEventListener('blur', function(){
+    var normalized = normalizeHexColor(input.value);
+    if(normalized) input.value = normalized;
+  });
+  var apply = document.createElement('button');
+  apply.type = 'button';
+  apply.className = 'propared-apply';
+  apply.textContent = 'Apply';
+  apply.addEventListener('click', function(){ selectProparedColor(input.value); });
+  custom.appendChild(label);
+  custom.appendChild(input);
+  custom.appendChild(apply);
+  el.appendChild(custom);
+  _pickerHexInput = input;
   var close = document.createElement('div');
   close.className = 'propared-close';
   close.textContent = '× Close';
@@ -125,20 +183,23 @@ function openProparedPicker(swatchEl){
   _buildPicker();
   _pickerTarget = swatchEl;
   var rect = swatchEl.getBoundingClientRect();
-  var currentColor = swatchEl.dataset.color || swatchEl.style.background;
+  var currentColor = normalizeHexColor(swatchEl.dataset.color || swatchEl.style.background);
+  if(_pickerHexInput) _pickerHexInput.value = currentColor;
   _pickerEl.style.left = Math.min(rect.left, window.innerWidth - 380) + 'px';
   _pickerEl.style.top = (rect.bottom + 6) + 'px';
   _pickerEl.querySelectorAll('.propared-swatch').forEach(function(s){
-    s.classList.toggle('selected', s.style.background === currentColor ||
-      s.style.backgroundColor === swatchEl.style.backgroundColor);
+    s.classList.toggle('selected', normalizeHexColor(s.dataset.color || s.style.background) === currentColor);
   });
   _pickerEl.classList.add('open');
+  if(_pickerHexInput) _pickerHexInput.focus();
 }
 
 function selectProparedColor(color){
   if(!_pickerTarget) return;
-  _pickerTarget.style.background = color;
-  _pickerTarget.dataset.color = color;
+  var normalized = normalizeHexColor(color);
+  if(!normalized) return;
+  _pickerTarget.style.background = normalized;
+  _pickerTarget.dataset.color = normalized;
   closeProparedPicker();
 }
 
@@ -155,7 +216,7 @@ function addTag(){
   var row = document.createElement('div');
   row.className = 'tag-row';
   row.dataset.tag = '';
-  row.innerHTML = '<div class="swatch" style="background:#2563c7" data-color="#2563c7" onclick="openProparedPicker(this)"></div>'
+  row.innerHTML = '<div class="swatch" style="background:#2563C7" data-color="#2563C7" onclick="openProparedPicker(this)"></div>'
     + '<div class="tag-inputs"><input class="tag-input" type="text" value="" placeholder="TagKey" oninput="tagNameChange(this)">'
     + '<input class="tag-input fullname" type="text" value="" placeholder="e.g. Full Project Name"></div>'
     + '<button class="tag-remove" onclick="removeTag(this)">&#215;</button>';
@@ -169,7 +230,7 @@ function saveTagColors(){
     var key = inputs[0].value.trim();
     var fullName = inputs[1].value.trim();
     var sw = row.querySelector('.swatch');
-    var color = (sw && sw.dataset.color) ? sw.dataset.color : '#2563c7';
+    var color = normalizeHexColor(sw && sw.dataset.color ? sw.dataset.color : '#2563C7') || '#2563C7';
     if(key) result[key] = {color: color, fullName: fullName};
   });
   _fetch('/api/tag-colors', {
