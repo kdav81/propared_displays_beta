@@ -52,5 +52,43 @@ class LoadTagsTest(unittest.TestCase):
                 storage.TAGS_FILE = original
 
 
+class LoadNoticeTest(unittest.TestCase):
+    def test_legacy_global_notice_is_normalized_to_library_item(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original = storage.NOTICE_FILE
+            storage.NOTICE_FILE = Path(tmp) / "notice.json"
+            try:
+                storage.save_notice(
+                    {
+                        "active": True,
+                        "message": "Legacy message",
+                        "startTime": "",
+                        "endTime": "",
+                        "version": 3,
+                    }
+                )
+
+                notices = storage.load_notice()
+
+                self.assertEqual(len(notices["global"]), 1)
+                self.assertEqual(notices["global"][0]["message"], "Legacy message")
+                self.assertEqual(notices["global"][0]["version"], 3)
+                self.assertTrue(notices["global"][0]["id"])
+                self.assertEqual(notices["rooms"], {})
+            finally:
+                storage.NOTICE_FILE = original
+
+    def test_empty_legacy_notice_does_not_create_blank_library_item(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original = storage.NOTICE_FILE
+            storage.NOTICE_FILE = Path(tmp) / "notice.json"
+            try:
+                storage.save_notice(storage.empty_notice())
+
+                self.assertEqual(storage.load_notice(), {"global": [], "rooms": {}})
+            finally:
+                storage.NOTICE_FILE = original
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -112,23 +112,90 @@ def save_media_library(items: list) -> None:
 
 
 def empty_notice() -> dict:
-    return {"active": False, "message": "", "startTime": "", "endTime": "", "version": 0}
+    return {
+        "id": "",
+        "active": False,
+        "message": "",
+        "startTime": "",
+        "endTime": "",
+        "version": 0,
+        "createdAt": "",
+        "updatedAt": "",
+    }
+
+
+def _notice_id(scope: str, notice: dict) -> str:
+    raw = "|".join(
+        [
+            scope,
+            str(notice.get("message", "")),
+            str(notice.get("startTime", "")),
+            str(notice.get("endTime", "")),
+            str(notice.get("version", "")),
+            str(notice.get("createdAt", "")),
+        ]
+    )
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+
+
+def _normalize_notice_item(notice: dict, scope: str) -> dict | None:
+    if not isinstance(notice, dict):
+        return None
+    clean = {**empty_notice(), **notice}
+    clean["message"] = str(clean.get("message", "")).strip()
+    clean["startTime"] = str(clean.get("startTime", "")).strip()
+    clean["endTime"] = str(clean.get("endTime", "")).strip()
+    clean["id"] = str(clean.get("id", "")).strip() or _notice_id(scope, clean)
+    clean["active"] = bool(clean.get("active", False))
+    try:
+        clean["version"] = int(clean.get("version", 0))
+    except (TypeError, ValueError):
+        clean["version"] = 0
+    clean["createdAt"] = str(clean.get("createdAt", "")).strip()
+    clean["updatedAt"] = str(clean.get("updatedAt", "")).strip()
+    if not clean["message"] and not clean["startTime"] and not clean["endTime"] and not clean["active"]:
+        return None
+    return clean
+
+
+def _normalize_notice_collection(value, scope: str) -> list[dict]:
+    if isinstance(value, list):
+        notices = value
+    elif isinstance(value, dict):
+        notices = [value] if any(key in value for key in empty_notice()) else []
+    else:
+        notices = []
+    clean = []
+    seen = set()
+    for notice in notices:
+        item = _normalize_notice_item(notice, scope)
+        if not item or item["id"] in seen:
+            continue
+        seen.add(item["id"])
+        clean.append(item)
+    return clean
 
 
 def load_notice() -> dict:
-    data = _load_json(NOTICE_FILE, lambda: {"global": empty_notice(), "rooms": {}})
+    data = _load_json(NOTICE_FILE, lambda: {"global": [], "rooms": {}})
     if not isinstance(data, dict):
-        return {"global": empty_notice(), "rooms": {}}
+        return {"global": [], "rooms": {}}
 
     # Older installs stored the global notice directly at the top level.
     if "global" not in data and any(key in data for key in empty_notice()):
-        return {"global": {**empty_notice(), **data}, "rooms": {}}
+        return {"global": _normalize_notice_collection(data, "global"), "rooms": {}}
 
-    global_notice = data.get("global", {})
+    global_notices = data.get("global", [])
     room_notices = data.get("rooms", {})
+    clean_rooms = {}
+    if isinstance(room_notices, dict):
+        for room_id, notices in room_notices.items():
+            clean = _normalize_notice_collection(notices, str(room_id))
+            if clean:
+                clean_rooms[str(room_id)] = clean
     return {
-        "global": {**empty_notice(), **global_notice} if isinstance(global_notice, dict) else empty_notice(),
-        "rooms": room_notices if isinstance(room_notices, dict) else {},
+        "global": _normalize_notice_collection(global_notices, "global"),
+        "rooms": clean_rooms,
     }
 
 

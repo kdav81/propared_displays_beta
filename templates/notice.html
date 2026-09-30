@@ -4,65 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Notice Board</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link rel="stylesheet" href="/static/admin/shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <style>
-/* ── Page needs column flex for topbar + centered content ── */
-body{display:flex;flex-direction:column}
-.page-center{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
-
-/* ── Notice card (narrower than default .card) ── */
-.card{width:100%;max-width:540px;padding:32px}
-h1{font-size:22px;font-weight:600;color:#fff;margin-bottom:6px}
-.subtitle{font-size:13px;color:var(--dim);margin-bottom:28px}
-.msg{padding:10px 14px;border-radius:5px;font-size:14px;margin-bottom:20px}
-.msg.ok{background:rgba(22,163,74,.15);border:1px solid rgba(22,163,74,.3);color:#4ade80}
-
-/* ── Notice form fields ── */
-.fg{margin-bottom:18px}
-label{display:block;font-size:12px;font-weight:600;letter-spacing:.8px;
-  text-transform:uppercase;color:var(--muted);margin-bottom:7px}
-input[type=text],input[type=password],textarea,select{
-  width:100%;background:var(--s2);border:1px solid var(--border);border-radius:5px;
-  color:var(--text);font-size:15px;padding:10px 12px;outline:none;
-  transition:border-color .2s;font-family:inherit}
-input:focus,textarea:focus,select:focus{border-color:var(--accent)}
-textarea{resize:vertical;min-height:80px;line-height:1.5}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.toggle-row{display:flex;align-items:center;gap:12px;margin-bottom:24px}
-.toggle-row label{margin:0;text-transform:none;font-size:15px;
-  color:var(--text);font-weight:500;letter-spacing:0}
-input[type=checkbox]{width:18px;height:18px;accent-color:#c0392b;cursor:pointer}
-
-/* ── Notice action buttons ── */
-.btn-row{display:flex;gap:10px;flex-wrap:wrap}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-red{background:#c0392b;color:#fff}
-.btn-gray{background:var(--s2);color:var(--text);border:1px solid var(--border)}
-.btn-blue{background:#2563c7;color:#fff}
-
-/* ── Live preview banner ── */
-.preview{margin-top:24px;border-radius:6px;background:#c0392b;
-  color:#fff;padding:14px 20px;font-size:17px;font-weight:600;
-  text-align:center;display:none}
+.page{max-width:1180px}
+.grid{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+.sec{font-size:13px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#fff;margin-bottom:14px}
+.hint{font-size:13px;color:var(--muted);line-height:1.6}
+.notice-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.notice-card{background:var(--s1);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.notice-banner{background:#c0392b;color:#fff;padding:14px 16px;font-size:15px;font-weight:700;line-height:1.35;min-height:70px;display:flex;align-items:center}
+.notice-body{padding:12px 14px}
+.notice-scope{font-size:12px;font-weight:700;color:#fff;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notice-meta{font-size:11px;color:var(--muted);line-height:1.45}
+.notice-foot{display:flex;gap:8px;padding:10px 14px;background:var(--s2);border-top:1px solid var(--border)}
+.badge-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.pill-green{background:rgba(22,163,74,.15);color:#4ade80}
+.pill-red{background:rgba(220,38,38,.15);color:#f87171}
+.pill-blue{background:rgba(79,110,247,.15);color:#7b9eff}
+.empty{font-size:14px;color:var(--muted);font-style:italic;padding:8px 0}
+.date-field{position:relative}
+.date-field .fi{padding-right:42px}
+.date-btn{position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:16px}
+textarea.fi{resize:vertical;min-height:92px;line-height:1.45}
+.preview{margin-top:16px;border-radius:8px;background:#c0392b;color:#fff;padding:14px 16px;font-size:15px;font-weight:700;line-height:1.35;display:none}
 .preview.show{display:block}
-.divider{border:none;border-top:1px solid var(--border);margin:24px 0}
-/* Flatpickr dark theme */
-.flatpickr-calendar{background:var(--s2) !important;border:1px solid var(--border);
-  color:var(--text);border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
-.flatpickr-day{color:var(--text);border-radius:5px}
-.flatpickr-day:hover,.flatpickr-day:focus{background:var(--s2);border-color:var(--accent);color:#fff}
-.flatpickr-day.today{border-color:var(--accent)}
-.flatpickr-day.selected,.flatpickr-day.selected:hover{background:#c0392b;border-color:#c0392b;color:#fff}
-.flatpickr-months,.flatpickr-weekdays,.flatpickr-weekday{background:var(--s1) !important}
-span.flatpickr-weekday{color:var(--muted) !important}
-.flatpickr-current-month{color:var(--text) !important}
-.flatpickr-monthDropdown-months{background:var(--s2);color:var(--text)}
-.flatpickr-time input,.flatpickr-time .flatpickr-am-pm{background:var(--s2);color:var(--text)}
-.flatpickr-time .flatpickr-time-separator{color:var(--dim)}
-.numInputWrapper:hover,.flatpickr-time input:hover,.flatpickr-time .flatpickr-am-pm:hover{background:var(--s1)}
-.flatpickr-prev-month svg,.flatpickr-next-month svg{fill:var(--text)}
-.flatpickr-input[readonly]{cursor:pointer;background:var(--s2)}
+.flatpickr-calendar{background:var(--s1);border:1px solid var(--border);box-shadow:0 18px 36px rgba(0,0,0,.45)}
+.flatpickr-day{color:var(--text)}
+.flatpickr-day.selected,.flatpickr-day.startRange,.flatpickr-day.endRange{background:#c0392b;border-color:#c0392b}
+.flatpickr-day.today{border-color:#c0392b}
+.flatpickr-months .flatpickr-month,.flatpickr-current-month input.cur-year,.flatpickr-weekday,.numInputWrapper span.arrowUp:after,.numInputWrapper span.arrowDown:after{color:var(--text)}
+@media (max-width: 900px){
+  .grid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -76,123 +51,336 @@ span.flatpickr-weekday{color:var(--muted) !important}
     <a class="btn btn-ghost btn-sm" href="/print-admin">&#128444; Print Admin</a>
   </div>
 </div>
-<div class="page-center">
+
 {% if setup_needed %}
-<div class="card">
-  <h1>Notice Board Setup</h1>
-  <p class="subtitle">Set a shared password to protect both the Notice page and the Media Library.</p>
-  <form method="post">
-    <input type="hidden" name="action" value="set_password">
-    <div class="fg">
-      <label>Password</label>
-      <input type="password" name="password" required autofocus>
+<div class="page" style="max-width:620px;padding-top:36px">
+  <div class="card">
+    <div class="sec">Notice Board Setup</div>
+    <div class="hint" style="margin-bottom:18px">
+      Set one shared password for both the Notice page and the Media Library.
     </div>
-    <button class="btn btn-blue" type="submit">Set Password</button>
-  </form>
+    <form method="post">
+      <input type="hidden" name="action" value="set_password">
+      <div class="fg">
+        <label class="fl">Shared Password</label>
+        <input class="fi" type="password" name="password" required autofocus>
+      </div>
+      <button class="btn btn-primary" type="submit">Set Shared Password</button>
+    </form>
+  </div>
 </div>
 {% else %}
-<div class="card">
-  <h1>&#128226; Notice Board</h1>
-  <p class="subtitle">Post a global notice or a notice for one room. An active global notice overrides room notices. This page shares its password with the Media Library.</p>
-
-  {% if msg %}
-  <div class="msg ok">{{ msg }}</div>
-  {% endif %}
-
-  <form method="get" id="scopeForm">
-    <div class="fg">
-      <label>Notice For</label>
-      <select name="scope" onchange="document.getElementById('scopeForm').submit()">
-        <option value="global" {% if selected == 'global' %}selected{% endif %}>Global Notice - all rooms</option>
-        {% for rid, room in rooms.items() %}
-        <option value="{{ rid }}" {% if selected == rid %}selected{% endif %}>{{ room.title }}</option>
-        {% endfor %}
-      </select>
-    </div>
-  </form>
-
-  <form method="post" id="noticeForm">
-    <input type="hidden" name="action" value="save">
-    <input type="hidden" name="scope" value="{{ selected }}">
-
-    <div class="fg">
-      <label>Message</label>
-      <textarea name="message" id="msgInput"
-        placeholder="e.g. Building closes at 6:00 PM today"
-        oninput="updatePreview()">{{ n.message or '' }}</textarea>
-    </div>
-
-    <div class="row">
-      <div class="fg">
-        <label>Start (optional)</label>
-        <input type="text" name="startTime" id="startTime"
-          placeholder="Pick date &amp; time"
-          value="{{ n.startTime or '' }}" readonly>
+<div class="page">
+  <div class="grid">
+    <div class="card">
+      <div class="sec">Schedule Notice</div>
+      <div class="hint" style="margin-bottom:16px">
+        Add a notice for every room or one room. Global notices take priority when they are visible.
       </div>
-      <div class="fg">
-        <label>End (optional)</label>
-        <input type="text" name="endTime" id="endTime"
-          placeholder="Pick date &amp; time"
-          value="{{ n.endTime or '' }}" readonly>
+      <form id="create-form">
+        <div class="fg">
+          <label class="fl">Notice For</label>
+          <select class="fi" name="scope">
+            <option value="global">Global Notice - all rooms</option>
+            {% for rid, room in rooms.items() %}
+            <option value="{{ rid }}">{{ room.title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Message</label>
+          <textarea class="fi" name="message" id="message" placeholder="e.g. Building closes at 6:00 PM today"></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="fg">
+            <label class="fl">Start</label>
+            <div class="date-field">
+              <input class="fi js-datetime" type="text" name="startTime" placeholder="Optional" autocomplete="off">
+              <button class="date-btn" type="button" data-target="startTime" aria-label="Choose start date">&#128197;</button>
+            </div>
+            <div class="fh">Leave blank to show immediately.</div>
+          </div>
+          <div class="fg">
+            <label class="fl">End</label>
+            <div class="date-field">
+              <input class="fi js-datetime" type="text" name="endTime" placeholder="Optional" autocomplete="off">
+              <button class="date-btn" type="button" data-target="endTime" aria-label="Choose end date">&#128197;</button>
+            </div>
+            <div class="fh">Leave blank for no expiration.</div>
+          </div>
+        </div>
+        <div class="fg">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" name="active" value="1" checked style="width:15px;height:15px">
+            <span style="font-size:13px">Enabled after saving</span>
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Notice</button>
+      </form>
+      <div class="preview" id="preview"></div>
+
+      <hr class="divider" style="margin:22px 0">
+      <form method="post">
+        <input type="hidden" name="action" value="set_password">
+        <div class="fg">
+          <label class="fl">Change Password</label>
+          <input class="fi" type="password" name="password" placeholder="New shared password">
+        </div>
+        <button class="btn btn-ghost btn-sm" type="submit">Update Password</button>
+      </form>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:18px">
+        <div class="sec">Notice Library</div>
+        <div class="hint">
+          Enabled notices are visible only inside their scheduled window. When global and room notices overlap, the global notice appears on the display.
+        </div>
       </div>
-    </div>
-
-    <div class="toggle-row">
-      <input type="checkbox" name="active" value="1" id="activeToggle"
-        {% if n.active %}checked{% endif %}
-        onchange="updatePreview()">
-      <label for="activeToggle">Active - show when within the scheduled window</label>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-red" type="submit">Save &amp; Post</button>
-      <button class="btn btn-gray" type="button"
-        onclick="document.querySelector('[name=action]').value='clear';
-                 document.getElementById('noticeForm').submit()">
-        Clear Notice
-      </button>
-    </div>
-  </form>
-
-  <div class="preview" id="preview"></div>
-
-  <hr class="divider">
-  <form method="post">
-    <input type="hidden" name="action" value="set_password">
-    <div class="fg">
-      <label>Change Password</label>
-      <div style="display:flex;gap:10px">
-        <input type="password" name="password" placeholder="New password">
-        <button class="btn btn-gray" type="submit"
-          style="white-space:nowrap">Update</button>
+      <div id="notice-grid" class="notice-grid">
+        <div class="empty">Loading notices...</div>
       </div>
     </div>
-  </form>
+  </div>
 </div>
+
+<div class="modal-backdrop" id="edit-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Edit Notice</div>
+      <button class="modal-x" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+      <div class="fg">
+        <label class="fl">Notice For</label>
+        <select class="fi" id="edit-scope">
+          <option value="global">Global Notice - all rooms</option>
+          {% for rid, room in rooms.items() %}
+          <option value="{{ rid }}">{{ room.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Message</label>
+        <textarea class="fi" id="edit-message"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fg">
+          <label class="fl">Start</label>
+          <div class="date-field">
+            <input class="fi js-datetime" id="edit-startTime" type="text" placeholder="Optional" autocomplete="off">
+            <button class="date-btn" type="button" data-target="edit-startTime" aria-label="Choose start date">&#128197;</button>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl">End</label>
+          <div class="date-field">
+            <input class="fi js-datetime" id="edit-endTime" type="text" placeholder="Optional" autocomplete="off">
+            <button class="date-btn" type="button" data-target="edit-endTime" aria-label="Choose end date">&#128197;</button>
+          </div>
+        </div>
+      </div>
+      <div class="fg">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input id="edit-active" type="checkbox" style="width:15px;height:15px">
+          <span style="font-size:13px">Enabled</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
-var fpCfg = {
-  enableTime: true,
-  dateFormat: "Y-m-d H:i",
-  altInput: true,
-  altFormat: "M j, Y at h:i K",
-  minuteIncrement: 5,
-  time_24hr: false
-};
-flatpickr("#startTime", fpCfg);
-flatpickr("#endTime", fpCfg);
+var NOTICES = [];
+var DATE_PICKERS = {};
+
+function esc(value){
+  return String(value || '').replace(/[&<>"']/g, function(ch){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+  });
+}
+
+function setupDatePickers(){
+  document.querySelectorAll('.js-datetime').forEach(function(input){
+    if(DATE_PICKERS[input.id || input.name]) return;
+    DATE_PICKERS[input.id || input.name] = flatpickr(input, {
+      enableTime: true,
+      dateFormat: 'Y-m-d H:i',
+      altInput: true,
+      altFormat: 'M j, Y at h:i K',
+      minuteIncrement: 5,
+      time_24hr: false,
+      allowInput: false,
+      clickOpens: true
+    });
+  });
+  document.querySelectorAll('.date-btn').forEach(function(btn){
+    if(btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', function(){
+      var key = btn.dataset.target;
+      var input = document.getElementById(key) || document.querySelector('[name="' + key + '"]');
+      var picker = input ? DATE_PICKERS[input.id || input.name] : null;
+      if(picker) picker.open();
+    });
+  });
+}
+
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2500);
+}
+
+function closeModal(){
+  document.getElementById('edit-modal').classList.remove('open');
+}
+
+document.getElementById('edit-modal').addEventListener('click', function(e){
+  if(e.target === this) closeModal();
+});
+
+function fmtDateTime(value){
+  return value || '—';
+}
+
+function renderNotices(){
+  var grid = document.getElementById('notice-grid');
+  if(!NOTICES.length){
+    grid.innerHTML = '<div class="empty">No notices scheduled yet.</div>';
+    return;
+  }
+  grid.innerHTML = '';
+  NOTICES.forEach(function(item){
+    var card = document.createElement('div');
+    card.className = 'notice-card';
+    card.innerHTML = ''
+      + '<div class="notice-banner">' + esc(item.message) + '</div>'
+      + '<div class="notice-body">'
+      + '<div class="notice-scope">' + esc(item.scopeLabel) + '</div>'
+      + '<div class="notice-meta">Start: ' + esc(fmtDateTime(item.startTime)) + '<br>End: ' + esc(fmtDateTime(item.endTime)) + '</div>'
+      + '<div class="badge-row">'
+      + (item.active ? '<span class="pill pill-blue">Enabled</span>' : '<span class="pill pill-red">Disabled</span>')
+      + (item.visibleNow ? '<span class="pill pill-green">Visible now</span>' : '<span class="pill pill-red">Not currently visible</span>')
+      + '</div>'
+      + '</div>'
+      + '<div class="notice-foot">'
+      + '<button class="btn btn-ghost btn-sm" onclick="openEdit(\'' + item.id + '\')">Edit</button>'
+      + '<button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="deleteNotice(\'' + item.id + '\')">Delete</button>'
+      + '</div>';
+    grid.appendChild(card);
+  });
+}
+
+async function loadNotices(){
+  var r = await fetch('/api/notices');
+  if(!r.ok){
+    document.getElementById('notice-grid').innerHTML = '<div class="empty">Could not load notices.</div>';
+    return;
+  }
+  NOTICES = await r.json();
+  renderNotices();
+}
+
+function formPayload(form){
+  return {
+    scope: form.elements.scope.value,
+    message: form.elements.message.value.trim(),
+    startTime: form.elements.startTime.value,
+    endTime: form.elements.endTime.value,
+    active: !!form.elements.active.checked
+  };
+}
+
+document.getElementById('create-form').addEventListener('submit', async function(e){
+  e.preventDefault();
+  var payload = formPayload(e.target);
+  var r = await fetch('/api/notices', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  if(!r.ok){
+    alert(await r.text());
+    return;
+  }
+  e.target.reset();
+  e.target.elements.active.checked = true;
+  DATE_PICKERS.startTime.clear();
+  DATE_PICKERS.endTime.clear();
+  updatePreview();
+  await loadNotices();
+  showToast('Notice saved.');
+});
+
+function openEdit(id){
+  var item = NOTICES.find(function(x){ return x.id === id; });
+  if(!item) return;
+  document.getElementById('edit-id').value = item.id;
+  document.getElementById('edit-scope').value = item.scope;
+  document.getElementById('edit-message').value = item.message || '';
+  DATE_PICKERS['edit-startTime'].setDate(item.startTime || '', false);
+  DATE_PICKERS['edit-endTime'].setDate(item.endTime || '', false);
+  document.getElementById('edit-active').checked = !!item.active;
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+async function saveEdit(){
+  var id = document.getElementById('edit-id').value;
+  var payload = {
+    scope: document.getElementById('edit-scope').value,
+    message: document.getElementById('edit-message').value.trim(),
+    startTime: document.getElementById('edit-startTime').value,
+    endTime: document.getElementById('edit-endTime').value,
+    active: document.getElementById('edit-active').checked
+  };
+  var r = await fetch('/api/notices/' + id, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  if(!r.ok){
+    alert(await r.text());
+    return;
+  }
+  closeModal();
+  await loadNotices();
+  showToast('Notice updated.');
+}
+
+async function deleteNotice(id){
+  if(!confirm('Delete this notice?')) return;
+  var r = await fetch('/api/notices/' + id, {method: 'DELETE'});
+  if(!r.ok){
+    alert(await r.text());
+    return;
+  }
+  await loadNotices();
+  showToast('Notice deleted.');
+}
 
 function updatePreview(){
-  var msg = document.getElementById('msgInput').value.trim();
-  var active = document.getElementById('activeToggle').checked;
+  var msg = document.getElementById('message').value.trim();
   var p = document.getElementById('preview');
-  if(msg && active){ p.textContent = msg; p.className='preview show'; }
-  else { p.className='preview'; }
+  if(msg){ p.textContent = msg; p.className = 'preview show'; }
+  else { p.className = 'preview'; }
 }
+
+document.getElementById('message').addEventListener('input', updatePreview);
+
+setupDatePickers();
+loadNotices();
 updatePreview();
 </script>
 {% endif %}
-</div>
 </body>
 </html>
