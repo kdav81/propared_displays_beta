@@ -443,6 +443,7 @@ The Notice Library shows all saved notices with **Enabled** and **Visible now** 
 
 ### A Pi is online but the page-health pill is yellow or red
 
+- Client 2.18 and later checks for a kiosk stuck on `about:blank` after a Chromium startup/network-service failure. After observing the same blank document for at least 60 seconds, the watchdog navigates it back to its assigned page. Loaded calendars and the unassigned waiting page are left alone.
 - Hover the page-health pill in Admin for the client-reported title/detail
 - If the page check is stale, wait one watchdog cycle or run `watchdog-run` over SSH
 - If Chromium is stuck or showing the wrong page, queue a restart from Admin or run `kiosk-restart`

@@ -33,7 +33,7 @@ SCREEN_OFF_TIMER="propared-screen-off"
 KIOSK_NIGHTLY_TIMER="propared-kiosk-nightly"
 CLIENT_UPDATE_SERVICE="propared-client-update"
 CLIENT_UPDATE_SCRIPT="/usr/local/sbin/propared-client-update.sh"
-INSTALLER_CLIENT_VERSION="2.17"
+INSTALLER_CLIENT_VERSION="2.18"
 CLIENT_VERSION="${INSTALLER_CLIENT_VERSION}"
 CLIENT_KEEP_CONFIG="no"
 INSTALL_RUN_USER="${SUDO_USER:-${USER:-$(id -un)}}"
@@ -443,6 +443,177 @@ KIOSK
 chmod +x "${KIOSK_DIR}/start-kiosk.sh"
 info "Kiosk launcher written"
 
+# Inspect the actual document URL: an initial navigation can stall at about:blank
+# after Chromium's network service crashes, while the process remains healthy.
+# Keep DevTools local to the Pi and use only Python's standard library.
+sed -i 's/    chromium /    chromium --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 /' "${KIOSK_DIR}/start-kiosk.sh"
+cat > "${KIOSK_DIR}/recover-blank.py" << 'BLANKRECOVERY'
+#!/usr/bin/env python3
+"""Recover only a persistently blank kiosk document; leave loaded pages alone."""
+import base64
+import hashlib
+import json
+import os
+from pathlib import Path
+import socket
+import struct
+import time
+import urllib.parse
+import urllib.request
+
+
+class DevTools:
+    def __init__(self, url):
+        parsed = urllib.parse.urlsplit(url)
+        if parsed.scheme != 'ws' or parsed.hostname != '127.0.0.1' or parsed.port != 9222:
+            raise ValueError('Unexpected DevTools address')
+        self.sock = socket.create_connection(('127.0.0.1', 9222), timeout=5)
+        self.deadline = time.monotonic() + 20
+        self.next_id = 0
+        try:
+            key = base64.b64encode(os.urandom(16)).decode()
+            self.sock.sendall((
+                f'GET {parsed.path} HTTP/1.1\r\nHost: 127.0.0.1:9222\r\n'
+                'Upgrade: websocket\r\nConnection: Upgrade\r\n'
+                f'Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n'
+            ).encode())
+            headers = b''
+            while not headers.endswith(b'\r\n\r\n'):
+                headers += self.read(1)
+                if len(headers) > 16384:
+                    raise ValueError('Oversized WebSocket handshake')
+            accept = base64.b64encode(hashlib.sha1(
+                (key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()
+            ).digest()).decode()
+            fields = dict(line.split(':', 1) for line in headers.decode().split('\r\n')[1:] if ':' in line)
+            fields = {k.lower(): v.strip() for k, v in fields.items()}
+            if not headers.startswith(b'HTTP/1.1 101 ') or fields.get('sec-websocket-accept') != accept:
+                raise ValueError('Invalid WebSocket handshake')
+        except Exception:
+            self.close()
+            raise
+
+    def close(self):
+        self.sock.close()
+
+    def read(self, count):
+        data = b''
+        while len(data) < count:
+            remaining = self.deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError('DevTools deadline exceeded')
+            self.sock.settimeout(remaining)
+            chunk = self.sock.recv(count - len(data))
+            if not chunk:
+                raise ConnectionError('DevTools disconnected')
+            data += chunk
+        return data
+
+    def send(self, opcode, data):
+        size = len(data)
+        header = bytes([0x80 | opcode])
+        if size < 126:
+            header += bytes([0x80 | size])
+        elif size < 65536:
+            header += bytes([0xFE]) + struct.pack('!H', size)
+        else:
+            header += bytes([0xFF]) + struct.pack('!Q', size)
+        mask = os.urandom(4)
+        self.sock.sendall(header + mask + bytes(c ^ mask[i % 4] for i, c in enumerate(data)))
+
+    def receive(self):
+        message = b''
+        while True:
+            first, second = self.read(2)
+            opcode = first & 15
+            if second & 128:
+                raise ValueError('Unexpected masked server frame')
+            size = second & 127
+            if size == 126:
+                size = struct.unpack('!H', self.read(2))[0]
+            elif size == 127:
+                size = struct.unpack('!Q', self.read(8))[0]
+            if size + len(message) > 2 * 1024 * 1024:
+                raise ValueError('Oversized DevTools response')
+            payload = self.read(size)
+            if opcode == 8:
+                raise ConnectionError('DevTools closed the connection')
+            if opcode == 9:
+                self.send(10, payload)
+                continue
+            if opcode == 10:
+                continue
+            if opcode not in (0, 1):
+                raise ValueError('Unexpected DevTools frame')
+            message += payload
+            if first & 128:
+                return json.loads(message)
+
+    def call(self, method, params):
+        self.next_id += 1
+        self.send(1, json.dumps({'id': self.next_id, 'method': method, 'params': params}).encode())
+        while True:
+            response = self.receive()
+            if response.get('id') == self.next_id:
+                if 'error' in response:
+                    raise ValueError(str(response['error']))
+                return response['result']
+
+
+def recover(config, server_url, kiosk_dir, grace=60, now=None):
+    path = config.get('display_url', '')
+    # No room assignment: preserve the waiting page. Never navigate off-server.
+    if not isinstance(path, str) or not path.startswith('/') or path.startswith('//'):
+        return False
+    server = urllib.parse.urlsplit(server_url)
+    if server.scheme not in ('http', 'https') or not server.hostname:
+        return False
+    desired = server_url.rstrip('/') + path
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open('http://127.0.0.1:9222/json/list', timeout=5) as response:
+        pages = json.load(response)
+    page = next((p for p in pages if p.get('type') == 'page' and p.get('url') == desired), None)
+    if page is None:
+        page = next((p for p in pages if p.get('type') == 'page' and p.get('url') in ('about:blank', '')), None)
+    if page is None:
+        return False
+    state_file = kiosk_dir / 'blank-recovery-state.json'
+    client = DevTools(page['webSocketDebuggerUrl'])
+    try:
+        result = client.call('Runtime.evaluate', {'expression': 'location.href', 'returnByValue': True})
+        if result.get('result', {}).get('value') != 'about:blank':
+            state_file.unlink(missing_ok=True)
+            return False
+        now = time.time() if now is None else now
+        try:
+            state = json.loads(state_file.read_text())
+            since = float(state['since']) if state['target'] == page['id'] else now
+        except (OSError, ValueError, TypeError, KeyError):
+            since = now
+        if now < since:
+            since = now
+        if now - since < grace:
+            state_file.write_text(json.dumps({'target': page['id'], 'since': since}))
+            return False
+        result = client.call('Page.navigate', {'url': desired})
+        if result.get('errorText'):
+            raise ValueError(result['errorText'])
+        # Retry no more than once per grace period if navigation stalls again.
+        state_file.write_text(json.dumps({'target': page['id'], 'since': now}))
+        print('Recovered blank kiosk page: ' + path)
+        return True
+    finally:
+        client.close()
+
+
+if __name__ == '__main__':
+    try:
+        recover(json.loads(os.environ['KIOSK_CONFIG']), os.environ['SERVER_URL'], Path(os.environ['KIOSK_DIR']))
+    except (OSError, ValueError, KeyError, TypeError, ConnectionError):
+        # Chromium may still be starting; the next watchdog cycle will retry.
+        pass
+BLANKRECOVERY
+
 # =============================================================================
 # Step 7 — Register kiosk as a LightDM session
 # A bare .desktop session -- no desktop shell, just Chromium
@@ -644,6 +815,9 @@ if not running:
 elif any(marker in lower_title for marker in bad_markers):
     health = "error"
     detail = "Chromium appears to be showing a browser or server error."
+elif lower_title in ("untitled", "untitled - chromium", "about:blank", "about:blank - chromium"):
+    health = "warn"
+    detail = "Chromium is running, but its page appears blank; automatic recovery will check it."
 elif not title:
     health = "warn"
     detail = "Chromium is running, but the watchdog could not read the kiosk window title."
@@ -703,6 +877,12 @@ if [[ -n "${CFG}" ]]; then
         fi
         exit 0
     fi
+fi
+
+# Recover a stalled initial navigation without restarting a loaded calendar.
+if [[ -n "${CFG}" ]] && pgrep -f "chromium.*kiosk" > /dev/null 2>&1; then
+    KIOSK_CONFIG="${CFG}" SERVER_URL="${SERVER_URL}" KIOSK_DIR="${KIOSK_DIR}" \
+        timeout 30s python3 "${KIOSK_DIR}/recover-blank.py" 2>/dev/null | logger -t "${LOG_TAG}" || true
 fi
 
 # Restart LightDM if Chromium has crashed
