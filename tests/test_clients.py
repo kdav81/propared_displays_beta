@@ -193,7 +193,7 @@ class ClientPresenceTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         installer = (root / "install-client.sh").read_text(encoding="utf-8")
         updater_match = re.search(
-            r"sudo tee \"\$\{CLIENT_UPDATE_SCRIPT\}\" > /dev/null << 'UPDATER'\n(?P<body>.*?)\nUPDATER",
+            r"sudo tee \"\$\{CLIENT_UPDATE_TMP\}\" > /dev/null << 'UPDATER'\n(?P<body>.*?)\nUPDATER",
             installer,
             re.DOTALL,
         )

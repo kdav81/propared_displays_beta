@@ -2,6 +2,8 @@
 import json
 from pathlib import Path
 import struct
+import shutil
+import subprocess
 import tempfile
 import types
 import unittest
@@ -130,6 +132,26 @@ class TransportTests(unittest.TestCase):
     def test_remote_debugger_address_is_rejected(self):
         with self.assertRaises(ValueError):
             recovery.DevTools('ws://192.0.2.1:9222/page')
+
+
+class UpdaterReplacementTests(unittest.TestCase):
+    def test_running_updater_finishes_after_installer_replaces_it(self):
+        bash = shutil.which('bash')
+        if not bash and Path('C:/Program Files/Git/bin/bash.exe').exists():
+            bash = 'C:/Program Files/Git/bin/bash.exe'
+        if not bash:
+            self.skipTest('Bash is required for the updater integration test')
+        writer = INSTALLER.split('# Replace the updater by rename:', 1)[1]
+        writer = '# Replace the updater by rename:' + writer.split('\nsudo chown -R', 1)[0]
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            updater, installer, marker = (root / name for name in ['updater.sh', 'installer.sh', 'finished'])
+            installer.write_text('set -eu\nsudo() { "$@"; }\nCLIENT_UPDATE_SCRIPT="$1"\n' + writer, encoding='utf-8')
+            updater.write_text('set -eu\nbash "$1" "$0"\nprintf done > "$2"\n', encoding='utf-8')
+            result = subprocess.run([bash, str(updater), str(installer), str(marker)], capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(marker.read_text(), 'done')
+            self.assertIn('systemctl restart lightdm', updater.read_text())
 
 
 if __name__ == '__main__':

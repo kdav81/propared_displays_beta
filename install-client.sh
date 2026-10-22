@@ -33,7 +33,7 @@ SCREEN_OFF_TIMER="propared-screen-off"
 KIOSK_NIGHTLY_TIMER="propared-kiosk-nightly"
 CLIENT_UPDATE_SERVICE="propared-client-update"
 CLIENT_UPDATE_SCRIPT="/usr/local/sbin/propared-client-update.sh"
-INSTALLER_CLIENT_VERSION="2.18"
+INSTALLER_CLIENT_VERSION="2.19"
 CLIENT_VERSION="${INSTALLER_CLIENT_VERSION}"
 CLIENT_KEEP_CONFIG="no"
 INSTALL_RUN_USER="${SUDO_USER:-${USER:-$(id -un)}}"
@@ -893,7 +893,9 @@ fi
 WATCHDOG
 chmod +x "${KIOSK_DIR}/watchdog.sh"
 
-sudo tee "${CLIENT_UPDATE_SCRIPT}" > /dev/null << 'UPDATER'
+# Replace the updater by rename: the old inode may still be executing this update.
+CLIENT_UPDATE_TMP=$(sudo mktemp "${CLIENT_UPDATE_SCRIPT}.XXXXXX")
+sudo tee "${CLIENT_UPDATE_TMP}" > /dev/null << 'UPDATER'
 #!/usr/bin/env bash
 set -euo pipefail
 source /etc/propared/client.conf
@@ -914,7 +916,9 @@ chmod +x "${TMP}"
 HOME="${HOME:-/root}" bash "${TMP}" --keep-config
 systemctl restart lightdm
 UPDATER
-sudo chmod 755 "${CLIENT_UPDATE_SCRIPT}"
+sudo bash -n "${CLIENT_UPDATE_TMP}"
+sudo chmod 755 "${CLIENT_UPDATE_TMP}"
+sudo mv -f -- "${CLIENT_UPDATE_TMP}" "${CLIENT_UPDATE_SCRIPT}"
 sudo chown -R "${KIOSK_USER}:${KIOSK_GROUP}" "${KIOSK_DIR}" "${KEYRING_DIR}" 2>/dev/null || true
 
 sudo tee /etc/systemd/system/${CLIENT_UPDATE_SERVICE}.service > /dev/null << EOF
